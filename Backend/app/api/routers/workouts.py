@@ -1,15 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.schemas.workouts import (
     AddExerciseRequest,
     AddSetRequest,
     CreateWorkoutRecordRequest,
-    ExerciseSet,
-    StartWorkoutSessionRequest,
-    WorkoutExercise,
 )
-from app.services.workouts.record_store import workout_record_store
-from app.services.workouts.session_store import workout_session_store
+from app.core.auth import get_current_user_id
+from app.services.supabase.supabase_service import get_supabase_service_client
 
 router = APIRouter()
 
@@ -21,76 +18,296 @@ def list_workouts() -> dict[str, bool | list[dict[str, str]] | int]:
 
 
 @router.get("/records")
-def list_workout_records() -> dict[str, bool | object | int]:
-    data = workout_record_store.list_records()
+def list_workout_records(user_id: str = Depends(get_current_user_id)) -> dict[str, bool | object | int]:
+    client = get_supabase_service_client()
+    result = (
+        client.table("workout_records")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    data = result.data or []
     return {"success": True, "data": data, "count": len(data)}
 
 
 @router.get("/records/latest")
-def latest_workout_record() -> dict[str, bool | object | None]:
-    return {"success": True, "data": workout_record_store.get_last_record()}
+def latest_workout_record(user_id: str = Depends(get_current_user_id)) -> dict[str, bool | object | None]:
+    client = get_supabase_service_client()
+    result = (
+        client.table("workout_records")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    data = result.data[0] if result.data else None
+    return {"success": True, "data": data}
+
+
+@router.get("/records/{workout_id}")
+def workout_record_detail(workout_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    detail = _build_workout_detail(client, user_id, workout_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    return {"success": True, "data": detail}
 
 
 @router.post("/records")
-def create_workout_record(payload: CreateWorkoutRecordRequest) -> dict[str, bool | object]:
-    if not payload.workout_name.strip():
+def create_workout_record(
+    payload: CreateWorkoutRecordRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    latest = _get_latest_record(client, user_id)
+
+    if payload.replicate_from_id:
+        source_detail = _build_workout_detail(client, user_id, payload.replicate_from_id)
+        if not source_detail:
+            raise HTTPException(status_code=404, detail="Source workout not found")
+        created = _insert_record(
+            client,
+            user_id,
+            source_detail["workout_name"],
+            source_detail.get("routine_types") or [],
+        )
+        _copy_exercises_and_sets(client, user_id, payload.replicate_from_id, created["id"])
+        return {"success": True, "data": created}
+
+    if payload.replicate_latest and latest:
+        created = _insert_record(client, user_id, latest["workout_name"], latest.get("routine_types") or [])
+        _copy_exercises_and_sets(client, user_id, latest["id"], created["id"])
+        return {"success": True, "data": created}
+
+    workout_name = (payload.workout_name or "").strip()
+    if not workout_name:
         raise HTTPException(status_code=400, detail="workout_name is required")
     if len(payload.routine_types) == 0:
         raise HTTPException(status_code=400, detail="At least one routine type is required")
-    created = workout_record_store.create_record(payload)
+    created = _insert_record(client, user_id, workout_name, payload.routine_types, payload.notes)
     return {"success": True, "data": created}
 
 
-@router.get("/sessions/active")
-def get_active_session() -> dict[str, bool | object | None]:
-    return {"success": True, "data": workout_session_store.get_active()}
-
-
-@router.post("/sessions/start")
-def start_session(payload: StartWorkoutSessionRequest) -> dict[str, bool | object]:
-    session = workout_session_store.start(
-        routine_name=payload.routine_name,
-        routine_category=payload.routine_category,
-        load_previous=payload.load_previous,
+@router.post("/records/{workout_id}/exercises")
+def add_exercise(
+    workout_id: str,
+    payload: AddExerciseRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    position = _next_exercise_position(client, workout_id)
+    result = (
+        client.table("workout_exercises")
+        .insert(
+            {
+                "workout_id": workout_id,
+                "user_id": user_id,
+                "name": payload.name,
+                "muscle_group": payload.muscle_group,
+                "notes": payload.notes,
+                "position": position,
+            }
+        )
+        .execute()
     )
-    return {"success": True, "data": session}
+    if not result.data:
+        raise HTTPException(status_code=400, detail="Unable to add exercise")
+    return {"success": True, "data": result.data[0]}
 
 
-@router.post("/sessions/{session_id}/finish")
-def finish_session(session_id: str) -> dict[str, bool | object]:
-    session = workout_session_store.finish(session_id)
-    if not session:
-        raise HTTPException(status_code=404, detail="Active session not found")
-    return {"success": True, "data": session}
-
-
-@router.post("/sessions/{session_id}/exercises")
-def add_exercise(session_id: str, payload: AddExerciseRequest) -> dict[str, bool | object]:
-    created = workout_session_store.add_exercise(
-        session_id,
-        WorkoutExercise(name=payload.name, muscle_group=payload.muscle_group, notes=payload.notes),
+@router.post("/records/{workout_id}/exercises/{exercise_id}/sets")
+def add_set(
+    workout_id: str,
+    exercise_id: str,
+    payload: AddSetRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    position = _next_set_position(client, exercise_id)
+    result = (
+        client.table("exercise_sets")
+        .insert(
+            {
+                "workout_id": workout_id,
+                "workout_exercise_id": exercise_id,
+                "user_id": user_id,
+                "set_type": payload.set_type,
+                "target_reps": payload.target_reps,
+                "done_reps": payload.done_reps,
+                "weight": payload.weight,
+                "unit": payload.unit,
+                "comment": payload.comment,
+                "assisted_reps": payload.assisted_reps,
+                "rpe": payload.rpe,
+                "position": position,
+            }
+        )
+        .execute()
     )
-    if not created:
-        raise HTTPException(status_code=404, detail="Active session not found")
-    return {"success": True, "data": created}
+    if not result.data:
+        raise HTTPException(status_code=400, detail="Unable to add set")
+    return {"success": True, "data": result.data[0]}
 
 
-@router.post("/sessions/{session_id}/exercises/{exercise_id}/sets")
-def add_set(session_id: str, exercise_id: str, payload: AddSetRequest) -> dict[str, bool | object]:
-    created = workout_session_store.add_set(
-        session_id,
-        exercise_id,
-        ExerciseSet(
-            set_type=payload.set_type,
-            target_reps=payload.target_reps,
-            done_reps=payload.done_reps,
-            weight=payload.weight,
-            unit=payload.unit,
-            comment=payload.comment,
-            assisted_reps=payload.assisted_reps,
-            rpe=payload.rpe,
-        ),
+def _get_latest_record(client, user_id: str) -> dict | None:
+    latest = (
+        client.table("workout_records")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
     )
-    if not created:
-        raise HTTPException(status_code=404, detail="Session or exercise not found")
-    return {"success": True, "data": created}
+    return latest.data[0] if latest.data else None
+
+
+def _insert_record(client, user_id: str, workout_name: str, routine_types: list[str], notes: str | None = None) -> dict:
+    inserted = (
+        client.table("workout_records")
+        .insert(
+            {
+                "user_id": user_id,
+                "workout_name": workout_name,
+                "routine_types": routine_types,
+                "notes": notes,
+            }
+        )
+        .execute()
+    )
+    if not inserted.data:
+        raise HTTPException(status_code=400, detail="Unable to create workout")
+    return inserted.data[0]
+
+
+def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_workout_id: str) -> None:
+    old_exercises = (
+        client.table("workout_exercises")
+        .select("*")
+        .eq("workout_id", from_workout_id)
+        .order("position")
+        .execute()
+    )
+    exercise_id_map: dict[str, str] = {}
+
+    for old in old_exercises.data or []:
+        new_ex = (
+            client.table("workout_exercises")
+            .insert(
+                {
+                    "workout_id": to_workout_id,
+                    "user_id": user_id,
+                    "name": old["name"],
+                    "muscle_group": old.get("muscle_group"),
+                    "notes": old.get("notes"),
+                    "position": old.get("position", 0),
+                }
+            )
+            .execute()
+        )
+        if not new_ex.data:
+            continue
+        exercise_id_map[old["id"]] = new_ex.data[0]["id"]
+
+    for old_exercise_id, new_exercise_id in exercise_id_map.items():
+        old_sets = (
+            client.table("exercise_sets")
+            .select("*")
+            .eq("workout_exercise_id", old_exercise_id)
+            .order("position")
+            .execute()
+        )
+        payload: list[dict] = []
+        for old_set in old_sets.data or []:
+            payload.append(
+                {
+                    "workout_id": to_workout_id,
+                    "workout_exercise_id": new_exercise_id,
+                    "user_id": user_id,
+                    "set_type": old_set.get("set_type", "normal"),
+                    "target_reps": old_set.get("target_reps"),
+                    "done_reps": old_set.get("done_reps"),
+                    "weight": old_set.get("weight"),
+                    "unit": old_set.get("unit", "kg"),
+                    "comment": old_set.get("comment"),
+                    "assisted_reps": old_set.get("assisted_reps"),
+                    "rpe": old_set.get("rpe"),
+                    "position": old_set.get("position", 0),
+                }
+            )
+        if payload:
+            client.table("exercise_sets").insert(payload).execute()
+
+
+def _next_exercise_position(client, workout_id: str) -> int:
+    result = (
+        client.table("workout_exercises")
+        .select("position")
+        .eq("workout_id", workout_id)
+        .order("position", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return 1
+    return int(result.data[0].get("position", 0)) + 1
+
+
+def _next_set_position(client, exercise_id: str) -> int:
+    result = (
+        client.table("exercise_sets")
+        .select("position")
+        .eq("workout_exercise_id", exercise_id)
+        .order("position", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not result.data:
+        return 1
+    return int(result.data[0].get("position", 0)) + 1
+
+
+def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
+    record = (
+        client.table("workout_records")
+        .select("*")
+        .eq("id", workout_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not record.data:
+        return None
+
+    workout = record.data[0]
+    exercises = (
+        client.table("workout_exercises")
+        .select("*")
+        .eq("workout_id", workout_id)
+        .eq("user_id", user_id)
+        .order("position")
+        .execute()
+    )
+    exercise_list = exercises.data or []
+    exercise_ids = [item["id"] for item in exercise_list]
+    sets_data: list[dict] = []
+    if exercise_ids:
+        sets_query = (
+            client.table("exercise_sets")
+            .select("*")
+            .in_("workout_exercise_id", exercise_ids)
+            .eq("user_id", user_id)
+            .order("position")
+            .execute()
+        )
+        sets_data = sets_query.data or []
+
+    sets_by_exercise: dict[str, list[dict]] = {}
+    for set_item in sets_data:
+        sets_by_exercise.setdefault(set_item["workout_exercise_id"], []).append(set_item)
+
+    workout["exercises"] = [
+        {**exercise, "sets": sets_by_exercise.get(exercise["id"], [])} for exercise in exercise_list
+    ]
+    return workout

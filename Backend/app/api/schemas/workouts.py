@@ -68,6 +68,8 @@ class WorkoutRecord(BaseModel):
 
 
 class CreateWorkoutRecordRequest(BaseModel):
-    workout_name: str
+    workout_name: str | None = None
     routine_types: list[str] = Field(default_factory=list)
     notes: str | None = None
+    replicate_latest: bool = False
+    replicate_from_id: str | None = None
