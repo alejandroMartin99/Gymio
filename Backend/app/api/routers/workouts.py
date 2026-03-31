@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+import re
+import unicodedata
 
 from app.api.schemas.workouts import (
     AddExerciseRequest,
@@ -407,17 +409,20 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
 def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
     if not exercise_name:
         return []
+    target_name = _normalize_name(exercise_name)
+    if not target_name:
+        return []
     previous_exercises = (
         client.table("workout_exercises")
-        .select("id")
+        .select("id, name")
         .eq("user_id", user_id)
-        .eq("name", exercise_name)
         .neq("workout_id", current_workout_id)
         .execute()
     )
-    if not previous_exercises.data:
+    rows = previous_exercises.data or []
+    if not rows:
         return []
-    previous_exercise_ids = [row["id"] for row in (previous_exercises.data or [])]
+    previous_exercise_ids = [row["id"] for row in rows if _normalize_name(row.get("name")) == target_name]
     if not previous_exercise_ids:
         return []
     previous_sets = (
@@ -432,21 +437,28 @@ def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: s
 
 
 def _normalize_name(value: str | None) -> str:
-    return (value or "").strip().lower()
+    raw = (value or "").strip().lower()
+    if not raw:
+        return ""
+    normalized = unicodedata.normalize("NFKD", raw)
+    without_accents = "".join(char for char in normalized if not unicodedata.combining(char))
+    return re.sub(r"\s+", " ", without_accents).strip()
 
 
 def _history_points_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
     if not exercise_name:
         return []
+    target_name = _normalize_name(exercise_name)
+    if not target_name:
+        return []
     previous_exercises = (
         client.table("workout_exercises")
-        .select("id, workout_id")
+        .select("id, workout_id, name")
         .eq("user_id", user_id)
-        .eq("name", exercise_name)
         .neq("workout_id", current_workout_id)
         .execute()
     )
-    rows = previous_exercises.data or []
+    rows = [row for row in (previous_exercises.data or []) if _normalize_name(row.get("name")) == target_name]
     if not rows:
         return []
     exercise_ids = [row["id"] for row in rows]

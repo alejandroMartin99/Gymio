@@ -62,9 +62,19 @@ interface PendingSetDraft {
             >
               <div class="exercise-head" (click)="toggleExercise(exercise.id)">
                 <strong>{{ exercise.name }}</strong>
-                <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
-                  Eliminar
-                </button>
+                <div class="exercise-head-actions">
+                  <button
+                    type="button"
+                    class="history-icon-btn"
+                    (click)="$event.stopPropagation(); openHistoryModal(exercise)"
+                    aria-label="Ver historial"
+                  >
+                    <img src="/icons/chart-line.svg" alt="" />
+                  </button>
+                  <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
+                    Eliminar
+                  </button>
+                </div>
               </div>
               @if (selectedExerciseId === exercise.id) {
                 <small>{{ exercise.muscle_group || 'General' }}</small>
@@ -110,7 +120,6 @@ interface PendingSetDraft {
                   <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
                 </div>
                 <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
-                <button type="button" class="history-link" (click)="openHistoryModal(exercise)">View Historic</button>
                 <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
                   Terminar ejercicio
                 </button>
@@ -142,7 +151,7 @@ interface PendingSetDraft {
             <button
               type="button"
               class="primary"
-              [disabled]="!selectedReplicateWorkoutId || workoutRecordService.loading()"
+              [disabled]="!selectedReplicateWorkoutId || !replicateSelectionConfirmed || workoutRecordService.loading()"
               (click)="confirmReplicateWorkout()"
             >
               Confirmar repetir rutina
@@ -292,21 +301,27 @@ interface PendingSetDraft {
           <div class="modal" (click)="$event.stopPropagation()">
             <h3>Historial - {{ historyExerciseName }}</h3>
             <p>Maximos por entrenamiento (peso y repeticiones).</p>
-            <div class="history-chart">
-              @for (point of historyPoints; track point.workout_id) {
-                <div class="chart-row">
-                  <span class="date">{{ point.date }}</span>
-                  <div class="bars">
-                    <div class="bar weight" [style.width.%]="weightBarWidth(point.max_weight)">
-                      {{ point.max_weight || 0 }} kg
-                    </div>
-                    <div class="bar reps" [style.width.%]="repsBarWidth(point.max_reps)">
-                      {{ point.max_reps || 0 }} reps
-                    </div>
-                  </div>
+            @if (historyPoints.length > 0) {
+              <div class="line-chart">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <polyline class="line-weight" [attr.points]="historyWeightPath()"></polyline>
+                  <polyline class="line-reps" [attr.points]="historyRepsPath()"></polyline>
+                  @for (point of historyPoints; track point.workout_id; let idx = $index) {
+                    <circle class="dot-weight" [attr.cx]="historyX(idx)" [attr.cy]="historyWeightY(point.max_weight)" r="1.6"></circle>
+                    <circle class="dot-reps" [attr.cx]="historyX(idx)" [attr.cy]="historyRepsY(point.max_reps)" r="1.6"></circle>
+                  }
+                </svg>
+              </div>
+              @if (lastHistoryPoint(); as last) {
+                <div class="history-summary">
+                  <small>{{ last.date }}</small>
+                  <strong>{{ last.max_weight || 0 }} kg</strong>
+                  <strong>{{ last.max_reps || 0 }} reps</strong>
                 </div>
               }
-            </div>
+            } @else {
+              <small class="note">No hay datos historicos para este ejercicio todavia.</small>
+            }
             <button type="button" class="close" (click)="closeHistoryModal()">Cerrar</button>
           </div>
         </div>
@@ -551,13 +566,41 @@ interface PendingSetDraft {
       padding: 0;
     }
 
+    .exercise-head-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+
+    .history-icon-btn {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      border-radius: 8px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .history-icon-btn img {
+      width: 17px;
+      height: 17px;
+      opacity: 0.9;
+    }
+
     .set-grid {
       display: grid;
-      grid-template-columns: 34px 44px 64px 64px 34px;
+      grid-template-columns: 44px 72px 72px 96px 34px;
       gap: 0.35rem;
       align-items: center;
       font-size: 0.78rem;
       color: #4b5563;
+    }
+
+    .set-grid span {
+      text-align: center;
     }
 
     .set-grid.header {
@@ -572,6 +615,7 @@ interface PendingSetDraft {
     .set-num {
       color: #111;
       font-weight: 700;
+      text-align: center;
     }
 
     .done {
@@ -582,21 +626,25 @@ interface PendingSetDraft {
 
     .set-form {
       display: grid;
-      grid-template-columns: 34px 44px 64px 64px 34px;
+      grid-template-columns: 44px 72px 72px 96px 34px;
       gap: 0.35rem;
       align-items: center;
     }
 
-    .set-form input {
+    .set-form input,
+    .set-form select {
       height: 30px;
       padding: 0.25rem 0.4rem;
       border-radius: 6px;
       border: 1px solid #e5e7eb;
       font-size: 0.82rem;
+      text-align: center;
+      background: #fff;
     }
 
     .set-form input::placeholder {
       color: #9ca3af;
+      text-align: center;
     }
 
     .set-note-input {
@@ -637,28 +685,6 @@ interface PendingSetDraft {
       padding: 0;
     }
 
-    .history-btn {
-      border: 0;
-      background: transparent;
-      color: #6b7280;
-      cursor: pointer;
-      justify-self: center;
-      padding: 0;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      border: 1px solid #e5e7eb;
-      display: grid;
-      place-items: center;
-    }
-
-    .history-btn img {
-      width: 20px;
-      height: 20px;
-      display: block;
-      opacity: 0.92;
-    }
-
     .link-btn {
       border: 0;
       background: transparent;
@@ -671,14 +697,14 @@ interface PendingSetDraft {
 
     .finish-exercise {
       justify-self: end;
-      border: 1px solid #22c55e;
-      color: #16a34a;
-      background: #fff;
+      border: 1px solid #111;
+      color: #fff;
+      background: #111;
       border-radius: 8px;
       padding: 0.35rem 0.65rem;
-      font: inherit;
+      font-family: inherit;
       font-size: 0.78rem;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
     }
 
@@ -792,46 +818,59 @@ interface PendingSetDraft {
       gap: 0.6rem;
     }
 
-    .history-chart {
-      display: grid;
-      gap: 0.45rem;
-      max-height: 260px;
-      overflow: auto;
+    .line-chart {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      padding: 0.4rem;
+      margin-bottom: 0.55rem;
     }
 
-    .chart-row {
-      display: grid;
-      gap: 0.25rem;
+    .line-chart svg {
+      width: 100%;
+      height: 180px;
+      display: block;
     }
 
-    .chart-row .date {
-      font-size: 0.72rem;
+    .line-weight,
+    .line-reps {
+      fill: none;
+      stroke-width: 1.8;
+      vector-effect: non-scaling-stroke;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .line-weight {
+      stroke: #2563eb;
+    }
+
+    .line-reps {
+      stroke: #6b7280;
+    }
+
+    .dot-weight {
+      fill: #2563eb;
+    }
+
+    .dot-reps {
+      fill: #6b7280;
+    }
+
+    .history-summary {
+      display: grid;
+      gap: 0.15rem;
+      margin-bottom: 0.6rem;
+      color: #111827;
+    }
+
+    .history-summary small {
       color: #6b7280;
+      font-size: 0.76rem;
     }
 
-    .bars {
-      display: grid;
-      gap: 0.2rem;
-    }
-
-    .bar {
-      min-height: 20px;
-      border-radius: 6px;
-      font-size: 0.72rem;
-      display: flex;
-      align-items: center;
-      padding: 0 0.35rem;
-      color: #111;
-      background: #e5e7eb;
-      width: max(12%, 28px);
-    }
-
-    .bar.weight {
-      background: #dbeafe;
-    }
-
-    .bar.reps {
-      background: #e5e7eb;
+    .history-summary strong {
+      font-size: 0.88rem;
     }
   `]
 })
@@ -846,6 +885,7 @@ export class WorkoutsPage implements OnInit {
   currentWorkout: WorkoutRecordDetail | null = null;
   showReplicateModal = false;
   selectedReplicateWorkoutId = '';
+  replicateSelectionConfirmed = false;
   showNewSessionModal = false;
   showExerciseGroupModal = false;
   showExerciseListModal = false;
@@ -924,23 +964,27 @@ export class WorkoutsPage implements OnInit {
   openReplicateModal(): void {
     this.showReplicateModal = true;
     this.selectedReplicateWorkoutId = '';
+    this.replicateSelectionConfirmed = false;
   }
 
   closeReplicateModal(): void {
     this.showReplicateModal = false;
     this.selectedReplicateWorkoutId = '';
+    this.replicateSelectionConfirmed = false;
   }
 
   selectReplicateWorkout(workoutId: string): void {
     this.selectedReplicateWorkoutId = workoutId;
+    this.replicateSelectionConfirmed = true;
   }
 
   async confirmReplicateWorkout(): Promise<void> {
-    if (!this.selectedReplicateWorkoutId) {
+    if (!this.showReplicateModal || !this.selectedReplicateWorkoutId || !this.replicateSelectionConfirmed) {
       return;
     }
     await this.replicateFrom(this.selectedReplicateWorkoutId);
     this.selectedReplicateWorkoutId = '';
+    this.replicateSelectionConfirmed = false;
   }
 
   openNewSessionModal(): void {
@@ -972,6 +1016,7 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     this.showReplicateModal = false;
+    this.replicateSelectionConfirmed = false;
     this.activeWorkout.startWorkout(created.id, created.workout_name);
     await this.loadDetail(created.id);
     this.workoutName = '';
@@ -1000,6 +1045,7 @@ export class WorkoutsPage implements OnInit {
     if (!this.currentWorkout) {
       return;
     }
+    const workoutId = this.currentWorkout.id;
     const input = this.setInputs[exerciseId] || {};
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const payload: PendingSetDraft = {
@@ -1028,6 +1074,19 @@ export class WorkoutsPage implements OnInit {
       exercise.notes = this.buildExerciseNotes(exercise);
     }
     this.setInputs[exerciseId] = {};
+
+    const persisted = await this.workoutRecordService.addSet(workoutId, exerciseId, {
+      set_type: payload.set_type,
+      done_reps: payload.done_reps,
+      weight: payload.weight,
+      comment: payload.comment
+    });
+    if (persisted) {
+      this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
+        (set) => set.local_id !== localId
+      );
+      await this.loadDetail(workoutId);
+    }
   }
 
   private async loadDetail(workoutId: string): Promise<void> {
@@ -1245,27 +1304,6 @@ export class WorkoutsPage implements OnInit {
     return resolveExerciseAltImageByName(exercise.name, exercise.muscle_group || undefined);
   }
 
-  previousLabel(exercise: WorkoutExerciseRecord, setIndex: number): string {
-    const targetPosition = setIndex + 1;
-    const candidates = (exercise.previous_sets || []).filter((set) => (set.position || 0) === targetPosition);
-    if (candidates.length === 0) {
-      return '-';
-    }
-    let best = candidates[0];
-    for (const candidate of candidates.slice(1)) {
-      const bestWeight = best.weight ?? 0;
-      const candidateWeight = candidate.weight ?? 0;
-      if (candidateWeight > bestWeight) {
-        best = candidate;
-        continue;
-      }
-      if (candidateWeight === bestWeight && (candidate.done_reps ?? 0) > (best.done_reps ?? 0)) {
-        best = candidate;
-      }
-    }
-    return `${best.weight ?? '-'} x ${best.done_reps ?? '-'}`;
-  }
-
   previousMaxWeight(exercise: WorkoutExerciseRecord): string {
     const maxWeight = Math.max(...(exercise.previous_sets || []).map((set) => Number(set.weight || 0)), 0);
     return maxWeight > 0 ? `${maxWeight}` : 'KG';
@@ -1286,20 +1324,51 @@ export class WorkoutsPage implements OnInit {
     this.showHistoryModal = false;
   }
 
-  weightBarWidth(value: number): number {
+  lastHistoryPoint(): { workout_id: string; date: string; max_weight: number; max_reps: number } | null {
     if (this.historyPoints.length === 0) {
-      return 20;
+      return null;
     }
-    const max = Math.max(...this.historyPoints.map((item) => item.max_weight || 0), 1);
-    return Math.max(18, Math.round(((value || 0) / max) * 100));
+    return this.historyPoints[this.historyPoints.length - 1];
   }
 
-  repsBarWidth(value: number): number {
-    if (this.historyPoints.length === 0) {
-      return 20;
+  historyX(index: number): number {
+    if (this.historyPoints.length <= 1) {
+      return 10;
     }
-    const max = Math.max(...this.historyPoints.map((item) => item.max_reps || 0), 1);
-    return Math.max(18, Math.round(((value || 0) / max) * 100));
+    const step = 80 / (this.historyPoints.length - 1);
+    return 10 + index * step;
+  }
+
+  historyWeightY(value: number): number {
+    if (this.historyPoints.length === 0) {
+      return 90;
+    }
+    const max = Math.max(...this.historyPoints.map((item) => Number(item.max_weight || 0)), 1);
+    const normalized = Number(value || 0) / max;
+    return 90 - normalized * 70;
+  }
+
+  historyRepsY(value: number): number {
+    if (this.historyPoints.length === 0) {
+      return 90;
+    }
+    const max = Math.max(...this.historyPoints.map((item) => Number(item.max_reps || 0)), 1);
+    const normalized = Number(value || 0) / max;
+    return 90 - normalized * 70;
+  }
+
+  historyWeightPath(): string {
+    if (this.historyPoints.length === 0) {
+      return '';
+    }
+    return this.historyPoints.map((point, idx) => `${this.historyX(idx)},${this.historyWeightY(point.max_weight)}`).join(' ');
+  }
+
+  historyRepsPath(): string {
+    if (this.historyPoints.length === 0) {
+      return '';
+    }
+    return this.historyPoints.map((point, idx) => `${this.historyX(idx)},${this.historyRepsY(point.max_reps)}`).join(' ');
   }
 
   private resolveGroupToCatalog(group: string): string {
@@ -1406,24 +1475,4 @@ export class WorkoutsPage implements OnInit {
     return lines.join('\n');
   }
 
-  private bestPreviousSet(exercise: WorkoutExerciseRecord, setIndex: number): WorkoutExerciseRecord['sets'][number] | null {
-    const targetPosition = setIndex + 1;
-    const candidates = (exercise.previous_sets || []).filter((set) => (set.position || 0) === targetPosition);
-    if (candidates.length === 0) {
-      return null;
-    }
-    let best = candidates[0];
-    for (const candidate of candidates.slice(1)) {
-      const bestWeight = best.weight ?? 0;
-      const candidateWeight = candidate.weight ?? 0;
-      if (candidateWeight > bestWeight) {
-        best = candidate;
-        continue;
-      }
-      if (candidateWeight === bestWeight && (candidate.done_reps ?? 0) > (best.done_reps ?? 0)) {
-        best = candidate;
-      }
-    }
-    return best;
-  }
 }
