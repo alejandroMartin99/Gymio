@@ -265,13 +265,13 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       background: rgba(0, 0, 0, 0.28);
       display: grid;
       place-items: center;
-      padding: 0.5rem;
+      padding: 0.5rem 0.5rem calc(var(--nav-height, 58px) + env(safe-area-inset-bottom, 0px) + 0.5rem);
     }
 
     .modal {
       width: 100%;
       max-width: 500px;
-      max-height: 90vh;
+      max-height: calc(100vh - var(--nav-height, 58px) - env(safe-area-inset-bottom, 0px) - 1.4rem);
       overflow-y: auto;
       overflow-x: hidden;
       border-radius: 14px;
@@ -336,7 +336,7 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
 
       .modal {
         max-width: 100%;
-        max-height: 92vh;
+        max-height: calc(100vh - var(--nav-height, 58px) - env(safe-area-inset-bottom, 0px) - 1rem);
         padding: 0.5rem 0.58rem;
         gap: 0.42rem;
       }
