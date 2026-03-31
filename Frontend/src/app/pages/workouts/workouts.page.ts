@@ -1,10 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed } from '@angular/core';
+import { Component, OnInit, computed, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
-import { resolveExerciseIcon } from '../../core/exercise-icons';
+import { resolveExerciseAltImageByName, resolveExerciseIcon, resolveExerciseImageByName } from '../../core/exercise-icons';
 import { ExerciseCatalogItem } from '../../models/exercise-catalog.model';
-import { WorkoutRecordDetail } from '../../models/workout-record.model';
+import { WorkoutExerciseRecord, WorkoutRecordDetail } from '../../models/workout-record.model';
+import { ActiveWorkoutService } from '../../services/active-workout.service';
 import { ExerciseCatalogService } from '../../services/exercise-catalog.service';
 import { WorkoutRecordService } from '../../services/workout-record.service';
 
@@ -19,55 +20,76 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
         <p>Piensa menos. Entrena mas.</p>
       </div>
 
-      @if (!hasAnyWorkout()) {
+      @if (!currentWorkout) {
         <div class="empty">
-          <strong>No hay entrenamientos registrados.</strong>
-          <p>Empieza ahora creando una sesion nueva.</p>
-          <div class="action-row">
-            <button type="button" (click)="openNewSessionModal()">Nueva sesion</button>
+          @if (workoutRecordService.loading()) {
+            <div class="loading-state">
+              <span class="spinner" aria-hidden="true"></span>
+              <small>Cargando rutinas...</small>
+            </div>
+          } @else {
+            <div class="action-row">
+              <button type="button" (click)="openReplicateModal()" [disabled]="!hasAnyWorkout()">
+                Repetir rutina
+              </button>
+              <button type="button" class="secondary" (click)="openNewSessionModal()">
+                Nueva rutina
+              </button>
+            </div>
+          }
           </div>
-        </div>
-      } @else {
-        <div class="empty">
-          <strong>Ya tienes entrenamientos guardados.</strong>
-          <div class="action-row">
-            <button type="button" (click)="openReplicateModal()" [disabled]="workoutRecordService.loading()">
-              Replicar entrenamiento
-            </button>
-            <button type="button" class="secondary" (click)="openNewSessionModal()">
-              Nueva sesion
-            </button>
-          </div>
-        </div>
       }
 
       @if (currentWorkout) {
         <div class="builder">
-          <h3>2) Entrenamiento en curso: {{ currentWorkout.workout_name }}</h3>
-          <button type="button" class="primary" (click)="openExerciseGroupModal()" [disabled]="workoutRecordService.loading()">
-            + Seleccionar ejercicio
-          </button>
+          <h3>{{ currentWorkout.workout_name }}</h3>
 
-          @for (exercise of currentWorkout.exercises; track exercise.id) {
-            <div class="exercise-card">
-              <strong>{{ exercise.name }}</strong>
-              <small>{{ exercise.muscle_group || 'Sin grupo' }} · {{ exercise.sets.length }} series</small>
-
-              <div class="set-form">
-                <input type="number" [(ngModel)]="setInputs[exercise.id].reps" placeholder="Reps" />
-                <input type="number" [(ngModel)]="setInputs[exercise.id].weight" placeholder="Peso kg" />
-                <input [(ngModel)]="setInputs[exercise.id].comment" placeholder="Comentario" />
-                <button type="button" (click)="addSet(exercise.id)">Agregar serie</button>
-              </div>
-
-              @if (exercise.sets.length > 0) {
-                <div class="set-hint">
-                  Ultima serie: {{ exercise.sets[exercise.sets.length - 1].done_reps || '-' }} reps ·
-                  {{ exercise.sets[exercise.sets.length - 1].weight || '-' }} kg
-                </div>
-              }
+          @if (selectedExercisePreview(); as focused) {
+            <div class="exercise-hero">
+              <img [src]="exerciseImageFor(focused)" [alt]="focused.name" />
+              <img [src]="exerciseAltImageFor(focused)" [alt]="focused.name + ' variacion'" />
             </div>
           }
+
+          @for (exercise of currentWorkout.exercises; track exercise.id) {
+            <div class="exercise-card" [class.selected]="selectedExerciseId === exercise.id">
+              <div class="exercise-head">
+                <strong (click)="selectExercise(exercise.id)">{{ exercise.name }}</strong>
+                <button type="button" class="remove-btn" (click)="removeExercise(exercise.id)">Eliminar</button>
+              </div>
+              <small>{{ exercise.muscle_group || 'General' }}</small>
+              <div class="set-grid header">
+                <span>SET</span>
+                <span>PREVIOUS</span>
+                <span>KG</span>
+                <span>REPS</span>
+                <span></span>
+              </div>
+              @for (set of exercise.sets; track set.id; let idx = $index) {
+                <div class="set-grid">
+                  <span class="set-num">{{ idx + 1 }}</span>
+                  <span>{{ previousLabel(exercise, idx) }}</span>
+                  <span>{{ set.weight || '-' }}</span>
+                  <span>{{ set.done_reps || '-' }}</span>
+                  <span class="done">✓</span>
+                </div>
+                @if (set.comment) {
+                  <small class="set-comment">{{ set.comment }}</small>
+                }
+              }
+
+              <div class="set-form">
+                <span class="set-num next">{{ exercise.sets.length + 1 }}</span>
+                <span>{{ previousLabel(exercise, exercise.sets.length) }}</span>
+                <input type="number" [(ngModel)]="setInputs[exercise.id].weight" placeholder="KG" />
+                <input type="number" [(ngModel)]="setInputs[exercise.id].reps" placeholder="REPS" />
+                <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
+              </div>
+              <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota de esta serie" />
+              <button type="button" class="link-btn" (click)="addSet(exercise.id)">ADD SET</button>
+            </div>
+          }
+          <button type="button" class="link-btn add-exercise" (click)="openExerciseGroupModal()">ADD EXERCISE</button>
         </div>
       }
 
@@ -164,7 +186,7 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
             <div class="history-list">
               @for (exercise of exerciseCatalogService.items(); track exercise.id) {
                 <button type="button" class="exercise-option" (click)="pickCatalogExercise(exercise)">
-                  <img [src]="exerciseIcon(exercise)" [alt]="exercise.name" />
+                  <span class="option-arrow">></span>
                   <span>{{ exercise.name }}</span>
                 </button>
               }
@@ -173,8 +195,9 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
               <small class="note">No hay ejercicios en este grupo todavia. Puedes agregar uno manual.</small>
             }
 
-            <button type="button" class="toggle-manual" (click)="manualMode = !manualMode">
-              {{ manualMode ? 'Ocultar manual' : 'No aparece en lista? agregar manual' }}
+            <button type="button" class="manual-inline" (click)="manualMode = !manualMode">
+              <span>Agregar manualmente</span>
+              <span class="plus">+</span>
             </button>
 
             @if (manualMode) {
@@ -189,7 +212,19 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
               </div>
             }
 
-            <button type="button" class="close" (click)="closeExerciseListModal()">Cerrar</button>
+            <button type="button" class="close close-danger" (click)="closeExerciseListModal()">Cancelar</button>
+          </div>
+        </div>
+      }
+
+      @if (showWorkoutSummaryModal) {
+        <div class="modal-backdrop" (click)="closeWorkoutSummary()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <h3>Resumen del entrenamiento</h3>
+            <p>{{ summaryWorkoutName }}</p>
+            <small class="note">Tiempo: {{ summaryElapsedLabel }}</small>
+            <small class="note">Ejercicios: {{ summaryExercisesCount }} · Series: {{ summarySetsCount }}</small>
+            <button type="button" class="primary" (click)="closeWorkoutSummary()">Cerrar</button>
           </div>
         </div>
       }
@@ -234,20 +269,48 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     }
 
     .empty button {
-      justify-self: start;
       border: 1px solid #111;
       border-radius: 10px;
       background: #111;
       color: #fff;
       padding: 0.55rem 0.9rem;
+      font: inherit;
       font-weight: 600;
       cursor: pointer;
+      width: 100%;
     }
 
     .action-row {
       display: flex;
       gap: 0.5rem;
-      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    .action-row button {
+      flex: 1;
+    }
+
+    .loading-state {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: #6b7280;
+      font-size: 0.84rem;
+    }
+
+    .spinner {
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid #d1d5db;
+      border-top-color: #111;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
     }
 
     .secondary {
@@ -369,31 +432,116 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       color: #666;
     }
 
+    .exercise-hero {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.45rem;
+      margin-top: 0.2rem;
+    }
+
+    .exercise-hero img {
+      width: 100%;
+      height: 138px;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .exercise-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .remove-btn {
+      border: 0;
+      background: transparent;
+      color: #ef4444;
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .set-grid {
+      display: grid;
+      grid-template-columns: 40px 1fr 56px 56px 34px;
+      gap: 0.35rem;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #4b5563;
+    }
+
+    .set-grid.header {
+      color: #9ca3af;
+      font-weight: 700;
+      font-size: 0.68rem;
+      letter-spacing: 0.03em;
+      margin-top: 0.2rem;
+    }
+
+    .set-num {
+      color: #38bdf8;
+      font-weight: 700;
+    }
+
+    .done {
+      color: #22c55e;
+      font-weight: 700;
+      justify-self: center;
+    }
+
     .set-form {
       display: grid;
-      gap: 0.5rem;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 40px 1fr 56px 56px 34px;
+      gap: 0.35rem;
+      align-items: center;
     }
 
-    .set-form input:last-of-type {
-      grid-column: 1 / -1;
+    .set-form input {
+      height: 30px;
+      padding: 0.25rem 0.4rem;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      font-size: 0.82rem;
     }
 
-    .set-form button {
-      grid-column: 1 / -1;
-      border: 1px solid #111;
+    .set-note-input {
+      margin-top: 0.2rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 0.4rem 0.5rem;
+      font-size: 0.8rem;
       background: #fff;
-      border-radius: 10px;
-      padding: 0.6rem;
-      font-weight: 600;
-      cursor: pointer;
     }
 
-    .set-hint {
-      font-size: 0.75rem;
+    .set-comment {
+      display: block;
+      margin-left: 40px;
       color: #6b7280;
-      border-top: 1px dashed #e5e7eb;
-      padding-top: 0.4rem;
+      font-size: 0.74rem;
+    }
+
+    .check {
+      border: 0;
+      background: #22c55e;
+      color: #fff;
+      border-radius: 8px;
+      height: 30px;
+      width: 30px;
+      font-weight: 700;
+      cursor: pointer;
+      justify-self: center;
+    }
+
+    .link-btn {
+      border: 0;
+      background: transparent;
+      color: #111;
+      font-size: 0.78rem;
+      font-weight: 700;
+      cursor: pointer;
+      justify-self: center;
     }
 
     .modal-backdrop {
@@ -444,19 +592,34 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     .exercise-option {
       display: flex;
       align-items: center;
-      gap: 0.6rem;
+      gap: 0.45rem;
+      font: inherit;
+      font-size: 0.92rem;
     }
 
-    .exercise-option img {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      border: 1px solid #ececec;
-      object-fit: cover;
+    .option-arrow {
+      color: #9ca3af;
+      font-weight: 700;
+      width: 10px;
+      text-align: center;
     }
 
-    .exercise-option span {
-      font-weight: 600;
+    .manual-inline {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.7rem;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .manual-inline .plus {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111;
     }
 
     .manual-card {
@@ -474,12 +637,17 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       color: #6b7280;
       cursor: pointer;
     }
+
+    .close-danger {
+      color: #dc2626;
+    }
   `]
 })
 export class WorkoutsPage implements OnInit {
   constructor(
     readonly workoutRecordService: WorkoutRecordService,
-    readonly exerciseCatalogService: ExerciseCatalogService
+    readonly exerciseCatalogService: ExerciseCatalogService,
+    private readonly activeWorkout: ActiveWorkoutService
   ) {}
 
   workoutName = '';
@@ -489,16 +657,50 @@ export class WorkoutsPage implements OnInit {
   showExerciseGroupModal = false;
   showExerciseListModal = false;
   selectedMuscleGroup = '';
+  selectedExerciseId = '';
   manualMode = false;
   manualExerciseName = '';
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string }> = {};
   routineOptions = ['Pecho', 'Espalda', 'Pierna', 'Biceps', 'Triceps', 'Hombro', 'Core', 'Cardio'];
   selectedRoutines: string[] = [];
+  showWorkoutSummaryModal = false;
+  summaryWorkoutName = '';
+  summaryElapsedLabel = '00:00:00';
+  summaryExercisesCount = 0;
+  summarySetsCount = 0;
   readonly hasAnyWorkout = computed(() => this.workoutRecordService.records().length > 0);
+
+  private readonly finalizeEffect = effect(() => {
+    const tick = this.activeWorkout.finalizeRequestTick();
+    if (!tick || !this.currentWorkout || this.activeWorkout.workoutId() !== this.currentWorkout.id) {
+      return;
+    }
+    this.openWorkoutSummary();
+    this.activeWorkout.finishWorkout();
+    this.currentWorkout = null;
+    this.selectedExerciseId = '';
+  });
+
+  private readonly sessionClosedEffect = effect(() => {
+    const isActive = this.activeWorkout.isActive();
+    if (!isActive && this.currentWorkout) {
+      this.currentWorkout = null;
+      this.selectedExerciseId = '';
+      this.showExerciseGroupModal = false;
+      this.showExerciseListModal = false;
+    }
+  });
 
   async ngOnInit(): Promise<void> {
     await this.workoutRecordService.loadRecords();
     await this.exerciseCatalogService.loadGroups();
+    const activeWorkoutId = this.activeWorkout.workoutId();
+    if (activeWorkoutId) {
+      await this.loadDetail(activeWorkoutId);
+      if (!this.currentWorkout) {
+        this.activeWorkout.finishWorkout();
+      }
+    }
   }
 
   isSelected(option: string): boolean {
@@ -545,6 +747,7 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     this.showNewSessionModal = false;
+    this.activeWorkout.startWorkout(created.id, created.workout_name);
     await this.loadDetail(created.id);
     this.workoutName = '';
     this.selectedRoutines = [];
@@ -574,6 +777,7 @@ export class WorkoutsPage implements OnInit {
     }
     this.manualExerciseName = '';
     this.manualMode = false;
+    this.selectedExerciseId = created.id;
     await this.loadDetail(this.currentWorkout.id);
   }
 
@@ -601,6 +805,9 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     this.currentWorkout = detail;
+    if (!this.selectedExerciseId && detail.exercises.length > 0) {
+      this.selectedExerciseId = detail.exercises[0].id;
+    }
     for (const exercise of detail.exercises) {
       if (!this.setInputs[exercise.id]) {
         this.setInputs[exercise.id] = {};
@@ -645,9 +852,19 @@ export class WorkoutsPage implements OnInit {
   }
 
   async selectGroup(group: string): Promise<void> {
-    const targetGroup = this.resolveGroupToCatalog(group);
-    this.selectedMuscleGroup = targetGroup;
-    await this.exerciseCatalogService.loadByGroup(targetGroup);
+    const routineGroups = this.currentWorkout?.routine_types ?? [];
+    const matchedRoutineGroups = routineGroups
+      .map((item) => this.resolveGroupToCatalog(item))
+      .filter((item, index, arr) => !!item && arr.indexOf(item) === index);
+
+    if (matchedRoutineGroups.length > 1) {
+      this.selectedMuscleGroup = 'Rutina combinada';
+      await this.exerciseCatalogService.loadByGroups(matchedRoutineGroups);
+    } else {
+      const targetGroup = this.resolveGroupToCatalog(group);
+      this.selectedMuscleGroup = targetGroup;
+      await this.exerciseCatalogService.loadByGroup(targetGroup);
+    }
     this.showExerciseGroupModal = false;
     this.showExerciseListModal = true;
   }
@@ -671,8 +888,75 @@ export class WorkoutsPage implements OnInit {
     this.showExerciseListModal = false;
   }
 
+  cancelWorkoutView(): void {
+    this.currentWorkout = null;
+    this.selectedExerciseId = '';
+    this.activeWorkout.finishWorkout();
+  }
+
+  private openWorkoutSummary(): void {
+    if (!this.currentWorkout) {
+      return;
+    }
+    this.summaryWorkoutName = this.currentWorkout.workout_name;
+    this.summaryElapsedLabel = this.activeWorkout.elapsedLabel();
+    this.summaryExercisesCount = this.currentWorkout.exercises.length;
+    this.summarySetsCount = this.currentWorkout.exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
+    this.showWorkoutSummaryModal = true;
+  }
+
+  closeWorkoutSummary(): void {
+    this.showWorkoutSummaryModal = false;
+    this.currentWorkout = null;
+    this.selectedExerciseId = '';
+    this.activeWorkout.finishWorkout();
+  }
+
+  selectExercise(exerciseId: string): void {
+    this.selectedExerciseId = exerciseId;
+  }
+
+  selectedExercisePreview(): WorkoutExerciseRecord | null {
+    if (!this.currentWorkout || !this.selectedExerciseId) {
+      return this.currentWorkout?.exercises[0] ?? null;
+    }
+    return this.currentWorkout.exercises.find((item) => item.id === this.selectedExerciseId) ?? null;
+  }
+
+  async removeExercise(exerciseId: string): Promise<void> {
+    if (!this.currentWorkout) {
+      return;
+    }
+    const ok = await this.workoutRecordService.deleteExercise(this.currentWorkout.id, exerciseId);
+    if (!ok) {
+      return;
+    }
+    if (this.selectedExerciseId === exerciseId) {
+      this.selectedExerciseId = '';
+    }
+    await this.loadDetail(this.currentWorkout.id);
+  }
+
   exerciseIcon(item: ExerciseCatalogItem): string {
-    return resolveExerciseIcon(item.icon_key, item.muscle_group, item.icon_url);
+    return resolveExerciseIcon(item.icon_key, item.muscle_group, item.icon_url, item.name);
+  }
+
+  exerciseImageFor(exercise: WorkoutExerciseRecord): string {
+    return resolveExerciseImageByName(exercise.name, exercise.muscle_group || undefined);
+  }
+
+  exerciseAltImageFor(exercise: WorkoutExerciseRecord): string {
+    return resolveExerciseAltImageByName(exercise.name, exercise.muscle_group || undefined);
+  }
+
+  previousLabel(exercise: WorkoutExerciseRecord, setIndex: number): string {
+    const prev = exercise.previous_sets?.[setIndex];
+    if (!prev) {
+      return '-';
+    }
+    const weight = prev.weight ?? '-';
+    const reps = prev.done_reps ?? '-';
+    return `${weight} x ${reps}`;
   }
 
   private resolveGroupToCatalog(group: string): string {

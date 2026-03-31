@@ -174,6 +174,25 @@ export class WorkoutRecordService {
     }
   }
 
+  async deleteExercise(workoutId: string, exerciseId: string): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.delete<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/${exerciseId}`,
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudo eliminar el ejercicio.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   private async authHeaders(): Promise<Record<string, string>> {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;

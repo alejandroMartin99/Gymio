@@ -3,6 +3,7 @@ import { Injectable, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { environment } from '../../environments/environment';
+import { EXERCISE_CATALOG_SEED } from '../data/exercise-catalog.seed';
 import { ExerciseCatalogItem } from '../models/exercise-catalog.model';
 import { supabase } from '../core/supabase.client';
 
@@ -25,12 +26,8 @@ export class ExerciseCatalogService {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const res = await firstValueFrom(
-        this.http.get<ApiResponse<string[]>>(`${environment.apiUrl}/api/exercises/groups`, {
-          headers: await this.authHeaders()
-        })
-      );
-      this.groups.set(res.data ?? []);
+      const groups = EXERCISE_CATALOG_SEED.map((item) => item.muscle_group);
+      this.groups.set(this.uniqueGroups(groups));
     } catch {
       this.error.set('No se pudieron cargar grupos musculares.');
     } finally {
@@ -42,13 +39,27 @@ export class ExerciseCatalogService {
     this.loading.set(true);
     this.error.set(null);
     try {
-      const res = await firstValueFrom(
-        this.http.get<ApiResponse<ExerciseCatalogItem[]>>(`${environment.apiUrl}/api/exercises/catalog`, {
-          params: { group },
-          headers: await this.authHeaders()
-        })
-      );
-      this.items.set(res.data ?? []);
+      const items = EXERCISE_CATALOG_SEED.filter((item) => this.normalize(item.muscle_group) === this.normalize(group));
+      this.items.set(this.uniqueItems(items));
+    } catch {
+      this.error.set('No se pudo cargar el catalogo.');
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async loadByGroups(groups: string[]): Promise<void> {
+    const uniqueGroups = this.uniqueGroups(groups);
+    if (uniqueGroups.length === 0) {
+      this.items.set([]);
+      return;
+    }
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const normalized = uniqueGroups.map((group) => this.normalize(group));
+      const merged = EXERCISE_CATALOG_SEED.filter((item) => normalized.includes(this.normalize(item.muscle_group)));
+      this.items.set(this.uniqueItems(merged));
     } catch {
       this.error.set('No se pudo cargar el catalogo.');
     } finally {
@@ -83,5 +94,35 @@ export class ExerciseCatalogService {
       throw new Error('No active session');
     }
     return { Authorization: `Bearer ${token}` };
+  }
+
+  private uniqueGroups(groups: string[]): string[] {
+    const map = new Map<string, string>();
+    for (const group of groups) {
+      const key = this.normalize(group);
+      if (!map.has(key)) {
+        map.set(key, group);
+      }
+    }
+    return Array.from(map.values());
+  }
+
+  private uniqueItems(items: ExerciseCatalogItem[]): ExerciseCatalogItem[] {
+    const map = new Map<string, ExerciseCatalogItem>();
+    for (const item of items) {
+      const key = `${this.normalize(item.name)}|${this.normalize(item.muscle_group)}`;
+      if (!map.has(key)) {
+        map.set(key, item);
+      }
+    }
+    return Array.from(map.values());
+  }
+
+  private normalize(value?: string | null): string {
+    return (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
   }
 }

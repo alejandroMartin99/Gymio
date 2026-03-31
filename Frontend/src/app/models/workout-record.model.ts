@@ -27,6 +27,7 @@ export interface WorkoutExerciseRecord {
   notes?: string | null;
   position: number;
   sets: ExerciseSetRecord[];
+  previous_sets?: ExerciseSetRecord[];
 }
 
 export interface WorkoutRecordDetail extends WorkoutRecord {

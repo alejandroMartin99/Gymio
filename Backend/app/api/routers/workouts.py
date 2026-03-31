@@ -151,6 +151,29 @@ def add_set(
     return {"success": True, "data": result.data[0]}
 
 
+@router.delete("/records/{workout_id}/exercises/{exercise_id}")
+def delete_exercise(
+    workout_id: str,
+    exercise_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool]:
+    client = get_supabase_service_client()
+    existing = (
+        client.table("workout_exercises")
+        .select("id")
+        .eq("id", exercise_id)
+        .eq("workout_id", workout_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    client.table("workout_exercises").delete().eq("id", exercise_id).eq("user_id", user_id).execute()
+    return {"success": True}
+
+
 def _get_latest_record(client, user_id: str) -> dict | None:
     latest = (
         client.table("workout_records")
@@ -307,7 +330,54 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
     for set_item in sets_data:
         sets_by_exercise.setdefault(set_item["workout_exercise_id"], []).append(set_item)
 
-    workout["exercises"] = [
-        {**exercise, "sets": sets_by_exercise.get(exercise["id"], [])} for exercise in exercise_list
-    ]
+    previous_sets_cache: dict[str, list[dict]] = {}
+    enriched_exercises: list[dict] = []
+    for exercise in exercise_list:
+        name_key = _normalize_name(exercise.get("name"))
+        if name_key not in previous_sets_cache:
+            previous_sets_cache[name_key] = _previous_sets_for_exercise_name(
+                client=client,
+                user_id=user_id,
+                current_workout_id=workout_id,
+                exercise_name=exercise.get("name", ""),
+            )
+        enriched_exercises.append(
+            {
+                **exercise,
+                "sets": sets_by_exercise.get(exercise["id"], []),
+                "previous_sets": previous_sets_cache[name_key],
+            }
+        )
+    workout["exercises"] = enriched_exercises
     return workout
+
+
+def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
+    if not exercise_name:
+        return []
+    previous_exercise = (
+        client.table("workout_exercises")
+        .select("id, created_at")
+        .eq("user_id", user_id)
+        .eq("name", exercise_name)
+        .neq("workout_id", current_workout_id)
+        .order("created_at", desc=True)
+        .limit(1)
+        .execute()
+    )
+    if not previous_exercise.data:
+        return []
+    previous_exercise_id = previous_exercise.data[0]["id"]
+    previous_sets = (
+        client.table("exercise_sets")
+        .select("*")
+        .eq("workout_exercise_id", previous_exercise_id)
+        .eq("user_id", user_id)
+        .order("position")
+        .execute()
+    )
+    return previous_sets.data or []
+
+
+def _normalize_name(value: str | None) -> str:
+    return (value or "").strip().lower()

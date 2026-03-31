@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { ActiveWorkoutService } from '../services/active-workout.service';
 import { AuthService } from '../services/auth.service';
 
 @Component({
@@ -11,7 +12,11 @@ import { AuthService } from '../services/auth.service';
   styleUrl: './app-shell.component.scss'
 })
 export class AppShellComponent {
-  constructor(private readonly router: Router, private readonly auth: AuthService) {}
+  constructor(
+    private readonly router: Router,
+    private readonly auth: AuthService,
+    readonly activeWorkout: ActiveWorkoutService
+  ) {}
 
   profileMenuOpen = false;
 
@@ -37,5 +42,18 @@ export class AppShellComponent {
     this.closeProfileMenu();
     await this.auth.signOut();
     void this.router.navigateByUrl('/login');
+  }
+
+  finishWorkout(): void {
+    this.activeWorkout.requestFinalize();
+    setTimeout(() => {
+      if (this.activeWorkout.isActive()) {
+        this.activeWorkout.finishWorkout();
+      }
+    }, 250);
+  }
+
+  cancelWorkout(): void {
+    this.activeWorkout.finishWorkout();
   }
 }

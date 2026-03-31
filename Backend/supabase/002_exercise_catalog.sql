@@ -26,6 +26,30 @@ for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 create index if not exists idx_exercise_catalog_group on public.exercise_catalog(muscle_group, name);
 
+-- Limpia duplicados historicos antes de imponer unicidad
+with ranked as (
+  select
+    id,
+    row_number() over (
+      partition by coalesce(user_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(name), lower(muscle_group)
+      order by created_at asc, id asc
+    ) as rn
+  from public.exercise_catalog
+)
+delete from public.exercise_catalog
+where id in (select id from ranked where rn > 1);
+
+-- Reinicia solo el catalogo global (sin tocar ejercicios custom de usuarios)
+delete from public.exercise_catalog
+where user_id is null and is_custom = false;
+
+create unique index if not exists uq_exercise_catalog_identity
+  on public.exercise_catalog(
+    coalesce(user_id, '00000000-0000-0000-0000-000000000000'::uuid),
+    lower(name),
+    lower(muscle_group)
+  );
+
 insert into public.exercise_catalog (name, muscle_group, icon_url, icon_key, instructions_url, is_custom)
 values
   ('Press banca', 'Pecho', null, 'bench-press', null, false),

@@ -23,6 +23,19 @@
     <router-outlet />
   </main>
 
+  @if (activeWorkout.isActive()) {
+    <div class="workout-overlay">
+      <div class="workout-overlay__meta">
+        <strong>{{ activeWorkout.workoutName() }}</strong>
+        <span>Tiempo: {{ activeWorkout.elapsedLabel() }}</span>
+      </div>
+      <div class="workout-overlay__actions">
+        <button type="button" class="text-cancel" (click)="cancelWorkout()">Cancelar</button>
+        <button type="button" class="text-finish" (click)="finishWorkout()">Finalizar</button>
+      </div>
+    </div>
+  }
+
   <nav class="bottom-nav">
     @for (item of navItems; track item.path) {
       <a [routerLink]="item.path" routerLinkActive="active">

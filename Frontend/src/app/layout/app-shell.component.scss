@@ -81,6 +81,60 @@
   padding: 1rem 1rem 6rem;
 }
 
+.workout-overlay {
+  position: fixed;
+  top: 4.2rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  z-index: 45;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+}
+
+.workout-overlay__meta {
+  display: grid;
+  gap: 0.1rem;
+}
+
+.workout-overlay__meta strong {
+  font-size: 0.82rem;
+}
+
+.workout-overlay__meta span {
+  font-size: 0.77rem;
+  color: #6b7280;
+}
+
+.workout-overlay__actions {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.workout-overlay__actions button {
+  border: 0;
+  background: transparent;
+  color: #111;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0.2rem 0.35rem;
+  cursor: pointer;
+}
+
+.workout-overlay__actions .text-cancel {
+  color: #dc2626;
+}
+
+.workout-overlay__actions .text-finish {
+  color: #16a34a;
+}
+
 .bottom-nav {
   position: fixed;
   left: 0;
