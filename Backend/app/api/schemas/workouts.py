@@ -59,6 +59,10 @@ class AddSetRequest(BaseModel):
     rpe: float | None = None
 
 
+class UpdateExerciseNotesRequest(BaseModel):
+    notes: str | None = None
+
+
 class WorkoutRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     workout_name: str

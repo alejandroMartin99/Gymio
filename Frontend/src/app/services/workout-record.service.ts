@@ -174,6 +174,45 @@ export class WorkoutRecordService {
     }
   }
 
+  async deleteSet(workoutId: string, exerciseId: string, setId: string): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.delete<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/${exerciseId}/sets/${setId}`,
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudo eliminar la serie.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async updateExerciseNotes(workoutId: string, exerciseId: string, notes: string): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.patch<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/${exerciseId}`,
+          { notes },
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudieron guardar notas del ejercicio.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   async deleteExercise(workoutId: string, exerciseId: string): Promise<boolean> {
     this.loading.set(true);
     this.error.set(null);

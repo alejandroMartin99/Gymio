@@ -62,6 +62,8 @@ values
   ('Cruces en polea baja', 'Pecho', null, 'machine-fly', null, false),
   ('Fondos en paralelas', 'Pecho', null, 'bench-press', null, false),
   ('Press en maquina convergente', 'Pecho', null, 'bench-press', null, false),
+  ('Press en maquina inclinado', 'Pecho', null, 'incline-dumbbell-press', null, false),
+  ('Press en maquina superior', 'Pecho', null, 'incline-dumbbell-press', null, false),
   ('Pullover mancuerna', 'Pecho', null, 'machine-fly', null, false),
   ('Dominadas', 'Espalda', null, 'pull-up', null, false),
   ('Dominadas supinas', 'Espalda', null, 'pull-up', null, false),

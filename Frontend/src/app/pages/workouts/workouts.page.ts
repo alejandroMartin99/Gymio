@@ -9,16 +9,26 @@ import { ActiveWorkoutService } from '../../services/active-workout.service';
 import { ExerciseCatalogService } from '../../services/exercise-catalog.service';
 import { WorkoutRecordService } from '../../services/workout-record.service';
 
+interface PendingSetDraft {
+  local_id: string;
+  set_type: string;
+  done_reps?: number;
+  weight?: number;
+  comment?: string;
+}
+
 @Component({
   selector: 'app-workouts-page',
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
     <section class="workout-start">
-      <div class="hero">
-        <h2>New Workout</h2>
-        <p>Piensa menos. Entrena mas.</p>
-      </div>
+      @if (!currentWorkout) {
+        <div class="hero">
+          <h2>New Workout</h2>
+          <p>Piensa menos. Entrena mas.</p>
+        </div>
+      }
 
       @if (!currentWorkout) {
         <div class="empty">
@@ -44,49 +54,67 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
         <div class="builder">
           <h3>{{ currentWorkout.workout_name }}</h3>
 
-          @if (selectedExercisePreview(); as focused) {
-            <div class="exercise-hero">
-              <img [src]="exerciseImageFor(focused)" [alt]="focused.name" />
-              <img [src]="exerciseAltImageFor(focused)" [alt]="focused.name + ' variacion'" />
-            </div>
-          }
-
           @for (exercise of currentWorkout.exercises; track exercise.id) {
-            <div class="exercise-card" [class.selected]="selectedExerciseId === exercise.id">
-              <div class="exercise-head">
-                <strong (click)="selectExercise(exercise.id)">{{ exercise.name }}</strong>
-                <button type="button" class="remove-btn" (click)="removeExercise(exercise.id)">Eliminar</button>
+            <div
+              class="exercise-card"
+              [class.selected]="selectedExerciseId === exercise.id"
+              [class.completed]="completedExerciseIds.has(exercise.id)"
+            >
+              <div class="exercise-head" (click)="toggleExercise(exercise.id)">
+                <strong>{{ exercise.name }}</strong>
+                <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
+                  Eliminar
+                </button>
               </div>
-              <small>{{ exercise.muscle_group || 'General' }}</small>
-              <div class="set-grid header">
-                <span>SET</span>
-                <span>PREVIOUS</span>
-                <span>KG</span>
-                <span>REPS</span>
-                <span></span>
-              </div>
-              @for (set of exercise.sets; track set.id; let idx = $index) {
-                <div class="set-grid">
-                  <span class="set-num">{{ idx + 1 }}</span>
-                  <span>{{ previousLabel(exercise, idx) }}</span>
-                  <span>{{ set.weight || '-' }}</span>
-                  <span>{{ set.done_reps || '-' }}</span>
-                  <span class="done">✓</span>
+              @if (selectedExerciseId === exercise.id) {
+                <small>{{ exercise.muscle_group || 'General' }}</small>
+                <div class="exercise-hero">
+                  <img [src]="exerciseImageFor(exercise)" [alt]="exercise.name" />
                 </div>
-                @if (set.comment) {
-                  <small class="set-comment">{{ set.comment }}</small>
+                <div class="set-grid header">
+                  <span>SET</span>
+                  <span>KG</span>
+                  <span>REPS</span>
+                  <span>MODE</span>
+                  <span></span>
+                </div>
+                @for (set of exercise.sets; track set.id; let idx = $index) {
+                  <div class="set-grid">
+                    <span class="set-num">{{ idx + 1 }}</span>
+                    <span>{{ set.weight || '-' }}</span>
+                    <span>{{ set.done_reps || '-' }}</span>
+                    <span>{{ set.set_type === 'unilateral' ? 'UNI' : 'BI' }}</span>
+                    <button type="button" class="delete-set-btn" (click)="removeSet(exercise.id, set.id)">x</button>
+                  </div>
+                  @if (set.comment) {
+                    <small class="set-comment">{{ set.comment }}</small>
+                  }
                 }
-              }
 
-              <div class="set-form">
-                <span class="set-num next">{{ exercise.sets.length + 1 }}</span>
-                <span>{{ previousLabel(exercise, exercise.sets.length) }}</span>
-                <input type="number" [(ngModel)]="setInputs[exercise.id].weight" placeholder="KG" />
-                <input type="number" [(ngModel)]="setInputs[exercise.id].reps" placeholder="REPS" />
-                <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
-              </div>
-              <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota de esta serie" />
-              <button type="button" class="link-btn" (click)="addSet(exercise.id)">ADD SET</button>
+                <div class="set-form">
+                  <span class="set-num next">{{ exercise.sets.length + 1 }}</span>
+                  <input
+                    type="number"
+                    [(ngModel)]="setInputs[exercise.id].weight"
+                    [placeholder]="previousMaxWeight(exercise)"
+                  />
+                  <input
+                    type="number"
+                    [(ngModel)]="setInputs[exercise.id].reps"
+                    [placeholder]="previousMaxReps(exercise)"
+                  />
+                  <select [(ngModel)]="setInputs[exercise.id].mode">
+                    <option value="bilateral">BI</option>
+                    <option value="unilateral">UNI</option>
+                  </select>
+                  <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
+                </div>
+                <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
+                <button type="button" class="history-link" (click)="openHistoryModal(exercise)">View Historic</button>
+                <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
+                  Terminar ejercicio
+                </button>
+              }
             </div>
           }
           <button type="button" class="link-btn add-exercise" (click)="openExerciseGroupModal()">ADD EXERCISE</button>
@@ -101,11 +129,24 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
 
             <div class="history-list">
               @for (record of workoutRecordService.records(); track record.id) {
-                <button type="button" (click)="replicateFrom(record.id)">
+                <button
+                  type="button"
+                  [class.selected-option]="selectedReplicateWorkoutId === record.id"
+                  (click)="selectReplicateWorkout(record.id)"
+                >
                   {{ record.workout_name }}
                 </button>
               }
             </div>
+
+            <button
+              type="button"
+              class="primary"
+              [disabled]="!selectedReplicateWorkoutId || workoutRecordService.loading()"
+              (click)="confirmReplicateWorkout()"
+            >
+              Confirmar repetir rutina
+            </button>
 
             <button type="button" class="close" (click)="closeReplicateModal()">Cerrar</button>
           </div>
@@ -185,7 +226,12 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
 
             <div class="history-list">
               @for (exercise of exerciseCatalogService.items(); track exercise.id) {
-                <button type="button" class="exercise-option" (click)="pickCatalogExercise(exercise)">
+                <button
+                  type="button"
+                  class="exercise-option"
+                  [class.selected-option]="selectedCatalogExerciseId === exercise.id"
+                  (click)="pickCatalogExercise(exercise)"
+                >
                   <span class="option-arrow">></span>
                   <span>{{ exercise.name }}</span>
                 </button>
@@ -210,6 +256,15 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
                   Guardar y agregar
                 </button>
               </div>
+            } @else {
+              <button
+                type="button"
+                class="primary"
+                [disabled]="!selectedCatalogExerciseId || workoutRecordService.loading()"
+                (click)="confirmCatalogExercise()"
+              >
+                Agregar ejercicio
+              </button>
             }
 
             <button type="button" class="close close-danger" (click)="closeExerciseListModal()">Cancelar</button>
@@ -224,7 +279,35 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
             <p>{{ summaryWorkoutName }}</p>
             <small class="note">Tiempo: {{ summaryElapsedLabel }}</small>
             <small class="note">Ejercicios: {{ summaryExercisesCount }} · Series: {{ summarySetsCount }}</small>
-            <button type="button" class="primary" (click)="closeWorkoutSummary()">Cerrar</button>
+            <div class="summary-actions">
+              <button type="button" class="close close-danger" (click)="closeWorkoutSummary()">Cancelar</button>
+              <button type="button" class="primary" (click)="closeWorkoutSummary()">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (showHistoryModal) {
+        <div class="modal-backdrop" (click)="closeHistoryModal()">
+          <div class="modal" (click)="$event.stopPropagation()">
+            <h3>Historial - {{ historyExerciseName }}</h3>
+            <p>Maximos por entrenamiento (peso y repeticiones).</p>
+            <div class="history-chart">
+              @for (point of historyPoints; track point.workout_id) {
+                <div class="chart-row">
+                  <span class="date">{{ point.date }}</span>
+                  <div class="bars">
+                    <div class="bar weight" [style.width.%]="weightBarWidth(point.max_weight)">
+                      {{ point.max_weight || 0 }} kg
+                    </div>
+                    <div class="bar reps" [style.width.%]="repsBarWidth(point.max_reps)">
+                      {{ point.max_reps || 0 }} reps
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+            <button type="button" class="close" (click)="closeHistoryModal()">Cerrar</button>
           </div>
         </div>
       }
@@ -320,10 +403,10 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     }
 
     .builder {
-      border: 1px solid #ececec;
-      border-radius: 14px;
-      background: #fff;
-      padding: 1rem;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
       display: grid;
       gap: 0.85rem;
     }
@@ -419,6 +502,11 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       gap: 0.45rem;
     }
 
+    .exercise-card.completed {
+      border-color: #22c55e;
+      box-shadow: inset 0 0 0 1px #bbf7d0;
+    }
+
     .toggle-manual {
       border: 0;
       background: transparent;
@@ -433,24 +521,24 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     }
 
     .exercise-hero {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.45rem;
+      display: block;
       margin-top: 0.2rem;
     }
 
     .exercise-hero img {
       width: 100%;
       height: 138px;
-      object-fit: cover;
+      object-fit: contain;
       border-radius: 10px;
       border: 1px solid #e5e7eb;
+      background: #fff;
     }
 
     .exercise-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      cursor: pointer;
     }
 
     .remove-btn {
@@ -465,7 +553,7 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
 
     .set-grid {
       display: grid;
-      grid-template-columns: 40px 1fr 56px 56px 34px;
+      grid-template-columns: 34px 44px 64px 64px 34px;
       gap: 0.35rem;
       align-items: center;
       font-size: 0.78rem;
@@ -478,10 +566,11 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       font-size: 0.68rem;
       letter-spacing: 0.03em;
       margin-top: 0.2rem;
+      text-align: center;
     }
 
     .set-num {
-      color: #38bdf8;
+      color: #111;
       font-weight: 700;
     }
 
@@ -493,7 +582,7 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
 
     .set-form {
       display: grid;
-      grid-template-columns: 40px 1fr 56px 56px 34px;
+      grid-template-columns: 34px 44px 64px 64px 34px;
       gap: 0.35rem;
       align-items: center;
     }
@@ -504,6 +593,10 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       border-radius: 6px;
       border: 1px solid #e5e7eb;
       font-size: 0.82rem;
+    }
+
+    .set-form input::placeholder {
+      color: #9ca3af;
     }
 
     .set-note-input {
@@ -534,6 +627,38 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       justify-self: center;
     }
 
+    .delete-set-btn {
+      border: 0;
+      background: transparent;
+      color: #ef4444;
+      font-weight: 700;
+      cursor: pointer;
+      justify-self: center;
+      padding: 0;
+    }
+
+    .history-btn {
+      border: 0;
+      background: transparent;
+      color: #6b7280;
+      cursor: pointer;
+      justify-self: center;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      display: grid;
+      place-items: center;
+    }
+
+    .history-btn img {
+      width: 20px;
+      height: 20px;
+      display: block;
+      opacity: 0.92;
+    }
+
     .link-btn {
       border: 0;
       background: transparent;
@@ -542,6 +667,19 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       font-weight: 700;
       cursor: pointer;
       justify-self: center;
+    }
+
+    .finish-exercise {
+      justify-self: end;
+      border: 1px solid #22c55e;
+      color: #16a34a;
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.35rem 0.65rem;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
     }
 
     .modal-backdrop {
@@ -597,6 +735,11 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       font-size: 0.92rem;
     }
 
+    .selected-option {
+      border-color: #111 !important;
+      background: #f8fafc !important;
+    }
+
     .option-arrow {
       color: #9ca3af;
       font-weight: 700;
@@ -641,6 +784,55 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     .close-danger {
       color: #dc2626;
     }
+
+    .summary-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .history-chart {
+      display: grid;
+      gap: 0.45rem;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .chart-row {
+      display: grid;
+      gap: 0.25rem;
+    }
+
+    .chart-row .date {
+      font-size: 0.72rem;
+      color: #6b7280;
+    }
+
+    .bars {
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .bar {
+      min-height: 20px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      display: flex;
+      align-items: center;
+      padding: 0 0.35rem;
+      color: #111;
+      background: #e5e7eb;
+      width: max(12%, 28px);
+    }
+
+    .bar.weight {
+      background: #dbeafe;
+    }
+
+    .bar.reps {
+      background: #e5e7eb;
+    }
   `]
 })
 export class WorkoutsPage implements OnInit {
@@ -653,32 +845,39 @@ export class WorkoutsPage implements OnInit {
   workoutName = '';
   currentWorkout: WorkoutRecordDetail | null = null;
   showReplicateModal = false;
+  selectedReplicateWorkoutId = '';
   showNewSessionModal = false;
   showExerciseGroupModal = false;
   showExerciseListModal = false;
   selectedMuscleGroup = '';
+  selectedCatalogExerciseId = '';
+  selectedCatalogExerciseMuscleGroup = '';
   selectedExerciseId = '';
+  completedExerciseIds = new Set<string>();
   manualMode = false;
   manualExerciseName = '';
-  setInputs: Record<string, { reps?: number; weight?: number; comment?: string }> = {};
+  setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
+    {};
   routineOptions = ['Pecho', 'Espalda', 'Pierna', 'Biceps', 'Triceps', 'Hombro', 'Core', 'Cardio'];
   selectedRoutines: string[] = [];
+  pendingSetsByExercise: Record<string, PendingSetDraft[]> = {};
   showWorkoutSummaryModal = false;
   summaryWorkoutName = '';
   summaryElapsedLabel = '00:00:00';
   summaryExercisesCount = 0;
   summarySetsCount = 0;
+  showHistoryModal = false;
+  historyExerciseName = '';
+  historyPoints: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
   readonly hasAnyWorkout = computed(() => this.workoutRecordService.records().length > 0);
+  private isFinalizing = false;
 
   private readonly finalizeEffect = effect(() => {
     const tick = this.activeWorkout.finalizeRequestTick();
     if (!tick || !this.currentWorkout || this.activeWorkout.workoutId() !== this.currentWorkout.id) {
       return;
     }
-    this.openWorkoutSummary();
-    this.activeWorkout.finishWorkout();
-    this.currentWorkout = null;
-    this.selectedExerciseId = '';
+    void this.finalizeCurrentWorkout();
   });
 
   private readonly sessionClosedEffect = effect(() => {
@@ -724,10 +923,24 @@ export class WorkoutsPage implements OnInit {
 
   openReplicateModal(): void {
     this.showReplicateModal = true;
+    this.selectedReplicateWorkoutId = '';
   }
 
   closeReplicateModal(): void {
     this.showReplicateModal = false;
+    this.selectedReplicateWorkoutId = '';
+  }
+
+  selectReplicateWorkout(workoutId: string): void {
+    this.selectedReplicateWorkoutId = workoutId;
+  }
+
+  async confirmReplicateWorkout(): Promise<void> {
+    if (!this.selectedReplicateWorkoutId) {
+      return;
+    }
+    await this.replicateFrom(this.selectedReplicateWorkoutId);
+    this.selectedReplicateWorkoutId = '';
   }
 
   openNewSessionModal(): void {
@@ -759,6 +972,7 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     this.showReplicateModal = false;
+    this.activeWorkout.startWorkout(created.id, created.workout_name);
     await this.loadDetail(created.id);
     this.workoutName = '';
     this.selectedRoutines = [];
@@ -768,9 +982,10 @@ export class WorkoutsPage implements OnInit {
     if (!this.currentWorkout || !this.selectedMuscleGroup) {
       return;
     }
+    const muscleFromSelection = this.selectedCatalogExerciseMuscleGroup || this.selectedMuscleGroup;
     const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
       name: this.manualExerciseName.trim(),
-      muscle_group: this.selectedMuscleGroup || undefined
+      muscle_group: muscleFromSelection || undefined
     });
     if (!created) {
       return;
@@ -786,17 +1001,33 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     const input = this.setInputs[exerciseId] || {};
-    const ok = await this.workoutRecordService.addSet(this.currentWorkout.id, exerciseId, {
-      set_type: 'normal',
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const payload: PendingSetDraft = {
+      local_id: localId,
+      set_type: input.mode || 'bilateral',
       done_reps: input.reps,
       weight: input.weight,
       comment: input.comment
-    });
-    if (!ok) {
-      return;
+    };
+    this.pendingSetsByExercise[exerciseId] = [...(this.pendingSetsByExercise[exerciseId] || []), payload];
+
+    const exercise = this.currentWorkout.exercises.find((item) => item.id === exerciseId);
+    if (exercise) {
+      exercise.sets = [
+        ...exercise.sets,
+        {
+          id: localId,
+          set_type: input.mode || 'bilateral',
+          done_reps: input.reps,
+          weight: input.weight,
+          comment: input.comment,
+          unit: 'kg',
+          position: exercise.sets.length + 1
+        }
+      ];
+      exercise.notes = this.buildExerciseNotes(exercise);
     }
     this.setInputs[exerciseId] = {};
-    await this.loadDetail(this.currentWorkout.id);
   }
 
   private async loadDetail(workoutId: string): Promise<void> {
@@ -804,7 +1035,7 @@ export class WorkoutsPage implements OnInit {
     if (!detail) {
       return;
     }
-    this.currentWorkout = detail;
+    this.currentWorkout = this.mergePendingSets(detail);
     if (!this.selectedExerciseId && detail.exercises.length > 0) {
       this.selectedExerciseId = detail.exercises[0].id;
     }
@@ -836,6 +1067,8 @@ export class WorkoutsPage implements OnInit {
     if (this.exerciseCatalogService.groups().length === 0) {
       await this.exerciseCatalogService.loadGroups();
     }
+    // Reset visual focus so previous exercise preview does not block adding a new one
+    this.selectedExerciseId = '';
     this.showExerciseGroupModal = true;
     this.manualMode = false;
     this.manualExerciseName = '';
@@ -849,6 +1082,8 @@ export class WorkoutsPage implements OnInit {
     this.showExerciseListModal = false;
     this.manualMode = false;
     this.manualExerciseName = '';
+    this.selectedCatalogExerciseId = '';
+    this.selectedCatalogExerciseMuscleGroup = '';
   }
 
   async selectGroup(group: string): Promise<void> {
@@ -870,9 +1105,19 @@ export class WorkoutsPage implements OnInit {
   }
 
   async pickCatalogExercise(exercise: ExerciseCatalogItem): Promise<void> {
-    this.manualExerciseName = exercise.name;
+    this.selectedCatalogExerciseId = exercise.id;
+    this.selectedCatalogExerciseMuscleGroup = exercise.muscle_group;
+  }
+
+  async confirmCatalogExercise(): Promise<void> {
+    const selected = this.exerciseCatalogService.items().find((item) => item.id === this.selectedCatalogExerciseId);
+    if (!selected) {
+      return;
+    }
+    this.manualExerciseName = selected.name;
     await this.addExercise();
     this.showExerciseListModal = false;
+    this.selectedCatalogExerciseId = '';
   }
 
   async addManualExerciseFromModal(): Promise<void> {
@@ -916,6 +1161,10 @@ export class WorkoutsPage implements OnInit {
     this.selectedExerciseId = exerciseId;
   }
 
+  toggleExercise(exerciseId: string): void {
+    this.selectedExerciseId = this.selectedExerciseId === exerciseId ? '' : exerciseId;
+  }
+
   selectedExercisePreview(): WorkoutExerciseRecord | null {
     if (!this.currentWorkout || !this.selectedExerciseId) {
       return this.currentWorkout?.exercises[0] ?? null;
@@ -934,7 +1183,54 @@ export class WorkoutsPage implements OnInit {
     if (this.selectedExerciseId === exerciseId) {
       this.selectedExerciseId = '';
     }
+    delete this.pendingSetsByExercise[exerciseId];
     await this.loadDetail(this.currentWorkout.id);
+  }
+
+  async removeSet(exerciseId: string, setId: string): Promise<void> {
+    if (!this.currentWorkout) {
+      return;
+    }
+    const exercise = this.currentWorkout.exercises.find((item) => item.id === exerciseId);
+    if (!exercise) {
+      return;
+    }
+    if (setId.startsWith('local-')) {
+      exercise.sets = exercise.sets.filter((set) => set.id !== setId);
+      this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
+        (set) => set.local_id !== setId
+      );
+      exercise.notes = this.buildExerciseNotes(exercise);
+      return;
+    }
+    const ok = await this.workoutRecordService.deleteSet(this.currentWorkout.id, exerciseId, setId);
+    if (!ok) {
+      return;
+    }
+    await this.loadDetail(this.currentWorkout.id);
+    const refreshed = this.currentWorkout?.exercises.find((item) => item.id === exerciseId);
+    if (refreshed) {
+      refreshed.notes = this.buildExerciseNotes(refreshed);
+    }
+  }
+
+  clearSetDraft(exerciseId: string): void {
+    this.setInputs[exerciseId] = {};
+  }
+
+  completeExercise(exerciseId: string): void {
+    this.completedExerciseIds.add(exerciseId);
+    if (!this.currentWorkout) {
+      return;
+    }
+    const currentIndex = this.currentWorkout.exercises.findIndex((item) => item.id === exerciseId);
+    if (currentIndex < 0) {
+      return;
+    }
+    const next = this.currentWorkout.exercises
+      .slice(currentIndex + 1)
+      .find((item) => !this.completedExerciseIds.has(item.id));
+    this.selectedExerciseId = next?.id ?? '';
   }
 
   exerciseIcon(item: ExerciseCatalogItem): string {
@@ -950,13 +1246,60 @@ export class WorkoutsPage implements OnInit {
   }
 
   previousLabel(exercise: WorkoutExerciseRecord, setIndex: number): string {
-    const prev = exercise.previous_sets?.[setIndex];
-    if (!prev) {
+    const targetPosition = setIndex + 1;
+    const candidates = (exercise.previous_sets || []).filter((set) => (set.position || 0) === targetPosition);
+    if (candidates.length === 0) {
       return '-';
     }
-    const weight = prev.weight ?? '-';
-    const reps = prev.done_reps ?? '-';
-    return `${weight} x ${reps}`;
+    let best = candidates[0];
+    for (const candidate of candidates.slice(1)) {
+      const bestWeight = best.weight ?? 0;
+      const candidateWeight = candidate.weight ?? 0;
+      if (candidateWeight > bestWeight) {
+        best = candidate;
+        continue;
+      }
+      if (candidateWeight === bestWeight && (candidate.done_reps ?? 0) > (best.done_reps ?? 0)) {
+        best = candidate;
+      }
+    }
+    return `${best.weight ?? '-'} x ${best.done_reps ?? '-'}`;
+  }
+
+  previousMaxWeight(exercise: WorkoutExerciseRecord): string {
+    const maxWeight = Math.max(...(exercise.previous_sets || []).map((set) => Number(set.weight || 0)), 0);
+    return maxWeight > 0 ? `${maxWeight}` : 'KG';
+  }
+
+  previousMaxReps(exercise: WorkoutExerciseRecord): string {
+    const maxReps = Math.max(...(exercise.previous_sets || []).map((set) => Number(set.done_reps || 0)), 0);
+    return maxReps > 0 ? `${maxReps}` : 'REPS';
+  }
+
+  openHistoryModal(exercise: WorkoutExerciseRecord): void {
+    this.historyExerciseName = exercise.name;
+    this.historyPoints = [...(exercise.history_points || [])];
+    this.showHistoryModal = true;
+  }
+
+  closeHistoryModal(): void {
+    this.showHistoryModal = false;
+  }
+
+  weightBarWidth(value: number): number {
+    if (this.historyPoints.length === 0) {
+      return 20;
+    }
+    const max = Math.max(...this.historyPoints.map((item) => item.max_weight || 0), 1);
+    return Math.max(18, Math.round(((value || 0) / max) * 100));
+  }
+
+  repsBarWidth(value: number): number {
+    if (this.historyPoints.length === 0) {
+      return 20;
+    }
+    const max = Math.max(...this.historyPoints.map((item) => item.max_reps || 0), 1);
+    return Math.max(18, Math.round(((value || 0) / max) * 100));
   }
 
   private resolveGroupToCatalog(group: string): string {
@@ -981,5 +1324,106 @@ export class WorkoutsPage implements OnInit {
       .replace(/[\u0300-\u036f]/g, '')
       .toLowerCase()
       .trim();
+  }
+
+  private async finalizeCurrentWorkout(): Promise<void> {
+    if (!this.currentWorkout || this.isFinalizing) {
+      return;
+    }
+    this.isFinalizing = true;
+    const workoutId = this.currentWorkout.id;
+    const persisted = await this.flushPendingSets(workoutId);
+    if (!persisted) {
+      this.isFinalizing = false;
+      return;
+    }
+    this.openWorkoutSummary();
+    this.activeWorkout.finishWorkout();
+    this.currentWorkout = null;
+    this.selectedExerciseId = '';
+    this.pendingSetsByExercise = {};
+    this.isFinalizing = false;
+  }
+
+  private async flushPendingSets(workoutId: string): Promise<boolean> {
+    for (const [exerciseId, pendingSets] of Object.entries(this.pendingSetsByExercise)) {
+      for (const set of pendingSets) {
+        const ok = await this.workoutRecordService.addSet(workoutId, exerciseId, {
+          set_type: set.set_type,
+          done_reps: set.done_reps,
+          weight: set.weight,
+          comment: set.comment
+        });
+        if (!ok) {
+          return false;
+        }
+      }
+    }
+    if (this.currentWorkout) {
+      for (const exercise of this.currentWorkout.exercises) {
+        const ok = await this.workoutRecordService.updateExerciseNotes(
+          workoutId,
+          exercise.id,
+          this.buildExerciseNotes(exercise)
+        );
+        if (!ok) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  private mergePendingSets(detail: WorkoutRecordDetail): WorkoutRecordDetail {
+    const mergedExercises = detail.exercises.map((exercise) => {
+      const pending = this.pendingSetsByExercise[exercise.id] || [];
+      if (pending.length === 0) {
+        return exercise;
+      }
+      const localSets = pending.map((set, index) => ({
+        id: set.local_id,
+        set_type: set.set_type,
+        done_reps: set.done_reps,
+        weight: set.weight,
+        comment: set.comment,
+        unit: 'kg' as const,
+        position: exercise.sets.length + index + 1
+      }));
+      return {
+        ...exercise,
+        sets: [...exercise.sets, ...localSets],
+        notes: this.buildExerciseNotes({ ...exercise, sets: [...exercise.sets, ...localSets] })
+      };
+    });
+    return { ...detail, exercises: mergedExercises };
+  }
+
+  buildExerciseNotes(exercise: WorkoutExerciseRecord): string {
+    const lines = exercise.sets
+      .map((set, index) => ({ idx: index + 1, comment: (set.comment || '').trim() }))
+      .filter((item) => item.comment.length > 0)
+      .map((item) => `Serie ${item.idx}: ${item.comment}`);
+    return lines.join('\n');
+  }
+
+  private bestPreviousSet(exercise: WorkoutExerciseRecord, setIndex: number): WorkoutExerciseRecord['sets'][number] | null {
+    const targetPosition = setIndex + 1;
+    const candidates = (exercise.previous_sets || []).filter((set) => (set.position || 0) === targetPosition);
+    if (candidates.length === 0) {
+      return null;
+    }
+    let best = candidates[0];
+    for (const candidate of candidates.slice(1)) {
+      const bestWeight = best.weight ?? 0;
+      const candidateWeight = candidate.weight ?? 0;
+      if (candidateWeight > bestWeight) {
+        best = candidate;
+        continue;
+      }
+      if (candidateWeight === bestWeight && (candidate.done_reps ?? 0) > (best.done_reps ?? 0)) {
+        best = candidate;
+      }
+    }
+    return best;
   }
 }

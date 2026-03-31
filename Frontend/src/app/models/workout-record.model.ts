@@ -19,6 +19,13 @@ export interface ExerciseSetRecord {
   position: number;
 }
 
+export interface ExerciseHistoryPoint {
+  workout_id: string;
+  date: string;
+  max_weight: number;
+  max_reps: number;
+}
+
 export interface WorkoutExerciseRecord {
   id: string;
   workout_id: string;
@@ -28,6 +35,7 @@ export interface WorkoutExerciseRecord {
   position: number;
   sets: ExerciseSetRecord[];
   previous_sets?: ExerciseSetRecord[];
+  history_points?: ExerciseHistoryPoint[];
 }
 
 export interface WorkoutRecordDetail extends WorkoutRecord {

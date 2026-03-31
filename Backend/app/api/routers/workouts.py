@@ -4,6 +4,7 @@ from app.api.schemas.workouts import (
     AddExerciseRequest,
     AddSetRequest,
     CreateWorkoutRecordRequest,
+    UpdateExerciseNotesRequest,
 )
 from app.core.auth import get_current_user_id
 from app.services.supabase.supabase_service import get_supabase_service_client
@@ -149,6 +150,51 @@ def add_set(
     if not result.data:
         raise HTTPException(status_code=400, detail="Unable to add set")
     return {"success": True, "data": result.data[0]}
+
+
+@router.patch("/records/{workout_id}/exercises/{exercise_id}")
+def update_exercise_notes(
+    workout_id: str,
+    exercise_id: str,
+    payload: UpdateExerciseNotesRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    updated = (
+        client.table("workout_exercises")
+        .update({"notes": payload.notes})
+        .eq("id", exercise_id)
+        .eq("workout_id", workout_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not updated.data:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    return {"success": True, "data": updated.data[0]}
+
+
+@router.delete("/records/{workout_id}/exercises/{exercise_id}/sets/{set_id}")
+def delete_set(
+    workout_id: str,
+    exercise_id: str,
+    set_id: str,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool]:
+    client = get_supabase_service_client()
+    existing = (
+        client.table("exercise_sets")
+        .select("id")
+        .eq("id", set_id)
+        .eq("workout_id", workout_id)
+        .eq("workout_exercise_id", exercise_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Set not found")
+    client.table("exercise_sets").delete().eq("id", set_id).eq("user_id", user_id).execute()
+    return {"success": True}
 
 
 @router.delete("/records/{workout_id}/exercises/{exercise_id}")
@@ -346,6 +392,12 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                 **exercise,
                 "sets": sets_by_exercise.get(exercise["id"], []),
                 "previous_sets": previous_sets_cache[name_key],
+                "history_points": _history_points_for_exercise_name(
+                    client=client,
+                    user_id=user_id,
+                    current_workout_id=workout_id,
+                    exercise_name=exercise.get("name", ""),
+                ),
             }
         )
     workout["exercises"] = enriched_exercises
@@ -355,23 +407,23 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
 def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
     if not exercise_name:
         return []
-    previous_exercise = (
+    previous_exercises = (
         client.table("workout_exercises")
-        .select("id, created_at")
+        .select("id")
         .eq("user_id", user_id)
         .eq("name", exercise_name)
         .neq("workout_id", current_workout_id)
-        .order("created_at", desc=True)
-        .limit(1)
         .execute()
     )
-    if not previous_exercise.data:
+    if not previous_exercises.data:
         return []
-    previous_exercise_id = previous_exercise.data[0]["id"]
+    previous_exercise_ids = [row["id"] for row in (previous_exercises.data or [])]
+    if not previous_exercise_ids:
+        return []
     previous_sets = (
         client.table("exercise_sets")
         .select("*")
-        .eq("workout_exercise_id", previous_exercise_id)
+        .in_("workout_exercise_id", previous_exercise_ids)
         .eq("user_id", user_id)
         .order("position")
         .execute()
@@ -381,3 +433,66 @@ def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: s
 
 def _normalize_name(value: str | None) -> str:
     return (value or "").strip().lower()
+
+
+def _history_points_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
+    if not exercise_name:
+        return []
+    previous_exercises = (
+        client.table("workout_exercises")
+        .select("id, workout_id")
+        .eq("user_id", user_id)
+        .eq("name", exercise_name)
+        .neq("workout_id", current_workout_id)
+        .execute()
+    )
+    rows = previous_exercises.data or []
+    if not rows:
+        return []
+    exercise_ids = [row["id"] for row in rows]
+    workout_ids = list({row["workout_id"] for row in rows})
+
+    sets_result = (
+        client.table("exercise_sets")
+        .select("workout_id, weight, done_reps, created_at, workout_exercise_id")
+        .in_("workout_exercise_id", exercise_ids)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    sets_rows = sets_result.data or []
+    if not sets_rows:
+        return []
+
+    records_result = (
+        client.table("workout_records")
+        .select("id, created_at")
+        .in_("id", workout_ids)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    record_date_by_id = {row["id"]: row.get("created_at") for row in (records_result.data or [])}
+
+    history_by_workout: dict[str, dict] = {}
+    for row in sets_rows:
+        workout_id = row.get("workout_id")
+        if not workout_id:
+            continue
+        point = history_by_workout.setdefault(
+            workout_id,
+            {
+                "workout_id": workout_id,
+                "date": (record_date_by_id.get(workout_id) or row.get("created_at") or "")[:10],
+                "max_weight": 0.0,
+                "max_reps": 0,
+            },
+        )
+        weight = float(row.get("weight") or 0.0)
+        reps = int(row.get("done_reps") or 0)
+        if weight > point["max_weight"]:
+            point["max_weight"] = weight
+        if reps > point["max_reps"]:
+            point["max_reps"] = reps
+
+    points = list(history_by_workout.values())
+    points.sort(key=lambda item: item.get("date", ""))
+    return points

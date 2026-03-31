@@ -13,6 +13,8 @@ const SEED: SeedItem[] = [
   { name: 'Press declinado barra', muscle_group: 'Pecho', icon_key: 'bench-press' },
   { name: 'Press declinado mancuernas', muscle_group: 'Pecho', icon_key: 'incline-dumbbell-press' },
   { name: 'Press en maquina convergente', muscle_group: 'Pecho', icon_key: 'bench-press' },
+  { name: 'Press en maquina inclinado', muscle_group: 'Pecho', icon_key: 'incline-dumbbell-press' },
+  { name: 'Press en maquina superior', muscle_group: 'Pecho', icon_key: 'incline-dumbbell-press' },
   { name: 'Pullover mancuerna', muscle_group: 'Pecho', icon_key: 'machine-fly' },
   { name: 'Dominadas', muscle_group: 'Espalda', icon_key: 'pull-up' },
   { name: 'Dominadas supinas', muscle_group: 'Espalda', icon_key: 'pull-up' },

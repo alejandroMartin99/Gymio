@@ -29,6 +29,8 @@ export class AppShellComponent {
   navItems = [
     { label: 'New Workout', path: '/workouts', icon: '+' }
   ];
+  showWorkoutConfirmModal = false;
+  pendingWorkoutAction: 'cancel' | 'finish' | null = null;
 
   toggleProfileMenu(): void {
     this.profileMenuOpen = !this.profileMenuOpen;
@@ -45,15 +47,34 @@ export class AppShellComponent {
   }
 
   finishWorkout(): void {
-    this.activeWorkout.requestFinalize();
-    setTimeout(() => {
-      if (this.activeWorkout.isActive()) {
-        this.activeWorkout.finishWorkout();
-      }
-    }, 250);
+    this.openWorkoutConfirm('finish');
   }
 
   cancelWorkout(): void {
-    this.activeWorkout.finishWorkout();
+    this.openWorkoutConfirm('cancel');
+  }
+
+  openWorkoutConfirm(action: 'cancel' | 'finish'): void {
+    this.pendingWorkoutAction = action;
+    this.showWorkoutConfirmModal = true;
+  }
+
+  closeWorkoutConfirm(): void {
+    this.showWorkoutConfirmModal = false;
+    this.pendingWorkoutAction = null;
+  }
+
+  confirmWorkoutAction(): void {
+    if (this.pendingWorkoutAction === 'finish') {
+      this.activeWorkout.requestFinalize();
+      setTimeout(() => {
+        if (this.activeWorkout.isActive()) {
+          this.activeWorkout.finishWorkout();
+        }
+      }, 250);
+    } else if (this.pendingWorkoutAction === 'cancel') {
+      this.activeWorkout.finishWorkout();
+    }
+    this.closeWorkoutConfirm();
   }
 }

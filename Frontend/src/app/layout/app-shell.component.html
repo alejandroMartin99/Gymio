@@ -36,6 +36,25 @@
     </div>
   }
 
+  @if (showWorkoutConfirmModal) {
+    <div class="workout-confirm-backdrop" (click)="closeWorkoutConfirm()">
+      <div class="workout-confirm-modal" (click)="$event.stopPropagation()">
+        <h3>Confirmar accion</h3>
+        <p>
+          @if (pendingWorkoutAction === 'finish') {
+            Vas a finalizar el entrenamiento.
+          } @else {
+            Vas a cancelar el entrenamiento.
+          }
+        </p>
+        <div class="confirm-actions">
+          <button type="button" class="cancel" (click)="closeWorkoutConfirm()">Cancelar</button>
+          <button type="button" class="confirm" (click)="confirmWorkoutAction()">Confirmar</button>
+        </div>
+      </div>
+    </div>
+  }
+
   <nav class="bottom-nav">
     @for (item of navItems; track item.path) {
       <a [routerLink]="item.path" routerLinkActive="active">

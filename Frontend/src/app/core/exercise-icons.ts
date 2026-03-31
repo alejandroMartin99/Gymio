@@ -29,17 +29,44 @@ const BY_ICON_KEY: Record<string, ExerciseMedia> = {
 
 const BY_EXACT_NAME: Record<string, ExerciseMedia> = {
   // Pecho
-  'press banca': { image: '/exercises/chest.png', imageAlt: '/exercises/chest-alt.png' },
-  'press inclinado mancuernas': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
+  'press banca': {
+    image: '/exercises/gifs/0025-EIeI8Vf.gif',
+    imageAlt: '/exercises/gifs/0047-3TZduzM.gif'
+  },
+  'press inclinado mancuernas': {
+    image: '/exercises/gifs/0314-ns0SIbU.gif',
+    imageAlt: '/exercises/gifs/1623-8eqjhOl.gif'
+  },
   'press declinado barra': { image: '/exercises/chest.png', imageAlt: '/exercises/chest-alt.png' },
   'press declinado mancuernas': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
-  'aperturas en maquina': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
-  'aperturas con mancuernas': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
-  'cruces en polea alta': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
-  'cruces en polea baja': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
-  'fondos en paralelas': { image: '/exercises/chest.png', imageAlt: '/exercises/chest-alt.png' },
-  'press en maquina convergente': { image: '/exercises/chest.png', imageAlt: '/exercises/chest-alt.png' },
-  'pullover mancuerna': { image: '/exercises/chest-alt.png', imageAlt: '/exercises/chest.png' },
+  'aperturas en maquina': {
+    image: '/exercises/gifs/0308-yz9nUhF.gif',
+    imageAlt: '/exercises/gifs/1277-Lt3iWnf.gif'
+  },
+  'aperturas con mancuernas': {
+    image: '/exercises/gifs/0308-yz9nUhF.gif',
+    imageAlt: '/exercises/gifs/1277-Lt3iWnf.gif'
+  },
+  'cruces en polea alta': {
+    image: '/exercises/gifs/0308-yz9nUhF.gif',
+    imageAlt: '/exercises/gifs/3234-P9ZRyLT.gif'
+  },
+  'cruces en polea baja': {
+    image: '/exercises/gifs/0308-yz9nUhF.gif',
+    imageAlt: '/exercises/gifs/3234-P9ZRyLT.gif'
+  },
+  'fondos en paralelas': {
+    image: '/exercises/gifs/0009-PAgTVaK.gif',
+    imageAlt: '/exercises/gifs/0019-J60bN17.gif'
+  },
+  'press en maquina convergente': {
+    image: '/exercises/gifs/0025-EIeI8Vf.gif',
+    imageAlt: '/exercises/gifs/0047-3TZduzM.gif'
+  },
+  'pullover mancuerna': {
+    image: '/exercises/gifs/1316-cA9FuWG.gif',
+    imageAlt: '/exercises/gifs/0034-hMEptv0.gif'
+  },
   // Espalda
   dominadas: { image: '/exercises/back.png', imageAlt: '/exercises/back-alt.png' },
   'dominadas supinas': { image: '/exercises/back.png', imageAlt: '/exercises/back-alt.png' },

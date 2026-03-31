@@ -83,19 +83,20 @@
 
 .workout-overlay {
   position: fixed;
-  top: 4.2rem;
-  left: 0.75rem;
-  right: 0.75rem;
+  top: 0.35rem;
+  left: 0.6rem;
+  right: 0.6rem;
   z-index: 45;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  background: rgba(17, 17, 17, 0.68);
+  backdrop-filter: blur(6px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.1);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.7rem;
-  padding: 0.55rem 0.65rem;
+  gap: 0.8rem;
+  padding: 0.7rem 0.8rem;
 }
 
 .workout-overlay__meta {
@@ -104,12 +105,13 @@
 }
 
 .workout-overlay__meta strong {
-  font-size: 0.82rem;
+  font-size: 0.94rem;
+  color: #fff;
 }
 
 .workout-overlay__meta span {
-  font-size: 0.77rem;
-  color: #6b7280;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .workout-overlay__actions {
@@ -120,8 +122,8 @@
 .workout-overlay__actions button {
   border: 0;
   background: transparent;
-  color: #111;
-  font-size: 0.74rem;
+  color: #fff;
+  font-size: 0.78rem;
   font-weight: 600;
   padding: 0.2rem 0.35rem;
   cursor: pointer;
@@ -133,6 +135,64 @@
 
 .workout-overlay__actions .text-finish {
   color: #16a34a;
+}
+
+.workout-confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.workout-confirm-modal {
+  width: 100%;
+  max-width: 360px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.9rem;
+}
+
+.workout-confirm-modal h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.workout-confirm-modal p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.84rem;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.confirm-actions button {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.4rem 0.65rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.confirm-actions .cancel {
+  color: #dc2626;
+  border-color: #fecaca;
+}
+
+.confirm-actions .confirm {
+  color: #16a34a;
+  border-color: #bbf7d0;
 }
 
 .bottom-nav {
