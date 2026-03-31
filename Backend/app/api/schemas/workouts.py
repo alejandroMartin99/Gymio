@@ -63,6 +63,10 @@ class UpdateExerciseNotesRequest(BaseModel):
     notes: str | None = None
 
 
+class UpdateWorkoutRecordRequest(BaseModel):
+    workout_name: str
+
+
 class WorkoutRecord(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     workout_name: str

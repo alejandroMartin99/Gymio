@@ -127,6 +127,20 @@ export class WorkoutRecordService {
     }
   }
 
+  /** Detalle sin activar el loading global (listas, historic, etc.). */
+  async getWorkoutDetailQuiet(workoutId: string): Promise<WorkoutRecordDetail | null> {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ApiResponse<WorkoutRecordDetail>>(`${environment.apiUrl}/api/workouts/records/${workoutId}`, {
+          headers: await this.authHeaders()
+        })
+      );
+      return res.data;
+    } catch {
+      return null;
+    }
+  }
+
   async addExercise(
     workoutId: string,
     payload: { name: string; muscle_group?: string; notes?: string }
@@ -226,6 +240,52 @@ export class WorkoutRecordService {
       return true;
     } catch {
       this.error.set('No se pudo eliminar el ejercicio.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async deleteWorkout(workoutId: string): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.delete<ApiResponse<unknown>>(`${environment.apiUrl}/api/workouts/records/${workoutId}`, {
+          headers: await this.authHeaders()
+        })
+      );
+      this.records.update((items) => items.filter((item) => item.id !== workoutId));
+      if (this.latest()?.id === workoutId) {
+        this.latest.set(this.records()[0] ?? null);
+      }
+      return true;
+    } catch {
+      this.error.set('No se pudo cancelar el entrenamiento.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  async updateWorkoutName(workoutId: string, workoutName: string): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      const res = await firstValueFrom(
+        this.http.patch<ApiResponse<WorkoutRecord>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}`,
+          { workout_name: workoutName },
+          { headers: await this.authHeaders() }
+        )
+      );
+      this.records.update((items) => items.map((item) => (item.id === workoutId ? res.data : item)));
+      if (this.latest()?.id === workoutId) {
+        this.latest.set(res.data);
+      }
+      return true;
+    } catch {
+      this.error.set('No se pudo actualizar el nombre de la rutina.');
       return false;
     } finally {
       this.loading.set(false);

@@ -1,6 +1,8 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { guestGuard } from './guards/guest.guard';
+import { HistoricPage } from './pages/historic/historic.page';
+import { ProfilePage } from './pages/profile/profile.page';
 
 export const routes: Routes = [
   {
@@ -21,6 +23,14 @@ export const routes: Routes = [
       {
         path: 'workouts',
         loadComponent: () => import('./pages/workouts/workouts.page').then((m) => m.WorkoutsPage)
+      },
+      {
+        path: 'historic',
+        component: HistoricPage
+      },
+      {
+        path: 'profile',
+        component: ProfilePage
       }
     ]
   },

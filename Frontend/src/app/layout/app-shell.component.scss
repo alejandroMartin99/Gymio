@@ -1,4 +1,7 @@
 .shell {
+  --nav-height: 58px;
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-lift: 14px;
   min-height: 100vh;
   background: #ffffff;
   color: #111111;
@@ -78,7 +81,7 @@
 }
 
 .content {
-  padding: 1rem 1rem 6rem;
+  padding: 1rem 1rem calc(var(--nav-height) + var(--safe-area-bottom) + var(--nav-lift) + 1rem);
 }
 
 .workout-overlay {
@@ -197,55 +200,77 @@
 
 .bottom-nav {
   position: fixed;
+  bottom: calc(var(--safe-area-bottom) + var(--nav-lift));
   left: 0;
   right: 0;
-  bottom: 0;
+  height: var(--nav-height);
+  padding-bottom: 0;
+  background: #000000;
   display: flex;
-  justify-content: center;
-  border-top: 1px solid #ececec;
-  background: #ffffff;
-  padding: 0.5rem 0 0.65rem;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding-top: 6px;
+  z-index: 100;
 }
 
-.bottom-nav a {
-  display: inline-flex;
+.nav-item {
+  flex: 1;
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.25rem;
-  min-width: 86px;
-  padding: 0.25rem 0.8rem;
-  border-radius: 12px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #767676;
+  gap: 2px;
+  padding: 8px;
   text-decoration: none;
-  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 11px;
   font-weight: 500;
+  transition: color 0.15s ease;
 }
 
-.icon {
+.nav-item:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.nav-item.active {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.nav-item.active .nav-icon {
+  opacity: 1;
+}
+
+.nav-item--center {
+  font-size: 12px;
+}
+
+.nav-item--center .nav-icon {
+  transform: scale(1.22);
+}
+
+.nav-icon {
+  opacity: 0.7;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
-  border: 1px solid #e5e5e5;
-  font-size: 1.15rem;
+  width: 1.95rem;
+  height: 1.95rem;
+  font-size: 1.75rem;
   line-height: 1;
 }
 
-.label {
-  font-size: 0.74rem;
+.nav-item.active .nav-icon {
+  opacity: 1;
 }
 
-.bottom-nav a.active {
-  color: #111111;
+.nav-icon img {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: block;
+  filter: invert(1);
 }
 
-.bottom-nav a.active .icon {
-  border-color: #111111;
-  background: #111111;
-  color: #ffffff;
+.nav-label {
+  letter-spacing: -0.01em;
 }

@@ -39,7 +39,7 @@ interface PendingSetDraft {
             </div>
           } @else {
             <div class="action-row">
-              <button type="button" (click)="openReplicateModal()" [disabled]="!hasAnyWorkout()">
+              <button type="button" (click)="openReplicateModal()" [disabled]="replicateModalRecords().length === 0">
                 Repetir rutina
               </button>
               <button type="button" class="secondary" (click)="openNewSessionModal()">
@@ -137,7 +137,7 @@ interface PendingSetDraft {
             <p>Elige uno para cargar nombre, ejercicios y series.</p>
 
             <div class="history-list">
-              @for (record of workoutRecordService.records(); track record.id) {
+              @for (record of replicateModalRecords(); track record.id) {
                 <button
                   type="button"
                   [class.selected-option]="selectedReplicateWorkoutId === record.id"
@@ -376,6 +376,11 @@ interface PendingSetDraft {
       font-weight: 600;
       cursor: pointer;
       width: 100%;
+    }
+
+    .empty button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
     }
 
     .action-row {
@@ -971,6 +976,18 @@ export class WorkoutsPage implements OnInit {
     this.showReplicateModal = false;
     this.selectedReplicateWorkoutId = '';
     this.replicateSelectionConfirmed = false;
+  }
+
+  replicateModalRecords(): Array<{ id: string; workout_name: string }> {
+    const byName = new Map<string, { id: string; workout_name: string }>();
+    for (const record of this.workoutRecordService.records()) {
+      const normalized = this.normalizeText(record.workout_name);
+      if (!normalized || byName.has(normalized)) {
+        continue;
+      }
+      byName.set(normalized, { id: record.id, workout_name: record.workout_name });
+    }
+    return Array.from(byName.values());
   }
 
   selectReplicateWorkout(workoutId: string): void {

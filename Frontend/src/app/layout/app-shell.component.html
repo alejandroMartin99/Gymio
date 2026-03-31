@@ -57,9 +57,15 @@
 
   <nav class="bottom-nav">
     @for (item of navItems; track item.path) {
-      <a [routerLink]="item.path" routerLinkActive="active">
-        <span class="icon" aria-hidden="true">{{ item.icon }}</span>
-        <span class="label">{{ item.label }}</span>
+      <a [routerLink]="item.path" routerLinkActive="active" class="nav-item" [class.nav-item--center]="item.center">
+        <span class="nav-icon" aria-hidden="true">
+          @if (item.iconSrc) {
+            <img [src]="item.iconSrc" alt="" />
+          } @else {
+            {{ item.icon }}
+          }
+        </span>
+        <span class="nav-label">{{ item.label }}</span>
       </a>
     }
   </nav>

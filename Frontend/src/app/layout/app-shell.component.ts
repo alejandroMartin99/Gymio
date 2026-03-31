@@ -3,6 +3,7 @@ import { Component } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { ActiveWorkoutService } from '../services/active-workout.service';
 import { AuthService } from '../services/auth.service';
+import { WorkoutRecordService } from '../services/workout-record.service';
 
 @Component({
   selector: 'app-shell',
@@ -15,7 +16,8 @@ export class AppShellComponent {
   constructor(
     private readonly router: Router,
     private readonly auth: AuthService,
-    readonly activeWorkout: ActiveWorkoutService
+    readonly activeWorkout: ActiveWorkoutService,
+    private readonly workoutRecordService: WorkoutRecordService
   ) {}
 
   profileMenuOpen = false;
@@ -27,7 +29,9 @@ export class AppShellComponent {
   };
 
   navItems = [
-    { label: 'New Workout', path: '/workouts', icon: '+' }
+    { label: 'Perfil', path: '/profile', iconSrc: '/icons/user-circle.svg', icon: '' },
+    { label: 'New Workout', path: '/workouts', icon: '+', center: true },
+    { label: 'Historic', path: '/historic', iconSrc: '/icons/chart-line.svg', icon: '' }
   ];
   showWorkoutConfirmModal = false;
   pendingWorkoutAction: 'cancel' | 'finish' | null = null;
@@ -64,7 +68,7 @@ export class AppShellComponent {
     this.pendingWorkoutAction = null;
   }
 
-  confirmWorkoutAction(): void {
+  async confirmWorkoutAction(): Promise<void> {
     if (this.pendingWorkoutAction === 'finish') {
       this.activeWorkout.requestFinalize();
       setTimeout(() => {
@@ -73,6 +77,10 @@ export class AppShellComponent {
         }
       }, 250);
     } else if (this.pendingWorkoutAction === 'cancel') {
+      const workoutId = this.activeWorkout.workoutId();
+      if (workoutId) {
+        await this.workoutRecordService.deleteWorkout(workoutId);
+      }
       this.activeWorkout.finishWorkout();
     }
     this.closeWorkoutConfirm();

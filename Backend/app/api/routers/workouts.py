@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 import re
 import unicodedata
+from postgrest.exceptions import APIError
 
 from app.api.schemas.workouts import (
     AddExerciseRequest,
     AddSetRequest,
     CreateWorkoutRecordRequest,
+    UpdateWorkoutRecordRequest,
     UpdateExerciseNotesRequest,
 )
 from app.core.auth import get_current_user_id
@@ -70,10 +72,11 @@ def create_workout_record(
         source_detail = _build_workout_detail(client, user_id, payload.replicate_from_id)
         if not source_detail:
             raise HTTPException(status_code=404, detail="Source workout not found")
+        source_name = source_detail["workout_name"]
         created = _insert_record(
             client,
             user_id,
-            source_detail["workout_name"],
+            source_name,
             source_detail.get("routine_types") or [],
         )
         _copy_exercises_and_sets(client, user_id, payload.replicate_from_id, created["id"])
@@ -222,6 +225,45 @@ def delete_exercise(
     return {"success": True}
 
 
+@router.delete("/records/{workout_id}")
+def delete_workout_record(workout_id: str, user_id: str = Depends(get_current_user_id)) -> dict[str, bool]:
+    client = get_supabase_service_client()
+    existing = (
+        client.table("workout_records")
+        .select("id")
+        .eq("id", workout_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    client.table("workout_records").delete().eq("id", workout_id).eq("user_id", user_id).execute()
+    return {"success": True}
+
+
+@router.patch("/records/{workout_id}")
+def update_workout_record(
+    workout_id: str,
+    payload: UpdateWorkoutRecordRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    workout_name = (payload.workout_name or "").strip()
+    if not workout_name:
+        raise HTTPException(status_code=400, detail="workout_name is required")
+    updated = (
+        client.table("workout_records")
+        .update({"workout_name": workout_name})
+        .eq("id", workout_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not updated.data:
+        raise HTTPException(status_code=404, detail="Workout not found")
+    return {"success": True, "data": updated.data[0]}
+
+
 def _get_latest_record(client, user_id: str) -> dict | None:
     latest = (
         client.table("workout_records")
@@ -235,21 +277,46 @@ def _get_latest_record(client, user_id: str) -> dict | None:
 
 
 def _insert_record(client, user_id: str, workout_name: str, routine_types: list[str], notes: str | None = None) -> dict:
-    inserted = (
-        client.table("workout_records")
-        .insert(
-            {
-                "user_id": user_id,
-                "workout_name": workout_name,
-                "routine_types": routine_types,
-                "notes": notes,
-            }
+    try:
+        inserted = (
+            client.table("workout_records")
+            .insert(
+                {
+                    "user_id": user_id,
+                    "workout_name": workout_name,
+                    "routine_types": routine_types,
+                    "notes": notes,
+                }
+            )
+            .execute()
         )
-        .execute()
-    )
+    except APIError as error:
+        # Fallback for environments that still keep old unique constraints on workout_name.
+        if "duplicate key value violates unique constraint" in str(error).lower():
+            existing = _find_record_by_name(client, user_id, workout_name)
+            if existing:
+                return existing
+        raise
     if not inserted.data:
         raise HTTPException(status_code=400, detail="Unable to create workout")
     return inserted.data[0]
+
+
+def _find_record_by_name(client, user_id: str, workout_name: str) -> dict | None:
+    target = _normalize_name(workout_name)
+    if not target:
+        return None
+    records = (
+        client.table("workout_records")
+        .select("*")
+        .eq("user_id", user_id)
+        .order("created_at", desc=True)
+        .execute()
+    )
+    for item in (records.data or []):
+        if _normalize_name(item.get("workout_name")) == target:
+            return item
+    return None
 
 
 def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_workout_id: str) -> None:
@@ -281,34 +348,8 @@ def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_work
             continue
         exercise_id_map[old["id"]] = new_ex.data[0]["id"]
 
-    for old_exercise_id, new_exercise_id in exercise_id_map.items():
-        old_sets = (
-            client.table("exercise_sets")
-            .select("*")
-            .eq("workout_exercise_id", old_exercise_id)
-            .order("position")
-            .execute()
-        )
-        payload: list[dict] = []
-        for old_set in old_sets.data or []:
-            payload.append(
-                {
-                    "workout_id": to_workout_id,
-                    "workout_exercise_id": new_exercise_id,
-                    "user_id": user_id,
-                    "set_type": old_set.get("set_type", "normal"),
-                    "target_reps": old_set.get("target_reps"),
-                    "done_reps": old_set.get("done_reps"),
-                    "weight": old_set.get("weight"),
-                    "unit": old_set.get("unit", "kg"),
-                    "comment": old_set.get("comment"),
-                    "assisted_reps": old_set.get("assisted_reps"),
-                    "rpe": old_set.get("rpe"),
-                    "position": old_set.get("position", 0),
-                }
-            )
-        if payload:
-            client.table("exercise_sets").insert(payload).execute()
+    # Template mode: when repeating a routine, copy only exercises.
+    # Sets are intentionally not copied so the user confirms each new set with the check action.
 
 
 def _next_exercise_position(client, workout_id: str) -> int:

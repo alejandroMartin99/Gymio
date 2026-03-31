@@ -59,3 +59,6 @@ create index if not exists idx_workout_exercises_workout_position
   on public.workout_exercises(workout_id, position);
 create index if not exists idx_exercise_sets_exercise_position
   on public.exercise_sets(workout_exercise_id, position);
+
+-- Permite nombres duplicados de rutina por usuario.
+drop index if exists public.uq_workout_records_user_name;
