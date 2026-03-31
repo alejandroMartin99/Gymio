@@ -21,64 +21,72 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       } @else {
         <div class="list">
           @for (record of workoutRecordService.records(); track record.id) {
-            <article class="item" [class.expanded]="expandedId === record.id">
-              <button type="button" class="row" (click)="toggleExpand(record.id)">
+            <article class="item">
+              <button type="button" class="row" (click)="openRecord(record.id)">
                 <strong>{{ record.workout_name }}</strong>
                 <small>{{ record.created_at.slice(0, 10) }}</small>
               </button>
-
-              @if (expandedId === record.id) {
-                @if (detailLoadingId === record.id) {
-                  <small class="muted detail-loading">Cargando ejercicios...</small>
-                } @else if (detailFor(record.id)) {
-                  <div class="detail">
-                    <div class="exercises">
-                      @for (ex of sortedExercises(detailFor(record.id)!); track ex.id) {
-                        <div class="exercise-block">
-                          <div class="exercise-name">{{ ex.name }}</div>
-                          @if (ex.sets.length === 0) {
-                            <small class="muted">Sin series registradas</small>
-                          } @else {
-                            <div class="sets-grid header">
-                              <span>#</span>
-                              <span>KG</span>
-                              <span>REPS</span>
-                            </div>
-                            @for (set of sortedSets(ex.sets); track set.id; let i = $index) {
-                              <div class="sets-grid">
-                                <span>{{ i + 1 }}</span>
-                                <span>{{ formatWeight(set) }}</span>
-                                <span>{{ set.done_reps ?? 0 }}</span>
-                              </div>
-                              @if (set.comment) {
-                                <small class="set-comment">{{ set.comment }}</small>
-                              }
-                            }
-                          }
-                        </div>
-                      }
-                    </div>
-                  </div>
-                } @else if (detailCache[record.id] === null) {
-                  <small class="muted detail-loading">No se pudo cargar el detalle de esta rutina.</small>
-                }
-
-                <div class="actions">
-                  <label>
-                    Nombre rutina
-                    <input [(ngModel)]="nameDrafts[record.id]" />
-                  </label>
-                  <div class="buttons">
-                    <button type="button" class="save" (click)="saveName(record.id)">Guardar</button>
-                    <button type="button" class="danger" (click)="deleteRecord(record.id)">Eliminar</button>
-                  </div>
-                </div>
-              }
             </article>
           }
         </div>
       }
     </section>
+
+    @if (showModal) {
+      <div class="modal-backdrop" (click)="closeModal()">
+        <div class="modal" (click)="$event.stopPropagation()">
+          @if (detailLoadingId === selectedRecordId) {
+            <small class="muted">Cargando detalle...</small>
+          } @else if (selectedDetail) {
+            <div class="modal-head">
+              @if (isEditingWorkoutName) {
+                <input class="title-input" [(ngModel)]="editingWorkoutName" />
+              } @else {
+                <h3>{{ selectedDetail.workout_name }}</h3>
+              }
+              <button type="button" class="edit-title-btn" (click)="toggleEditWorkoutName()" aria-label="Editar nombre">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>
+                </svg>
+              </button>
+            </div>
+
+            <div class="exercises">
+                      @for (ex of sortedExercises(selectedDetail); track ex.id) {
+                        <div class="exercise-block">
+                          <div class="exercise-name">{{ ex.name }}</div>
+                  @if (ex.sets.length === 0) {
+                    <small class="muted">Sin series</small>
+                  } @else {
+                    <div class="sets-grid header">
+                      <span>#</span>
+                      <span>KG</span>
+                      <span>REPS</span>
+                    </div>
+                    @for (set of sortedSets(ex.sets); track set.id; let i = $index) {
+                      <div class="sets-grid edit">
+                        <span>{{ i + 1 }}</span>
+                        <input type="number" [(ngModel)]="setDrafts[set.id].weight" />
+                        <input type="number" [(ngModel)]="setDrafts[set.id].reps" />
+                      </div>
+                    }
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <small class="muted">No se pudo cargar el detalle de esta rutina.</small>
+          }
+
+          <div class="buttons">
+            <button type="button" class="danger" (click)="deleteSelected()">Eliminar</button>
+            <button type="button" class="save" (click)="saveSelected()">Guardar cambios</button>
+          </div>
+          <button type="button" class="close" (click)="closeModal()">Cerrar</button>
+        </div>
+      </div>
+    }
   `,
   styles: [`
     .historic {
@@ -112,10 +120,6 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       gap: 0.45rem;
     }
 
-    .item.expanded {
-      border-color: #111;
-    }
-
     .row {
       border: 0;
       background: transparent;
@@ -141,25 +145,22 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       white-space: nowrap;
     }
 
-    .detail-loading {
-      padding: 0 0.35rem;
-    }
-
-    .detail {
-      padding: 0 0.35rem;
-    }
-
     .exercises {
       display: grid;
-      gap: 0.65rem;
-      margin-bottom: 0.55rem;
+      gap: 0.45rem;
+      margin-bottom: 0.35rem;
     }
 
     .exercise-block {
-      border: 1px solid #f3f4f6;
-      border-radius: 8px;
-      padding: 0.5rem 0.55rem;
-      background: #fafafa;
+      border: 0;
+      border-radius: 0;
+      padding: 0.25rem 0;
+      background: transparent;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    .exercise-block:last-child {
+      border-bottom: 0;
     }
 
     .exercise-name {
@@ -172,9 +173,9 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     .sets-grid {
       display: grid;
       grid-template-columns: 28px 1fr 1fr;
-      gap: 0.35rem;
+      gap: 0.3rem;
       align-items: center;
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       color: #374151;
       text-align: center;
     }
@@ -192,28 +193,30 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
       color: #111;
     }
 
-    .set-comment {
-      display: block;
-      margin: 0.2rem 0 0 0;
-      color: #6b7280;
-      font-size: 0.72rem;
-      text-align: left;
+    .sets-grid.edit {
+      margin-top: 0.1rem;
     }
 
-    .actions {
-      display: grid;
-      gap: 0.45rem;
-      padding: 0.1rem 0.35rem 0.35rem;
+    .sets-grid.edit input {
+      border: 0;
+      border-bottom: 1px solid #d1d5db;
+      border-radius: 0;
+      padding: 0.18rem 0.2rem 0.14rem;
+      font: inherit;
+      font-size: 0.74rem;
+      text-align: center;
+      background: transparent;
+      min-width: 0;
     }
 
-    .actions label {
+    label {
       display: grid;
       gap: 0.25rem;
       color: #6b7280;
       font-size: 0.76rem;
     }
 
-    .actions input {
+    label input {
       border: 1px solid #e5e7eb;
       border-radius: 8px;
       padding: 0.45rem 0.55rem;
@@ -251,41 +254,156 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
     }
 
     .muted {
+      color: #9ca3af;
+      font-size: 0.74rem;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 120;
+      background: rgba(0, 0, 0, 0.28);
+      display: grid;
+      place-items: center;
+      padding: 0.5rem;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      padding: 0.55rem 0.65rem;
+      display: grid;
+      gap: 0.45rem;
+      box-sizing: border-box;
+    }
+
+    .modal h3 {
+      margin: 0;
+      color: #111827;
+      font-size: 1rem;
+    }
+
+    .modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.55rem;
+    }
+
+    .edit-title-btn {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #374151;
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .title-input {
+      width: 100%;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.45rem 0.55rem;
+      font: inherit;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #111827;
+      background: #fff;
+    }
+
+    .close {
+      justify-self: end;
+      border: 0;
+      background: transparent;
       color: #6b7280;
-      font-size: 0.84rem;
+      cursor: pointer;
+    }
+
+    @media (max-width: 480px) {
+      .modal-backdrop {
+        padding: 0.5rem;
+      }
+
+      .modal {
+        max-width: 100%;
+        max-height: 92vh;
+        padding: 0.5rem 0.58rem;
+        gap: 0.42rem;
+      }
+
+      .exercise-name {
+        font-size: 0.79rem;
+      }
+
+      .buttons {
+        gap: 0.35rem;
+      }
+
+      .buttons button {
+        padding: 0.36rem 0.52rem;
+        font-size: 0.74rem;
+      }
     }
   `]
 })
 export class HistoricPage implements OnInit {
   constructor(readonly workoutRecordService: WorkoutRecordService) {}
-  expandedId = '';
-  nameDrafts: Record<string, string> = {};
-  detailCache: Record<string, WorkoutRecordDetail | null> = {};
+  showModal = false;
+  selectedRecordId = '';
+  selectedDetail: WorkoutRecordDetail | null = null;
   detailLoadingId = '';
+  editingWorkoutName = '';
+  isEditingWorkoutName = false;
+  setDrafts: Record<string, { weight: number | null; reps: number | null; comment: string }> = {};
 
   async ngOnInit(): Promise<void> {
     await this.workoutRecordService.loadRecords();
-    this.syncDrafts();
   }
 
-  detailFor(recordId: string): WorkoutRecordDetail | null {
-    const d = this.detailCache[recordId];
-    return d ?? null;
+  async openRecord(recordId: string): Promise<void> {
+    this.showModal = true;
+    this.selectedRecordId = recordId;
+    this.selectedDetail = null;
+    this.editingWorkoutName = '';
+    this.setDrafts = {};
+    this.detailLoadingId = recordId;
+    const detail = await this.workoutRecordService.getWorkoutDetailQuiet(recordId);
+    this.selectedDetail = detail;
+    this.editingWorkoutName = detail?.workout_name || '';
+    this.isEditingWorkoutName = false;
+    if (detail) {
+      for (const ex of detail.exercises || []) {
+        for (const set of ex.sets || []) {
+          this.setDrafts[set.id] = {
+            weight: set.weight ?? null,
+            reps: set.done_reps ?? null,
+            comment: set.comment || ''
+          };
+        }
+      }
+    }
+    this.detailLoadingId = '';
   }
 
-  async toggleExpand(recordId: string): Promise<void> {
-    if (this.expandedId === recordId) {
-      this.expandedId = '';
-      return;
-    }
-    this.expandedId = recordId;
-    this.syncDrafts();
-    if (this.detailCache[recordId] === undefined) {
-      this.detailLoadingId = recordId;
-      const detail = await this.workoutRecordService.getWorkoutDetailQuiet(recordId);
-      this.detailCache[recordId] = detail;
-      this.detailLoadingId = '';
-    }
+  closeModal(): void {
+    this.showModal = false;
+    this.selectedRecordId = '';
+    this.selectedDetail = null;
+    this.isEditingWorkoutName = false;
+  }
+
+  toggleEditWorkoutName(): void {
+    this.isEditingWorkoutName = !this.isEditingWorkoutName;
   }
 
   sortedExercises(detail: WorkoutRecordDetail): WorkoutExerciseRecord[] {
@@ -305,32 +423,54 @@ export class HistoricPage implements OnInit {
     return `${w} ${unit}`;
   }
 
-  async saveName(recordId: string): Promise<void> {
-    const draft = (this.nameDrafts[recordId] || '').trim();
-    if (!draft) {
+  async saveSelected(): Promise<void> {
+    if (!this.selectedDetail || !this.selectedRecordId) {
       return;
     }
-    const ok = await this.workoutRecordService.updateWorkoutName(recordId, draft);
-    if (ok) {
-      this.expandedId = '';
-      this.syncDrafts();
-      delete this.detailCache[recordId];
-    }
-  }
-
-  async deleteRecord(recordId: string): Promise<void> {
-    const ok = await this.workoutRecordService.deleteWorkout(recordId);
-    if (ok) {
-      if (this.expandedId === recordId) {
-        this.expandedId = '';
+    const nameDraft = this.editingWorkoutName.trim();
+    if (nameDraft.length > 0) {
+      const okName = await this.workoutRecordService.updateWorkoutName(this.selectedRecordId, nameDraft);
+      if (!okName) {
+        return;
       }
-      delete this.detailCache[recordId];
     }
+
+    for (const ex of this.selectedDetail.exercises || []) {
+      for (const set of ex.sets || []) {
+        const draft = this.setDrafts[set.id];
+        if (!draft) {
+          continue;
+        }
+        const changed =
+          (set.weight ?? null) !== (draft.weight ?? null) ||
+          (set.done_reps ?? null) !== (draft.reps ?? null) ||
+          (set.comment || '') !== (draft.comment || '');
+        if (!changed) {
+          continue;
+        }
+        const okSet = await this.workoutRecordService.updateSet(this.selectedRecordId, ex.id, set.id, {
+          weight: draft.weight,
+          done_reps: draft.reps,
+          comment: draft.comment
+        });
+        if (!okSet) {
+          return;
+        }
+      }
+    }
+    await this.workoutRecordService.loadRecords();
+    await this.openRecord(this.selectedRecordId);
   }
 
-  private syncDrafts(): void {
-    for (const item of this.workoutRecordService.records()) {
-      this.nameDrafts[item.id] = item.workout_name;
+  async deleteSelected(): Promise<void> {
+    if (!this.selectedRecordId) {
+      return;
     }
+    const ok = await this.workoutRecordService.deleteWorkout(this.selectedRecordId);
+    if (!ok) {
+      return;
+    }
+    await this.workoutRecordService.loadRecords();
+    this.closeModal();
   }
 }

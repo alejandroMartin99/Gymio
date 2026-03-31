@@ -30,7 +30,7 @@ export class AppShellComponent {
 
   navItems = [
     { label: 'Perfil', path: '/profile', iconSrc: '/icons/user-circle.svg', icon: '' },
-    { label: 'New Workout', path: '/workouts', icon: '+', center: true },
+    { label: 'New Workout', path: '/workouts', iconSrc: '/icons/plus-circle.svg', icon: '', center: true },
     { label: 'Historic', path: '/historic', iconSrc: '/icons/chart-line.svg', icon: '' }
   ];
   showWorkoutConfirmModal = false;

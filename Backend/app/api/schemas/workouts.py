@@ -59,6 +59,12 @@ class AddSetRequest(BaseModel):
     rpe: float | None = None
 
 
+class UpdateSetRequest(BaseModel):
+    done_reps: int | None = None
+    weight: float | None = None
+    comment: str | None = None
+
+
 class UpdateExerciseNotesRequest(BaseModel):
     notes: str | None = None
 

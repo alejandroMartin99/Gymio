@@ -7,6 +7,7 @@ from app.api.schemas.workouts import (
     AddExerciseRequest,
     AddSetRequest,
     CreateWorkoutRecordRequest,
+    UpdateSetRequest,
     UpdateWorkoutRecordRequest,
     UpdateExerciseNotesRequest,
 )
@@ -200,6 +201,44 @@ def delete_set(
         raise HTTPException(status_code=404, detail="Set not found")
     client.table("exercise_sets").delete().eq("id", set_id).eq("user_id", user_id).execute()
     return {"success": True}
+
+
+@router.patch("/records/{workout_id}/exercises/{exercise_id}/sets/{set_id}")
+def update_set(
+    workout_id: str,
+    exercise_id: str,
+    set_id: str,
+    payload: UpdateSetRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict[str, bool | object]:
+    client = get_supabase_service_client()
+    existing = (
+        client.table("exercise_sets")
+        .select("id")
+        .eq("id", set_id)
+        .eq("workout_id", workout_id)
+        .eq("workout_exercise_id", exercise_id)
+        .eq("user_id", user_id)
+        .limit(1)
+        .execute()
+    )
+    if not existing.data:
+        raise HTTPException(status_code=404, detail="Set not found")
+    updates = {
+        "done_reps": payload.done_reps,
+        "weight": payload.weight,
+        "comment": payload.comment,
+    }
+    updated = (
+        client.table("exercise_sets")
+        .update(updates)
+        .eq("id", set_id)
+        .eq("user_id", user_id)
+        .execute()
+    )
+    if not updated.data:
+        raise HTTPException(status_code=400, detail="Unable to update set")
+    return {"success": True, "data": updated.data[0]}
 
 
 @router.delete("/records/{workout_id}/exercises/{exercise_id}")

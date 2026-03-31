@@ -207,6 +207,31 @@ export class WorkoutRecordService {
     }
   }
 
+  async updateSet(
+    workoutId: string,
+    exerciseId: string,
+    setId: string,
+    payload: { done_reps?: number | null; weight?: number | null; comment?: string | null }
+  ): Promise<boolean> {
+    this.loading.set(true);
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.patch<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/${exerciseId}/sets/${setId}`,
+          payload,
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudo actualizar la serie.');
+      return false;
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
   async updateExerciseNotes(workoutId: string, exerciseId: string, notes: string): Promise<boolean> {
     this.loading.set(true);
     this.error.set(null);

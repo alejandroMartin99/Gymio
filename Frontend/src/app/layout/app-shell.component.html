@@ -57,7 +57,13 @@
 
   <nav class="bottom-nav">
     @for (item of navItems; track item.path) {
-      <a [routerLink]="item.path" routerLinkActive="active" class="nav-item" [class.nav-item--center]="item.center">
+      <a
+        [routerLink]="item.path"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        class="nav-item"
+        [class.nav-item--center]="item.center"
+      >
         <span class="nav-icon" aria-hidden="true">
           @if (item.iconSrc) {
             <img [src]="item.iconSrc" alt="" />
