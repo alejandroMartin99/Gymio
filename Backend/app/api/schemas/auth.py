@@ -1,8 +1,8 @@
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
 
 
 class AuthCredentials(BaseModel):
-    email: EmailStr
+    email: str
     password: str = Field(min_length=6)
 
 
