@@ -4,21 +4,21 @@
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: #f3f4f6;
+  background: var(--color-bg);
 }
 
 .auth-card {
   width: 100%;
-  max-width: 340px;
-  background: #f8fafc;
-  border: 1px solid #d9dde3;
-  border-radius: 8px;
-  padding: 26px 22px;
-  box-shadow: none;
+  max-width: 380px;
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 28px 24px;
+  box-shadow: var(--shadow);
 }
 
 .auth-title {
-  font-size: 34px;
+  font-size: 22px;
   font-weight: 700;
   margin: 0 0 4px;
   letter-spacing: -0.02em;
@@ -26,14 +26,14 @@
 
 .auth-subtitle {
   font-size: 14px;
-  color: #9ca3af;
+  color: var(--color-text-muted);
   margin-bottom: 16px;
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .form-group {
@@ -45,34 +45,32 @@
 .form-group label {
   font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--color-text-secondary);
 }
 
 .form-group input {
-  border: 1px solid #d9dee8;
-  border-radius: 6px;
-  padding: 11px 12px;
-  font-size: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
   font-family: inherit;
-  background: #e8eef8;
-  color: #111827;
+  background: #fff;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #9ca3af;
+  border-color: #111;
 }
 
 .auth-btn {
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
   background: #111;
   color: #fff;
-  padding: 11px 14px;
+  padding: 12px 14px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
-  margin-top: 4px;
 }
 
 .auth-btn:disabled {
@@ -101,19 +99,19 @@
 }
 
 .auth-footer {
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
-  color: #9ca3af;
+  color: var(--color-text-muted);
 }
 
 .auth-footer button {
   border: 0;
   background: transparent;
-  color: #111827;
+  color: #111;
   font-weight: 600;
   cursor: pointer;
   padding: 0;

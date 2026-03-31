@@ -32,7 +32,7 @@ export class AuthService {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     this.loading.set(false);
     if (error) {
-      this.error.set(error.message);
+      this.error.set(this.mapAuthError(error.message));
       return false;
     }
     return true;
@@ -52,7 +52,7 @@ export class AuthService {
     });
     this.loading.set(false);
     if (error) {
-      this.error.set(error.message);
+      this.error.set(this.mapAuthError(error.message));
       return false;
     }
     return true;
@@ -61,5 +61,24 @@ export class AuthService {
   async signOut(): Promise<void> {
     await supabase.auth.signOut();
     this.user.set(null);
+  }
+
+  private mapAuthError(rawMessage: string): string {
+    const message = rawMessage.toLowerCase();
+
+    if (message.includes('email rate limit exceeded')) {
+      return 'Has hecho demasiados intentos de registro. Espera un minuto y vuelve a intentarlo.';
+    }
+    if (message.includes('user already registered')) {
+      return 'Este email ya esta registrado. Prueba iniciar sesion.';
+    }
+    if (message.includes('invalid login credentials')) {
+      return 'Email o contrasena incorrectos.';
+    }
+    if (message.includes('email not confirmed')) {
+      return 'Debes confirmar tu email antes de iniciar sesion.';
+    }
+
+    return rawMessage;
   }
 }

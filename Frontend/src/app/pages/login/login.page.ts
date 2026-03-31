@@ -56,11 +56,18 @@ export class LoginPage {
       return;
     }
     if (this.mode === 'register') {
-      this.message = 'Cuenta creada. Revisa tu email para confirmar si aplica.';
+      const signedIn = await this.auth.signIn(this.email.trim(), this.password);
+      if (signedIn) {
+        void this.router.navigateByUrl('/workouts');
+        return;
+      }
+
+      this.message = 'Cuenta creada. Si no inicia sesion automaticamente, confirma tu email y vuelve a entrar.';
       this.password = '';
       this.confirmPassword = '';
-    } else {
-      void this.router.navigateByUrl('/workouts');
+      return;
     }
+
+    void this.router.navigateByUrl('/workouts');
   }
 }

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from supabase_auth.errors import AuthApiError
 
 from app.api.schemas.auth import AccessTokenRequest, AuthCredentials
 from app.services.supabase.supabase_service import get_supabase_anon_client
@@ -9,9 +10,12 @@ router = APIRouter()
 @router.post("/login")
 def login(payload: AuthCredentials) -> dict[str, bool | object]:
     client = get_supabase_anon_client()
-    response = client.auth.sign_in_with_password(
-        {"email": payload.email, "password": payload.password}
-    )
+    try:
+        response = client.auth.sign_in_with_password(
+            {"email": payload.email, "password": payload.password}
+        )
+    except AuthApiError as exc:
+        raise HTTPException(status_code=401, detail=exc.message) from exc
     if not response.session:
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {
@@ -30,7 +34,10 @@ def login(payload: AuthCredentials) -> dict[str, bool | object]:
 @router.post("/register")
 def register(payload: AuthCredentials) -> dict[str, bool | object]:
     client = get_supabase_anon_client()
-    response = client.auth.sign_up({"email": payload.email, "password": payload.password})
+    try:
+        response = client.auth.sign_up({"email": payload.email, "password": payload.password})
+    except AuthApiError as exc:
+        raise HTTPException(status_code=400, detail=exc.message) from exc
     if not response.user:
         raise HTTPException(status_code=400, detail="Unable to register user")
     return {
