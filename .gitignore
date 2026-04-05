@@ -1,0 +1,3 @@
+# Clave local del script ExerciseDB (copiar desde rapidapi.env.example)
+scripts/rapidapi.env
+scripts/.env
