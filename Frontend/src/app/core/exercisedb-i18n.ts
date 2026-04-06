@@ -1,6 +1,5 @@
 /** Traducciones UI para valores en ingles devueltos por ExerciseDB (v1). */
 import { EXERCISE_NAME_ES_MANUAL } from './exercisedb-name-manual-es';
-import { EXERCISE_NAME_ES } from './exercisedb-name-translations';
 
 const BODY_PART_ES: Record<string, string> = {
   back: 'Espalda',
@@ -101,59 +100,9 @@ export function translateCategory(value?: string | null): string {
   return CATEGORY_ES[normKey(value)] ?? capitalizeWords(value);
 }
 
-const NAME_TOKEN_ES: Record<string, string> = {
-  ab: 'abdominal',
-  abs: 'abdominales',
-  assisted: 'asistido',
-  alternating: 'alterno',
-  arnold: 'arnold',
-  barbell: 'barra',
-  bench: 'banco',
-  bent: 'inclinado',
-  body: 'cuerpo',
-  cable: 'polea',
-  chest: 'pecho',
-  curl: 'curl',
-  deadlift: 'peso muerto',
-  decline: 'declinado',
-  dip: 'fondo',
-  dumbbell: 'mancuerna',
-  extension: 'extension',
-  fly: 'apertura',
-  front: 'frontal',
-  glute: 'gluteo',
-  hammer: 'martillo',
-  high: 'alto',
-  incline: 'inclinado',
-  kickback: 'patada',
-  lateral: 'lateral',
-  leg: 'pierna',
-  machine: 'maquina',
-  overhead: 'sobre cabeza',
-  press: 'press',
-  pulldown: 'jalon',
-  pull: 'tiron',
-  push: 'empuje',
-  raise: 'elevacion',
-  rear: 'posterior',
-  reverse: 'inverso',
-  row: 'remo',
-  russian: 'ruso',
-  seated: 'sentado',
-  shoulder: 'hombro',
-  shrug: 'encogimiento',
-  sit: 'abdominal',
-  squat: 'sentadilla',
-  standing: 'de pie',
-  triceps: 'triceps',
-  twist: 'giro',
-  up: 'arriba',
-  weight: 'peso'
-};
-
 /**
- * Traduccion heuristica de nombres de ejercicio (EN -> ES).
- * Mantiene legibilidad para hispanohablantes y cae con gracia si faltan tokens.
+ * Traduccion manual de nombres EN -> ES.
+ * Si no hay traduccion curada, se conserva EN para evitar resultados raros.
  */
 export function translateExerciseName(value?: string | null): string {
   if (!value) return '';
@@ -163,25 +112,8 @@ export function translateExerciseName(value?: string | null): string {
   if (manualExact) return manualExact;
   const manualNormalized = EXERCISE_NAME_ES_MANUAL_BY_NORM[normKey(src)];
   if (manualNormalized) return manualNormalized;
-  const exact = EXERCISE_NAME_ES[src];
-  if (exact) return exact;
-  const normalizedLookup = EXERCISE_NAME_ES_BY_NORM[normKey(src)];
-  if (normalizedLookup) return normalizedLookup;
-  const normalized = src
-    .toLowerCase()
-    .replace(/[()]/g, ' ')
-    .replace(/[/_,-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const words = normalized.split(' ');
-  const translated = words.map((w) => NAME_TOKEN_ES[w] ?? w).join(' ');
-  return capitalizeWords(translated);
+  return src;
 }
-
-const EXERCISE_NAME_ES_BY_NORM: Record<string, string> = Object.fromEntries(
-  Object.entries(EXERCISE_NAME_ES).map(([en, es]) => [normKey(en), es])
-);
 
 const EXERCISE_NAME_ES_MANUAL_BY_NORM: Record<string, string> = Object.fromEntries(
   Object.entries(EXERCISE_NAME_ES_MANUAL).map(([en, es]) => [normKey(en), es])
