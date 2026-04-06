@@ -18,6 +18,7 @@ interface CalendarCell {
   hasWorkout: boolean;
   /** Nombre corto de la rutina (primer entreno del día) */
   workoutShortLabel: string;
+  workoutColorName: string;
 }
 
 @Component({
@@ -39,7 +40,10 @@ interface CalendarCell {
             <span class="routine-legend-title">Rutinas este mes</span>
             <div class="routine-legend-chips">
               @for (name of routineNamesThisMonth(); track name) {
-                <span class="routine-chip">{{ name }}</span>
+                <span class="routine-chip" [ngStyle]="routineChipStyle(name)">
+                  <span class="routine-chip-dot" [ngStyle]="routineDotStyle(name)"></span>
+                  <span>{{ name }}</span>
+                </span>
               }
             </div>
           </div>
@@ -64,6 +68,7 @@ interface CalendarCell {
                 [class.off-month]="!cell.inMonth"
                 [class.today]="cell.isToday"
                 [class.has-workout]="cell.hasWorkout"
+                [ngStyle]="cell.hasWorkout ? calendarDayStyle(cell) : null"
                 [disabled]="!cell.hasWorkout"
                 (click)="onCalendarDay(cell)"
                 [attr.aria-label]="
@@ -88,16 +93,44 @@ interface CalendarCell {
 
     @if (showModal) {
       <div class="modal-backdrop" (click)="closeModal()">
-        <div class="modal" (click)="$event.stopPropagation()">
+        <div class="modal day-modal" (click)="$event.stopPropagation()">
+          <div class="day-modal-head">
+            <div class="day-modal-head-copy">
+              <h3>Entrenamiento del día</h3>
+              @if (selectedDayDateLabel()) {
+                <small class="muted">{{ selectedDayDateLabel() }}</small>
+              }
+            </div>
+            <button type="button" class="close x" (click)="closeModal()">✕</button>
+          </div>
+
+          @if (dayRecords.length > 1) {
+            <div class="day-session-pills">
+              @for (record of dayRecords; track record.id) {
+                <button
+                  type="button"
+                  class="day-session-pill"
+                  [class.active]="record.id === selectedRecordId"
+                  [ngStyle]="routineChipStyle(record.workout_name)"
+                  (click)="openRecord(record.id)"
+                >
+                  {{ record.workout_name }}
+                </button>
+              }
+            </div>
+          }
+
           @if (detailLoadingId === selectedRecordId) {
             <small class="muted">Cargando detalle…</small>
           } @else if (selectedDetail) {
             <div class="modal-head">
-              @if (isEditingWorkoutName) {
-                <input class="title-input" [(ngModel)]="editingWorkoutName" />
-              } @else {
-                <h3>{{ selectedDetail.workout_name }}</h3>
-              }
+              <div class="modal-head-title">
+                @if (isEditingWorkoutName) {
+                  <input class="title-input" [(ngModel)]="editingWorkoutName" />
+                } @else {
+                  <h4>{{ selectedDetail.workout_name }}</h4>
+                }
+              </div>
               <button type="button" class="edit-title-btn" (click)="toggleEditWorkoutName()" aria-label="Editar nombre">
                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <path d="M12 20h9" />
@@ -105,11 +138,25 @@ interface CalendarCell {
                 </svg>
               </button>
             </div>
-
+            <div class="day-summary">
+              <div class="summary-pill">
+                <span class="summary-label">Ejercicios</span>
+                <strong>{{ selectedExercisesCount(selectedDetail) }}</strong>
+              </div>
+              <div class="summary-pill">
+                <span class="summary-label">Series</span>
+                <strong>{{ selectedSetsCount(selectedDetail) }}</strong>
+              </div>
+            </div>
             <div class="exercises">
               @for (ex of sortedExercises(selectedDetail); track ex.id) {
                 <div class="exercise-block">
-                  <div class="exercise-name">{{ ex.name }}</div>
+                  <div class="exercise-head-row">
+                    <div class="exercise-name">{{ ex.name }}</div>
+                    <span class="exercise-table-icon" aria-hidden="true">
+                      <img src="/icons/chart-line.svg" alt="" />
+                    </span>
+                  </div>
                   @if (ex.sets.length === 0) {
                     <small class="muted">Sin series</small>
                   } @else {
@@ -137,7 +184,6 @@ interface CalendarCell {
             <button type="button" class="danger" (click)="deleteSelected()">Eliminar</button>
             <button type="button" class="save" (click)="saveSelected()">Guardar cambios</button>
           </div>
-          <button type="button" class="close" (click)="closeModal()">Cerrar</button>
         </div>
       </div>
     }
@@ -179,6 +225,9 @@ interface CalendarCell {
     }
 
     .routine-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       font-size: 0.72rem;
       color: #111827;
       background: #f9fafb;
@@ -189,6 +238,14 @@ interface CalendarCell {
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .routine-chip-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      flex-shrink: 0;
+      background: #9ca3af;
     }
 
     .calendar-wrap {
@@ -270,6 +327,8 @@ interface CalendarCell {
 
     .cal-day.has-workout:not(:disabled) {
       cursor: pointer;
+      border-color: color-mix(in srgb, var(--day-color, #c4b5fd) 40%, #ffffff 60%);
+      background: color-mix(in srgb, var(--day-color, #c4b5fd) 18%, #ffffff 82%);
     }
 
     .cal-day.has-workout:not(:disabled):active {
@@ -295,7 +354,7 @@ interface CalendarCell {
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: #111827;
+      background: var(--day-color, #111827);
       margin-top: 0.2rem;
       flex-shrink: 0;
     }
@@ -322,45 +381,71 @@ interface CalendarCell {
 
     .exercises {
       display: grid;
-      gap: 0.45rem;
-      margin-bottom: 0.35rem;
+      gap: 0.55rem;
+      margin: 0.15rem 0 0.1rem;
+      max-height: min(48vh, 420px);
+      overflow: auto;
+      padding-right: 0.12rem;
     }
 
     .exercise-block {
-      border: 0;
-      border-radius: 0;
-      padding: 0.25rem 0;
-      background: transparent;
-      border-bottom: 1px solid #f3f4f6;
-    }
-
-    .exercise-block:last-child {
-      border-bottom: 0;
+      border: 1px solid #eef2f7;
+      border-radius: 12px;
+      padding: 0.55rem 0.55rem 0.5rem;
+      background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+      box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
     }
 
     .exercise-name {
-      font-size: 0.84rem;
-      font-weight: 600;
+      font-size: 0.82rem;
+      font-weight: 700;
       color: #111827;
-      margin-bottom: 0.4rem;
+      margin-bottom: 0.34rem;
+    }
+
+    .exercise-head-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.45rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .exercise-table-icon {
+      width: 24px;
+      height: 24px;
+      border: 1px solid #dde6f0;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #ffffff;
+      flex-shrink: 0;
+    }
+
+    .exercise-table-icon img {
+      width: 13px;
+      height: 13px;
+      opacity: 0.75;
     }
 
     .sets-grid {
       display: grid;
-      grid-template-columns: 28px 1fr 1fr;
-      gap: 0.3rem;
+      grid-template-columns: 22px minmax(0, 74px) minmax(0, 74px);
+      gap: 0.35rem;
       align-items: center;
-      font-size: 0.76rem;
+      font-size: 0.74rem;
       color: #374151;
+      justify-content: start;
       text-align: center;
     }
 
     .sets-grid.header {
-      color: #9ca3af;
+      color: #8b95a7;
       font-weight: 700;
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       letter-spacing: 0.04em;
-      margin-top: 0.25rem;
+      margin-top: 0.1rem;
+      margin-bottom: 0.1rem;
     }
 
     .sets-grid span:first-child {
@@ -373,42 +458,50 @@ interface CalendarCell {
     }
 
     .sets-grid.edit input {
-      border: 0;
-      border-bottom: 1px solid #d1d5db;
-      border-radius: 0;
-      padding: 0.18rem 0.2rem 0.14rem;
+      border: 1px solid #d9e2ec;
+      border-radius: 8px;
+      padding: 0.22rem 0.22rem;
       font: inherit;
       font-size: 0.74rem;
       text-align: center;
-      background: transparent;
+      background: #fff;
       min-width: 0;
     }
 
     .buttons {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       gap: 0.5rem;
+      border-top: 1px solid #eef2f7;
+      padding-top: 0.55rem;
+      margin-top: 0.25rem;
+      position: sticky;
+      bottom: 0;
+      background: #fff;
     }
 
     .buttons button {
-      border-radius: 8px;
-      padding: 0.42rem 0.6rem;
+      border-radius: 10px;
+      padding: 0.48rem 0.72rem;
       font: inherit;
-      font-size: 0.78rem;
-      font-weight: 600;
+      font-size: 0.76rem;
+      font-weight: 700;
       cursor: pointer;
     }
 
     .buttons .save {
-      border: 1px solid #111;
-      background: #111;
+      border: 1px solid #111827;
+      background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
       color: #fff;
+      margin-left: auto;
+      min-width: 128px;
     }
 
     .buttons .danger {
-      border: 1px solid #fecaca;
-      background: #fff;
+      border: 1px solid #fda4af;
+      background: #fff5f6;
       color: #dc2626;
+      min-width: 92px;
     }
 
     .modal-backdrop {
@@ -442,15 +535,114 @@ interface CalendarCell {
       font-size: 1rem;
     }
 
+    .day-modal {
+      gap: 0.62rem;
+      padding: 0.75rem 0.75rem 0.55rem;
+      border-radius: 18px;
+      border: 1px solid #e8edf4;
+      box-shadow: 0 14px 42px rgba(15, 23, 42, 0.2);
+    }
+
+    .day-modal-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+      padding: 0.05rem 0.05rem 0.55rem;
+      border-bottom: 1px solid #eef2f7;
+    }
+
+    .day-modal-head-copy h3 {
+      margin: 0;
+      font-size: 1.05rem;
+      letter-spacing: -0.01em;
+      color: #0f172a;
+    }
+
+    .day-session-pills {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      margin-top: -0.05rem;
+    }
+
+    .day-session-pill {
+      border: 1px solid #dbe3ec;
+      background: #fff;
+      color: #111827;
+      border-radius: 999px;
+      padding: 0.32rem 0.66rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .day-session-pill.active {
+      border-color: #94a3b8;
+      box-shadow: inset 0 0 0 1px rgba(51, 65, 85, 0.14);
+    }
+
     .modal-head {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.55rem;
+      padding: 0.18rem 0.12rem;
+      border: 1px solid #e9eff6;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f6f9fc 100%);
+    }
+
+    .modal-head-title {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .modal-head-title h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #0f172a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .day-summary {
+      display: flex;
+      gap: 0.45rem;
+      margin-top: -0.1rem;
+    }
+
+    .summary-pill {
+      flex: 1;
+      border: 1px solid #e6edf6;
+      border-radius: 10px;
+      background: #f8fbff;
+      padding: 0.35rem 0.5rem;
+      display: grid;
+      gap: 0.05rem;
+      text-align: center;
+    }
+
+    .summary-label {
+      font-size: 0.64rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #7b8798;
+      font-weight: 700;
+    }
+
+    .summary-pill strong {
+      font-size: 0.92rem;
+      color: #0f172a;
     }
 
     .edit-title-btn {
-      border: 1px solid #e5e7eb;
+      border: 1px solid #dbe3ec;
       background: #fff;
       color: #374151;
       width: 30px;
@@ -464,7 +656,7 @@ interface CalendarCell {
 
     .title-input {
       width: 100%;
-      border: 1px solid #e5e7eb;
+      border: 1px solid #dbe3ec;
       border-radius: 8px;
       padding: 0.45rem 0.55rem;
       font: inherit;
@@ -483,6 +675,20 @@ interface CalendarCell {
       font-size: 0.8rem;
     }
 
+    .close.x {
+      border: 1px solid #dbe3ec;
+      border-radius: 9px;
+      width: 30px;
+      height: 30px;
+      font-size: 0.9rem;
+      display: grid;
+      place-items: center;
+      color: #6b7280;
+      background: #fff;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
     @media (max-width: 480px) {
       .modal-backdrop {
         padding: 0.5rem;
@@ -495,17 +701,36 @@ interface CalendarCell {
         gap: 0.42rem;
       }
 
+      .day-modal {
+        padding: 0.58rem 0.58rem 0.5rem;
+      }
+
       .exercise-name {
         font-size: 0.79rem;
       }
 
+      .exercise-table-icon {
+        width: 22px;
+        height: 22px;
+      }
+
+      .exercise-table-icon img {
+        width: 12px;
+        height: 12px;
+      }
+
+      .sets-grid {
+        grid-template-columns: 20px minmax(0, 66px) minmax(0, 66px);
+      }
+
       .buttons {
         gap: 0.35rem;
+        padding-top: 0.48rem;
       }
 
       .buttons button {
-        padding: 0.36rem 0.52rem;
-        font-size: 0.74rem;
+        padding: 0.38rem 0.56rem;
+        font-size: 0.72rem;
       }
     }
   `]
@@ -514,11 +739,14 @@ export class HistoricPage implements OnInit {
   constructor(readonly workoutRecordService: WorkoutRecordService) {}
 
   readonly weekLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+  readonly routinePastelPalette = ['#FBCFE8', '#BFDBFE', '#C7F9CC', '#FDE68A', '#DDD6FE', '#FBCFE8', '#A7F3D0', '#FECACA'];
 
   calendarYear = new Date().getFullYear();
   calendarMonth = new Date().getMonth();
 
   showModal = false;
+  selectedDayKey = '';
+  dayRecords: WorkoutRecord[] = [];
   selectedRecordId = '';
   selectedDetail: WorkoutRecordDetail | null = null;
   detailLoadingId = '';
@@ -569,6 +797,47 @@ export class HistoricPage implements OnInit {
       base += ` +${records.length - 1}`;
     }
     return base;
+  }
+
+  private colorByWorkoutName(name: string): string {
+    const n = (name || 'Rutina').trim().toLowerCase();
+    let hash = 0;
+    for (let i = 0; i < n.length; i++) {
+      hash = (hash << 5) - hash + n.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % this.routinePastelPalette.length;
+    return this.routinePastelPalette[idx];
+  }
+
+  routineChipStyle(name: string): Record<string, string> {
+    const c = this.colorByWorkoutName(name);
+    return {
+      background: `color-mix(in srgb, ${c} 28%, #ffffff 72%)`,
+      borderColor: `color-mix(in srgb, ${c} 50%, #e5e7eb 50%)`
+    };
+  }
+
+  routineDotStyle(name: string): Record<string, string> {
+    return { background: this.colorByWorkoutName(name) };
+  }
+
+  calendarDayStyle(cell: CalendarCell): Record<string, string> {
+    const baseName = cell.workoutColorName || cell.workoutShortLabel;
+    return { '--day-color': this.colorByWorkoutName(baseName) };
+  }
+
+  selectedDayDateLabel(): string {
+    if (!this.selectedDayKey) {
+      return '';
+    }
+    const [y, m, d] = this.selectedDayKey.split('-').map((v) => Number(v));
+    return new Date(y, (m || 1) - 1, d || 1).toLocaleDateString('es', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
   }
 
   prevMonth(): void {
@@ -635,7 +904,8 @@ export class HistoricPage implements OnInit {
         inMonth,
         isToday: dk === todayKey,
         hasWorkout: has,
-        workoutShortLabel: has && list ? this.workoutShortLabelForDay(list) : ''
+        workoutShortLabel: has && list ? this.workoutShortLabelForDay(list) : '',
+        workoutColorName: has && list ? (list[0].workout_name || '') : ''
       });
     };
 
@@ -656,7 +926,10 @@ export class HistoricPage implements OnInit {
     if (!cell.hasWorkout) {
       return;
     }
-    const list = this.trainingMap().get(cell.dateKey);
+    const list = this.trainingMap().get(cell.dateKey) ?? [];
+    this.selectedDayKey = cell.dateKey;
+    this.dayRecords = list;
+    this.showModal = true;
     const first = list?.[0];
     if (first) {
       await this.openRecord(first.id);
@@ -690,6 +963,8 @@ export class HistoricPage implements OnInit {
 
   closeModal(): void {
     this.showModal = false;
+    this.selectedDayKey = '';
+    this.dayRecords = [];
     this.selectedRecordId = '';
     this.selectedDetail = null;
     this.isEditingWorkoutName = false;
@@ -705,6 +980,14 @@ export class HistoricPage implements OnInit {
 
   sortedSets(sets: ExerciseSetRecord[]): ExerciseSetRecord[] {
     return [...sets].sort((a, b) => a.position - b.position);
+  }
+
+  selectedExercisesCount(detail: WorkoutRecordDetail): number {
+    return detail.exercises?.length ?? 0;
+  }
+
+  selectedSetsCount(detail: WorkoutRecordDetail): number {
+    return (detail.exercises || []).reduce((acc, ex) => acc + (ex.sets?.length || 0), 0);
   }
 
   async saveSelected(): Promise<void> {
@@ -743,6 +1026,9 @@ export class HistoricPage implements OnInit {
       }
     }
     await this.workoutRecordService.loadRecords();
+    if (this.selectedDayKey) {
+      this.dayRecords = this.trainingMap().get(this.selectedDayKey) ?? [];
+    }
     await this.openRecord(this.selectedRecordId);
   }
 
@@ -755,6 +1041,16 @@ export class HistoricPage implements OnInit {
       return;
     }
     await this.workoutRecordService.loadRecords();
-    this.closeModal();
+    if (!this.selectedDayKey) {
+      this.closeModal();
+      return;
+    }
+    const stillInDay = this.trainingMap().get(this.selectedDayKey) ?? [];
+    this.dayRecords = stillInDay;
+    if (stillInDay.length === 0) {
+      this.closeModal();
+      return;
+    }
+    await this.openRecord(stillInDay[0].id);
   }
 }

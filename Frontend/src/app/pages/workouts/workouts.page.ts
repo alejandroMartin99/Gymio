@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, effect, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import {
@@ -244,7 +244,8 @@ interface PendingSetDraft {
             <div class="catalog-search-row">
               <input
                 type="search"
-                [(ngModel)]="catalogSearchQuery"
+                [ngModel]="catalogSearchQuery"
+                (ngModelChange)="onCatalogSearchInputChange($event)"
                 placeholder="Buscar por nombre..."
                 (keydown.enter)="runCatalogSearch()"
               />
@@ -264,10 +265,14 @@ interface PendingSetDraft {
               }
             </div>
 
-            @if (selectedCatalogThumb()) {
+            @if (selectedCatalogThumbs().length > 0) {
               <div class="selected-thumb-block">
-                <small>Seleccionado</small>
-                <img [src]="selectedCatalogThumb()!" alt="" />
+                <small>Seleccionados</small>
+                <div class="selected-thumb-list">
+                  @for (thumb of selectedCatalogThumbs(); track thumb) {
+                    <img [src]="thumb" alt="" />
+                  }
+                </div>
               </div>
             }
 
@@ -1045,6 +1050,13 @@ interface PendingSetDraft {
       line-height: 1;
     }
 
+    .selected-thumb-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.3rem;
+      max-width: 280px;
+    }
+
     .selected-thumb-block img {
       width: 56px;
       height: 56px;
@@ -1260,7 +1272,7 @@ interface PendingSetDraft {
     }
   `]
 })
-export class WorkoutsPage implements OnInit {
+export class WorkoutsPage implements OnInit, OnDestroy {
   constructor(
     readonly workoutRecordService: WorkoutRecordService,
     readonly exerciseCatalogService: ExerciseCatalogService,
@@ -1283,11 +1295,12 @@ export class WorkoutsPage implements OnInit {
   manualMode = false;
   manualExerciseName = '';
   catalogSearchQuery = '';
+  debouncedCatalogSearchQuery = '';
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
     {};
   activeMuscleGroup = '';
   selectedEquipmentFilter: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free' = 'all';
-  selectedCatalogThumb = signal<string | null>(null);
+  selectedCatalogThumbs = signal<string[]>([]);
 
   readonly muscleGroupSlides = [
     { key: 'pecho', label: 'Pecho', image: '/exercises/groups/pecho.png' },
@@ -1323,6 +1336,7 @@ export class WorkoutsPage implements OnInit {
   readonly workoutExerciseMediaUrls = signal<Record<string, string>>({});
   private isFinalizing = false;
   private autoOpenedPickerForWorkoutId = '';
+  private catalogSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly finalizeEffect = effect(() => {
     const tick = this.activeWorkout.finalizeRequestTick();
@@ -1339,6 +1353,7 @@ export class WorkoutsPage implements OnInit {
       this.selectedExerciseId = '';
       this.workoutExerciseMediaUrls.set({});
       this.showExerciseListModal = false;
+      this.selectedCatalogThumbs.set([]);
     }
   });
 
@@ -1351,6 +1366,13 @@ export class WorkoutsPage implements OnInit {
       if (!this.currentWorkout) {
         this.activeWorkout.finishWorkout();
       }
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+      this.catalogSearchDebounceTimer = null;
     }
   }
 
@@ -1403,11 +1425,26 @@ export class WorkoutsPage implements OnInit {
     if (!this.workoutName) {
       this.workoutName = 'Nueva sesion';
     }
+    this.showExerciseListModal = false;
     this.showNewSessionModal = true;
   }
 
   closeNewSessionModal(): void {
     this.showNewSessionModal = false;
+    this.showExerciseListModal = false;
+    this.manualMode = false;
+    this.manualExerciseName = '';
+    this.selectedCatalogExerciseId = '';
+    this.selectedCatalogExerciseMuscleGroup = '';
+    this.catalogSearchQuery = '';
+    this.debouncedCatalogSearchQuery = '';
+    this.selectedEquipmentFilter = 'all';
+    this.activeMuscleGroup = '';
+    this.selectedMuscleGroup = '';
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+      this.catalogSearchDebounceTimer = null;
+    }
   }
 
   private async createWorkout(): Promise<void> {
@@ -1555,13 +1592,16 @@ export class WorkoutsPage implements OnInit {
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
+    this.debouncedCatalogSearchQuery = '';
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+      this.catalogSearchDebounceTimer = null;
+    }
     this.selectedEquipmentFilter = 'all';
-    this.selectedCatalogThumb.set(null);
-    const firstSlide = this.muscleGroupSlides[0];
-    this.activeMuscleGroup = firstSlide.key;
-    this.selectedMuscleGroup = firstSlide.label;
+    this.activeMuscleGroup = '';
+    this.selectedMuscleGroup = '';
     this.showExerciseListModal = true;
-    await this.exerciseCatalogService.loadByGroup(firstSlide.label);
+    await this.exerciseCatalogService.loadAll('Todos');
   }
 
   closeExerciseListModal(): void {
@@ -1572,10 +1612,29 @@ export class WorkoutsPage implements OnInit {
     this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
-    this.selectedCatalogThumb.set(null);
+    this.debouncedCatalogSearchQuery = '';
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+      this.catalogSearchDebounceTimer = null;
+    }
   }
 
   async selectMuscleGroupSlide(key: string): Promise<void> {
+    if (this.activeMuscleGroup === key) {
+      this.activeMuscleGroup = '';
+      this.selectedMuscleGroup = '';
+      this.selectedCatalogExerciseId = '';
+      this.catalogSearchQuery = '';
+      this.debouncedCatalogSearchQuery = '';
+      if (this.catalogSearchDebounceTimer) {
+        clearTimeout(this.catalogSearchDebounceTimer);
+        this.catalogSearchDebounceTimer = null;
+      }
+      this.selectedEquipmentFilter = 'all';
+      await this.exerciseCatalogService.loadAll('Todos');
+      return;
+    }
+
     const slide = this.muscleGroupSlides.find((g) => g.key === key);
     if (!slide) {
       return;
@@ -1584,6 +1643,11 @@ export class WorkoutsPage implements OnInit {
     this.selectedMuscleGroup = slide.label;
     this.selectedCatalogExerciseId = '';
     this.catalogSearchQuery = '';
+    this.debouncedCatalogSearchQuery = '';
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+      this.catalogSearchDebounceTimer = null;
+    }
     this.selectedEquipmentFilter = 'all';
     await this.exerciseCatalogService.loadByGroup(slide.label);
   }
@@ -1594,15 +1658,59 @@ export class WorkoutsPage implements OnInit {
 
   runCatalogSearch(): void {
     const q = this.catalogSearchQuery.trim();
+    this.flushCatalogSearchDebounce();
     if (!q) {
-      void this.exerciseCatalogService.loadByGroup(this.selectedMuscleGroup || 'Pecho');
+      if (this.selectedMuscleGroup) {
+        void this.exerciseCatalogService.loadByGroup(this.selectedMuscleGroup);
+      } else {
+        void this.exerciseCatalogService.loadAll('Todos');
+      }
+      this.debouncedCatalogSearchQuery = '';
+    }
+  }
+
+  onCatalogSearchInputChange(value: string): void {
+    this.catalogSearchQuery = value;
+    if (this.catalogSearchDebounceTimer) {
+      clearTimeout(this.catalogSearchDebounceTimer);
+    }
+    this.catalogSearchDebounceTimer = setTimeout(() => {
+      this.debouncedCatalogSearchQuery = this.catalogSearchQuery.trim();
+      this.catalogSearchDebounceTimer = null;
+      if (!this.debouncedCatalogSearchQuery) {
+        if (this.selectedMuscleGroup) {
+          void this.exerciseCatalogService.loadByGroup(this.selectedMuscleGroup);
+        } else {
+          void this.exerciseCatalogService.loadAll('Todos');
+        }
+      }
+    }, 1000);
+  }
+
+  private flushCatalogSearchDebounce(): void {
+    if (!this.catalogSearchDebounceTimer) {
+      this.debouncedCatalogSearchQuery = this.catalogSearchQuery.trim();
       return;
     }
-    void this.exerciseCatalogService.searchByName(q, this.selectedMuscleGroup || 'Busqueda');
+    clearTimeout(this.catalogSearchDebounceTimer);
+    this.catalogSearchDebounceTimer = null;
+    this.debouncedCatalogSearchQuery = this.catalogSearchQuery.trim();
+  }
+
+  private matchesSearchQuery(item: ExerciseCatalogItem, q: string): boolean {
+    if (!q) {
+      return true;
+    }
+    const needle = this.normalizeText(q);
+    const english = this.normalizeText(item.name || '');
+    const spanish = this.normalizeText(this.displayCatalogPrimaryName(item));
+    return english.includes(needle) || spanish.includes(needle);
   }
 
   filteredCatalogItems(): ExerciseCatalogItem[] {
-    const base = this.exerciseCatalogService.items();
+    const base = this.exerciseCatalogService.items().filter((item) =>
+      this.matchesSearchQuery(item, this.debouncedCatalogSearchQuery)
+    );
     const mode = this.selectedEquipmentFilter;
     if (mode === 'all') {
       return base;
@@ -1659,8 +1767,10 @@ export class WorkoutsPage implements OnInit {
     if (!this.currentWorkout) {
       return;
     }
-    this.selectedCatalogThumb.set(this.catalogThumb(exercise));
+    this.selectedCatalogExerciseId = exercise.id;
+    this.pushSelectedCatalogThumb(this.catalogThumb(exercise));
     const muscleGroup = exercise.muscle_group || this.selectedMuscleGroup;
+    this.selectedCatalogExerciseMuscleGroup = muscleGroup || '';
     const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
       name: exercise.name.trim(),
       muscle_group: muscleGroup || undefined,
@@ -1672,14 +1782,19 @@ export class WorkoutsPage implements OnInit {
     }
     this.selectedExerciseId = created.id;
     await this.loadDetail(this.currentWorkout.id);
+    // Close picker after selecting so user can edit the added exercise immediately.
     this.showExerciseListModal = false;
-    this.selectedCatalogExerciseId = '';
-    this.selectedCatalogExerciseMuscleGroup = '';
     this.manualMode = false;
   }
 
   catalogThumb(item: ExerciseCatalogItem): string {
     return this.exerciseCatalogService.listThumbs()[item.id] || this.exerciseIcon(item);
+  }
+
+  private pushSelectedCatalogThumb(thumbUrl: string): void {
+    const current = this.selectedCatalogThumbs();
+    const deduped = [thumbUrl, ...current.filter((url) => url !== thumbUrl)];
+    this.selectedCatalogThumbs.set(deduped.slice(0, 8));
   }
 
   async addManualExerciseFromModal(): Promise<void> {
@@ -1699,6 +1814,7 @@ export class WorkoutsPage implements OnInit {
     this.currentWorkout = null;
     this.selectedExerciseId = '';
     this.workoutExerciseMediaUrls.set({});
+    this.selectedCatalogThumbs.set([]);
     this.activeWorkout.finishWorkout();
   }
 
@@ -1718,6 +1834,7 @@ export class WorkoutsPage implements OnInit {
     this.currentWorkout = null;
     this.selectedExerciseId = '';
     this.workoutExerciseMediaUrls.set({});
+    this.selectedCatalogThumbs.set([]);
     this.activeWorkout.finishWorkout();
   }
 

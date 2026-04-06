@@ -64,6 +64,10 @@ export class ExerciseCatalogService {
     await this.loadByQueries(queries, 'Rutina combinada');
   }
 
+  async loadAll(displayLabel = 'Todos'): Promise<void> {
+    await this.loadExercisesUnfiltered(displayLabel);
+  }
+
   /** Busqueda por nombre (ExerciseDB /exercises/name/...). */
   async searchByName(term: string, displayLabel = 'Busqueda'): Promise<void> {
     const q = term.trim();
