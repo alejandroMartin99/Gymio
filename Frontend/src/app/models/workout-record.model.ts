@@ -26,6 +26,8 @@ export interface ExerciseHistoryPoint {
   max_reps: number;
 }
 
+import type { ExerciseDbExercise } from './exercisedb.model';
+
 export interface WorkoutExerciseRecord {
   id: string;
   workout_id: string;
@@ -36,6 +38,8 @@ export interface WorkoutExerciseRecord {
   sets: ExerciseSetRecord[];
   previous_sets?: ExerciseSetRecord[];
   history_points?: ExerciseHistoryPoint[];
+  external_exercise_id?: string | null;
+  exercise_detail?: ExerciseDbExercise | Record<string, unknown> | null;
 }
 
 export interface WorkoutRecordDetail extends WorkoutRecord {

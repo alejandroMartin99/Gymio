@@ -1,12 +1,23 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, computed, effect } from '@angular/core';
+import { Component, OnInit, computed, effect, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import {
+  translateBodyPart,
+  translateCategory,
+  translateDifficulty,
+  translateEquipment,
+  translateExerciseName,
+  translateTarget
+} from '../../core/exercisedb-i18n';
 import { resolveExerciseAltImageByName, resolveExerciseIcon, resolveExerciseImageByName } from '../../core/exercise-icons';
 import { ExerciseCatalogItem } from '../../models/exercise-catalog.model';
+import { isExerciseDbExercise } from '../../models/exercisedb.model';
+import type { ExerciseDbExercise } from '../../models/exercisedb.model';
 import { WorkoutExerciseRecord, WorkoutRecordDetail } from '../../models/workout-record.model';
 import { ActiveWorkoutService } from '../../services/active-workout.service';
 import { ExerciseCatalogService } from '../../services/exercise-catalog.service';
+import { ExerciseDbMediaService } from '../../services/exercise-db-media.service';
 import { WorkoutRecordService } from '../../services/workout-record.service';
 
 interface PendingSetDraft {
@@ -61,8 +72,23 @@ interface PendingSetDraft {
               [class.completed]="completedExerciseIds.has(exercise.id)"
             >
               <div class="exercise-head" (click)="toggleExercise(exercise.id)">
-                <strong>{{ exercise.name }}</strong>
+                <strong class="exercise-name-block">
+                  <span>{{ displayExercisePrimaryName(exercise) }}</span>
+                  @if (displayExerciseSecondaryName(exercise); as enName) {
+                    <small>{{ enName }}</small>
+                  }
+                </strong>
                 <div class="exercise-head-actions">
+                  @if (exerciseDbDetail(exercise)) {
+                    <button
+                      type="button"
+                      class="info-icon-btn"
+                      (click)="$event.stopPropagation(); openExerciseInfoModal(exercise)"
+                      aria-label="Ver informacion del ejercicio"
+                    >
+                      <img src="/icons/info-circle.svg" alt="" />
+                    </button>
+                  }
                   <button
                     type="button"
                     class="history-icon-btn"
@@ -79,7 +105,7 @@ interface PendingSetDraft {
               @if (selectedExerciseId === exercise.id) {
                 <small>{{ exercise.muscle_group || 'General' }}</small>
                 <div class="exercise-hero">
-                  <img [src]="exerciseImageFor(exercise)" [alt]="exercise.name" />
+                  <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
                 </div>
                 <div class="set-grid header">
                   <span>SET</span>
@@ -126,7 +152,15 @@ interface PendingSetDraft {
               }
             </div>
           }
-          <button type="button" class="link-btn add-exercise" (click)="openExerciseGroupModal()">ADD EXERCISE</button>
+          <button
+            type="button"
+            class="link-btn add-exercise add-exercise-icon"
+            (click)="openExerciseGroupModal()"
+            aria-label="Agregar ejercicio"
+            title="Agregar ejercicio"
+          >
+            <img src="/icons/plus-circle.svg" alt="" />
+          </button>
         </div>
       }
 
@@ -174,32 +208,12 @@ interface PendingSetDraft {
                 <input [(ngModel)]="workoutName" placeholder="Ej: Push day pesado" />
               </label>
 
-              <div class="routines">
-                <span>Tipo de rutina (puedes combinar varias)</span>
-                <div class="chips">
-                  @for (option of routineOptions; track option) {
-                    <button
-                      type="button"
-                      class="chip"
-                      [class.active]="isSelected(option)"
-                      (click)="toggleRoutine(option)"
-                    >
-                      {{ option }}
-                    </button>
-                  }
-                </div>
-              </div>
-
-              <button type="button" class="primary" (click)="startWorkout()" [disabled]="workoutRecordService.loading()">
+              <button type="button" class="primary" (click)="startWorkout()" [disabled]="!workoutName.trim() || workoutRecordService.loading()">
                 + Iniciar entrenamiento
               </button>
 
               @if (workoutRecordService.error(); as error) {
                 <small class="note error">{{ error }}</small>
-              } @else if (selectedRoutines.length === 0) {
-                <small class="note">Selecciona al menos un tipo de rutina.</small>
-              } @else {
-                <small class="note">Seleccion actual: {{ selectedRoutines.join(' + ') }}</small>
               }
             </div>
 
@@ -208,46 +222,70 @@ interface PendingSetDraft {
         </div>
       }
 
-      @if (showExerciseGroupModal) {
-        <div class="modal-backdrop" (click)="closeExerciseGroupModal()">
+      @if (showExerciseListModal) {
+        <div class="modal-backdrop" (click)="closeExerciseListModal()">
           <div class="modal" (click)="$event.stopPropagation()">
-            <h3>Selecciona grupo muscular</h3>
-            <p>Primero elige el grupo y luego el ejercicio.</p>
+            <h3>Agregar ejercicio</h3>
 
-            <div class="history-list">
-              @for (group of preferredGroups(); track group) {
-                <button type="button" (click)="selectGroup(group)">
-                  {{ group }}
+            <div class="group-slider">
+              @for (group of muscleGroupSlides; track group.key) {
+                <button
+                  type="button"
+                  class="group-slide"
+                  [class.active]="activeMuscleGroup === group.key"
+                  (click)="selectMuscleGroupSlide(group.key)"
+                >
+                  <img [src]="group.image" [alt]="group.label" />
+                  <span>{{ group.label }}</span>
                 </button>
               }
             </div>
 
-            <button type="button" class="close" (click)="closeExerciseGroupModal()">Cerrar</button>
-          </div>
-        </div>
-      }
+            <div class="catalog-search-row">
+              <input
+                type="search"
+                [(ngModel)]="catalogSearchQuery"
+                placeholder="Buscar por nombre..."
+                (keydown.enter)="runCatalogSearch()"
+              />
+              <button type="button" class="catalog-search-btn" (click)="runCatalogSearch()">Buscar</button>
+            </div>
 
-      @if (showExerciseListModal) {
-        <div class="modal-backdrop" (click)="closeExerciseListModal()">
-          <div class="modal" (click)="$event.stopPropagation()">
-            <h3>Ejercicios - {{ selectedMuscleGroup }}</h3>
-            <p>Selecciona uno del catalogo o crea uno manual.</p>
+            @if (exerciseCatalogService.loading()) {
+              <div class="loading-state">
+                <span class="spinner" aria-hidden="true"></span>
+                <small>Cargando ejercicios...</small>
+              </div>
+            }
 
-            <div class="history-list">
+            <div class="history-list exercise-catalog-scroll">
               @for (exercise of exerciseCatalogService.items(); track exercise.id) {
                 <button
                   type="button"
                   class="exercise-option"
-                  [class.selected-option]="selectedCatalogExerciseId === exercise.id"
                   (click)="pickCatalogExercise(exercise)"
                 >
-                  <span class="option-arrow">></span>
-                  <span>{{ exercise.name }}</span>
+                  <span class="option-thumb-wrap">
+                    @if (exerciseCatalogService.listThumbs()[exercise.id]; as thumb) {
+                      <img [src]="thumb" alt="" class="option-thumb" />
+                    } @else {
+                      <span class="option-thumb-ph" aria-hidden="true"></span>
+                    }
+                  </span>
+                  <span class="option-text">
+                    <span class="option-arrow">></span>
+                    <span class="option-name">
+                      <span>{{ displayCatalogPrimaryName(exercise) }}</span>
+                      @if (displayCatalogSecondaryName(exercise); as enName) {
+                        <small>{{ enName }}</small>
+                      }
+                    </span>
+                  </span>
                 </button>
               }
             </div>
             @if (exerciseCatalogService.items().length === 0 && !exerciseCatalogService.loading()) {
-              <small class="note">No hay ejercicios en este grupo todavia. Puedes agregar uno manual.</small>
+              <small class="note">No hay ejercicios para este grupo. Prueba con otro o agrega manualmente.</small>
             }
 
             <button type="button" class="manual-inline" (click)="manualMode = !manualMode">
@@ -265,15 +303,6 @@ interface PendingSetDraft {
                   Guardar y agregar
                 </button>
               </div>
-            } @else {
-              <button
-                type="button"
-                class="primary"
-                [disabled]="!selectedCatalogExerciseId || workoutRecordService.loading()"
-                (click)="confirmCatalogExercise()"
-              >
-                Agregar ejercicio
-              </button>
             }
 
             <button type="button" class="close close-danger" (click)="closeExerciseListModal()">Cancelar</button>
@@ -323,6 +352,44 @@ interface PendingSetDraft {
               <small class="note">No hay datos historicos para este ejercicio todavia.</small>
             }
             <button type="button" class="close" (click)="closeHistoryModal()">Cerrar</button>
+          </div>
+        </div>
+      }
+
+      @if (showExerciseInfoModal && selectedExerciseInfoDetail(); as d) {
+        <div class="modal-backdrop" (click)="closeExerciseInfoModal()">
+          <div class="modal modal-compact" (click)="$event.stopPropagation()">
+            <h3>{{ exerciseInfoName }}</h3>
+            <p>Informacion del ejercicio</p>
+            <div class="exercise-db-info">
+              <ul class="exercise-db-meta">
+                @if (d.bodyPart) {
+                  <li><strong>Zona</strong> {{ dbBodyPart(d.bodyPart) }}</li>
+                }
+                <li><strong>Enfoque</strong> {{ dbTarget(d.target) }}</li>
+                <li><strong>Equipo</strong> {{ dbEquipment(d.equipment) }}</li>
+                @if (d.difficulty) {
+                  <li><strong>Nivel</strong> {{ dbDifficulty(d.difficulty) }}</li>
+                }
+                @if (d.category) {
+                  <li><strong>Tipo</strong> {{ dbCategory(d.category) }}</li>
+                }
+                @if (d.secondaryMuscles.length) {
+                  <li><strong>Secundarios</strong> {{ dbSecondaryMuscles(d.secondaryMuscles) }}</li>
+                }
+              </ul>
+              @if (d.description) {
+                <p class="exercise-db-desc">{{ d.description }}</p>
+              }
+              @if (d.instructions.length) {
+                <ol class="exercise-db-steps">
+                  @for (step of d.instructions; track $index) {
+                    <li>{{ step }}</li>
+                  }
+                </ol>
+              }
+            </div>
+            <button type="button" class="close" (click)="closeExerciseInfoModal()">Cerrar</button>
           </div>
         </div>
       }
@@ -453,38 +520,6 @@ interface PendingSetDraft {
       background: #fff;
     }
 
-    .routines {
-      display: grid;
-      gap: 0.45rem;
-    }
-
-    .routines span {
-      font-size: 0.88rem;
-      color: #444;
-    }
-
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.45rem;
-    }
-
-    .chip {
-      border: 1px solid #dfdfdf;
-      background: #fff;
-      color: #555;
-      border-radius: 999px;
-      padding: 0.45rem 0.75rem;
-      font-size: 0.82rem;
-      cursor: pointer;
-    }
-
-    .chip.active {
-      border-color: #111;
-      background: #111;
-      color: #fff;
-    }
-
     .primary {
       border: 0;
       border-radius: 10px;
@@ -559,6 +594,24 @@ interface PendingSetDraft {
       align-items: center;
       justify-content: space-between;
       cursor: pointer;
+      gap: 0.45rem;
+    }
+
+    .exercise-name-block {
+      display: grid;
+      gap: 0.08rem;
+      min-width: 0;
+    }
+
+    .exercise-name-block > span {
+      line-height: 1.15;
+    }
+
+    .exercise-name-block small {
+      color: #6b7280;
+      font-size: 0.72rem;
+      font-weight: 500;
+      line-height: 1.05;
     }
 
     .remove-btn {
@@ -587,6 +640,33 @@ interface PendingSetDraft {
       place-items: center;
       cursor: pointer;
       padding: 0;
+    }
+
+    .info-icon-btn {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      border-radius: 999px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+      color: #374151;
+      transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+
+    .info-icon-btn img {
+      width: 15px;
+      height: 15px;
+      display: block;
+      opacity: 0.95;
+    }
+
+    .info-icon-btn:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      color: #111827;
     }
 
     .history-icon-btn img {
@@ -700,6 +780,30 @@ interface PendingSetDraft {
       justify-self: center;
     }
 
+    .add-exercise-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      padding: 0;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .add-exercise-icon img {
+      width: 20px;
+      height: 20px;
+      display: block;
+      opacity: 0.9;
+    }
+
+    .add-exercise-icon:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+    }
+
     .finish-exercise {
       justify-self: end;
       border: 1px solid #111;
@@ -725,7 +829,7 @@ interface PendingSetDraft {
 
     .modal {
       width: 100%;
-      max-width: 420px;
+      max-width: 460px;
       border-radius: 14px;
       background: #fff;
       border: 1px solid #ececec;
@@ -738,6 +842,22 @@ interface PendingSetDraft {
       margin: 0;
       color: #666;
       font-size: 0.85rem;
+    }
+
+    .modal-compact {
+      max-width: 430px;
+      padding: 0.72rem 0.85rem;
+      gap: 0.5rem;
+      max-height: min(72vh, 560px);
+      overflow: auto;
+    }
+
+    .modal-compact h3 {
+      font-size: 0.95rem;
+    }
+
+    .modal-compact p {
+      font-size: 0.8rem;
     }
 
     .history-list {
@@ -761,9 +881,186 @@ interface PendingSetDraft {
     .exercise-option {
       display: flex;
       align-items: center;
-      gap: 0.45rem;
+      gap: 0.55rem;
       font: inherit;
       font-size: 0.92rem;
+    }
+
+    .option-thumb-wrap {
+      flex-shrink: 0;
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+    }
+
+    .option-thumb {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .option-thumb-ph {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .option-text {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      min-width: 0;
+      text-align: left;
+    }
+
+    .option-name {
+      display: grid;
+      gap: 0.08rem;
+      min-width: 0;
+    }
+
+    .option-name > span {
+      line-height: 1.12;
+    }
+
+    .option-name small {
+      color: #6b7280;
+      font-size: 0.7rem;
+      font-weight: 500;
+      line-height: 1.05;
+    }
+
+    .catalog-detail-preview {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 0.65rem 0.75rem;
+      background: #fafafa;
+      font-size: 0.82rem;
+      color: #374151;
+    }
+
+    .catalog-desc {
+      margin: 0 0 0.5rem;
+      line-height: 1.35;
+    }
+
+    .catalog-meta {
+      margin: 0;
+      padding-left: 1rem;
+      display: grid;
+      gap: 0.2rem;
+    }
+
+    .group-slider {
+      display: flex;
+      gap: 0.45rem;
+      overflow-x: auto;
+      padding: 0.15rem 0;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .group-slider::-webkit-scrollbar {
+      display: none;
+    }
+
+    .group-slide {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2rem;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 0.3rem 0.35rem 0.25rem;
+      background: #fafafa;
+      cursor: pointer;
+      min-width: 62px;
+      font: inherit;
+      color: inherit;
+    }
+
+    .group-slide.active {
+      border-color: #111;
+      background: #f0f0f0;
+    }
+
+    .group-slide img {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+    }
+
+    .group-slide span {
+      font-size: 0.66rem;
+      font-weight: 600;
+      color: #374151;
+      white-space: nowrap;
+    }
+
+    .catalog-search-row {
+      display: flex;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .catalog-search-row input[type='search'] {
+      flex: 1;
+      min-width: 0;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 0.45rem 0.55rem;
+      font: inherit;
+      font-size: 0.85rem;
+    }
+
+    .catalog-search-btn {
+      flex-shrink: 0;
+      border: 1px solid #111;
+      background: #111;
+      color: #fff;
+      border-radius: 8px;
+      padding: 0.45rem 0.65rem;
+      font: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .exercise-db-meta {
+      margin: 0 0 0.5rem;
+      padding-left: 1rem;
+      display: grid;
+      gap: 0.2rem;
+      font-size: 0.8rem;
+      list-style: disc;
+    }
+
+    .exercise-db-info {
+      margin: 0.3rem 0 0.35rem;
+      padding: 0.45rem 0.55rem;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #ececec;
+      font-size: 0.79rem;
+      color: #374151;
+    }
+
+    .exercise-db-desc {
+      margin: 0 0 0.45rem;
+      line-height: 1.35;
+    }
+
+    .exercise-db-steps {
+      margin: 0;
+      padding-left: 1.1rem;
+      display: grid;
+      gap: 0.18rem;
     }
 
     .selected-option {
@@ -883,6 +1180,7 @@ export class WorkoutsPage implements OnInit {
   constructor(
     readonly workoutRecordService: WorkoutRecordService,
     readonly exerciseCatalogService: ExerciseCatalogService,
+    private readonly exerciseDbMedia: ExerciseDbMediaService,
     private readonly activeWorkout: ActiveWorkoutService
   ) {}
 
@@ -892,7 +1190,6 @@ export class WorkoutsPage implements OnInit {
   selectedReplicateWorkoutId = '';
   replicateSelectionConfirmed = false;
   showNewSessionModal = false;
-  showExerciseGroupModal = false;
   showExerciseListModal = false;
   selectedMuscleGroup = '';
   selectedCatalogExerciseId = '';
@@ -901,10 +1198,21 @@ export class WorkoutsPage implements OnInit {
   completedExerciseIds = new Set<string>();
   manualMode = false;
   manualExerciseName = '';
+  catalogSearchQuery = '';
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
     {};
-  routineOptions = ['Pecho', 'Espalda', 'Pierna', 'Biceps', 'Triceps', 'Hombro', 'Core', 'Cardio'];
-  selectedRoutines: string[] = [];
+  activeMuscleGroup = '';
+
+  readonly muscleGroupSlides = [
+    { key: 'pecho', label: 'Pecho', image: '/exercises/groups/pecho.png' },
+    { key: 'espalda', label: 'Espalda', image: '/exercises/groups/espalda.png' },
+    { key: 'pierna', label: 'Pierna', image: '/exercises/groups/pierna.png' },
+    { key: 'biceps', label: 'Biceps', image: '/exercises/groups/biceps.png' },
+    { key: 'triceps', label: 'Triceps', image: '/exercises/groups/triceps.png' },
+    { key: 'hombro', label: 'Hombro', image: '/exercises/groups/hombro.png' },
+    { key: 'core', label: 'Core', image: '/exercises/groups/core.png' },
+    { key: 'cardio', label: 'Cardio', image: '/exercises/groups/cardio.png' }
+  ];
   pendingSetsByExercise: Record<string, PendingSetDraft[]> = {};
   showWorkoutSummaryModal = false;
   summaryWorkoutName = '';
@@ -912,10 +1220,16 @@ export class WorkoutsPage implements OnInit {
   summaryExercisesCount = 0;
   summarySetsCount = 0;
   showHistoryModal = false;
+  showExerciseInfoModal = false;
+  exerciseInfoName = '';
+  exerciseInfoDetail: ExerciseDbExercise | null = null;
   historyExerciseName = '';
   historyPoints: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
   readonly hasAnyWorkout = computed(() => this.workoutRecordService.records().length > 0);
+  /** GIF ExerciseDB (720) por id de fila workout_exercises */
+  readonly workoutExerciseMediaUrls = signal<Record<string, string>>({});
   private isFinalizing = false;
+  private autoOpenedPickerForWorkoutId = '';
 
   private readonly finalizeEffect = effect(() => {
     const tick = this.activeWorkout.finalizeRequestTick();
@@ -930,7 +1244,7 @@ export class WorkoutsPage implements OnInit {
     if (!isActive && this.currentWorkout) {
       this.currentWorkout = null;
       this.selectedExerciseId = '';
-      this.showExerciseGroupModal = false;
+      this.workoutExerciseMediaUrls.set({});
       this.showExerciseListModal = false;
     }
   });
@@ -947,20 +1261,8 @@ export class WorkoutsPage implements OnInit {
     }
   }
 
-  isSelected(option: string): boolean {
-    return this.selectedRoutines.includes(option);
-  }
-
-  toggleRoutine(option: string): void {
-    if (this.isSelected(option)) {
-      this.selectedRoutines = this.selectedRoutines.filter((item) => item !== option);
-      return;
-    }
-    this.selectedRoutines = [...this.selectedRoutines, option];
-  }
-
   startWorkout(): void {
-    if (!this.workoutName.trim() || this.selectedRoutines.length === 0) {
+    if (!this.workoutName.trim()) {
       return;
     }
     void this.createWorkout();
@@ -1016,7 +1318,7 @@ export class WorkoutsPage implements OnInit {
   }
 
   private async createWorkout(): Promise<void> {
-    const created = await this.workoutRecordService.createWorkout(this.workoutName.trim(), this.selectedRoutines);
+    const created = await this.workoutRecordService.createWorkout(this.workoutName.trim(), []);
     if (!created) {
       return;
     }
@@ -1024,7 +1326,6 @@ export class WorkoutsPage implements OnInit {
     this.activeWorkout.startWorkout(created.id, created.workout_name);
     await this.loadDetail(created.id);
     this.workoutName = '';
-    this.selectedRoutines = [];
   }
 
   async replicateFrom(workoutId: string): Promise<void> {
@@ -1037,7 +1338,6 @@ export class WorkoutsPage implements OnInit {
     this.activeWorkout.startWorkout(created.id, created.workout_name);
     await this.loadDetail(created.id);
     this.workoutName = '';
-    this.selectedRoutines = [];
   }
 
   async addExercise(): Promise<void> {
@@ -1120,38 +1420,51 @@ export class WorkoutsPage implements OnInit {
         this.setInputs[exercise.id] = {};
       }
     }
+    void this.refreshWorkoutExerciseMedia();
+    if (
+      detail.exercises.length === 0 &&
+      !this.showExerciseListModal &&
+      this.autoOpenedPickerForWorkoutId !== detail.id
+    ) {
+      this.autoOpenedPickerForWorkoutId = detail.id;
+      await this.openExerciseGroupModal();
+    }
   }
 
-  preferredGroups(): string[] {
-    const available = this.exerciseCatalogService.groups();
-    const fromWorkout = this.currentWorkout?.routine_types?.filter((item) => !!item) ?? [];
-    if (fromWorkout.length > 0 && available.length > 0) {
-      const matched = fromWorkout
-        .map((group) => this.resolveGroupToCatalog(group))
-        .filter((group, index, arr) => !!group && arr.indexOf(group) === index);
-      if (matched.length > 0) {
-        return matched;
+  private async refreshWorkoutExerciseMedia(): Promise<void> {
+    const list = this.currentWorkout?.exercises ?? [];
+    const prev = this.workoutExerciseMediaUrls();
+    const acc: Record<string, string> = {};
+    for (const ex of list) {
+      if (prev[ex.id]) {
+        acc[ex.id] = prev[ex.id];
       }
     }
-    if (available.length > 0) {
-      return available;
+    for (const ex of list) {
+      if (!ex.external_exercise_id || acc[ex.id]) {
+        continue;
+      }
+      const url = await this.exerciseDbMedia.getObjectUrl(ex.external_exercise_id, '720');
+      if (url) {
+        acc[ex.id] = url;
+      }
     }
-    return this.routineOptions;
+    this.workoutExerciseMediaUrls.set(acc);
   }
+
 
   async openExerciseGroupModal(): Promise<void> {
-    if (this.exerciseCatalogService.groups().length === 0) {
-      await this.exerciseCatalogService.loadGroups();
-    }
-    // Reset visual focus so previous exercise preview does not block adding a new one
     this.selectedExerciseId = '';
-    this.showExerciseGroupModal = true;
     this.manualMode = false;
     this.manualExerciseName = '';
-  }
-
-  closeExerciseGroupModal(): void {
-    this.showExerciseGroupModal = false;
+    this.selectedCatalogExerciseId = '';
+    this.selectedCatalogExerciseMuscleGroup = '';
+    this.catalogSearchQuery = '';
+    const firstSlide = this.muscleGroupSlides[0];
+    this.activeMuscleGroup = firstSlide.key;
+    this.selectedMuscleGroup = firstSlide.label;
+    this.showExerciseListModal = true;
+    await this.exerciseCatalogService.loadByGroup(firstSlide.label);
   }
 
   closeExerciseListModal(): void {
@@ -1162,38 +1475,92 @@ export class WorkoutsPage implements OnInit {
     this.selectedCatalogExerciseMuscleGroup = '';
   }
 
-  async selectGroup(group: string): Promise<void> {
-    const routineGroups = this.currentWorkout?.routine_types ?? [];
-    const matchedRoutineGroups = routineGroups
-      .map((item) => this.resolveGroupToCatalog(item))
-      .filter((item, index, arr) => !!item && arr.indexOf(item) === index);
-
-    if (matchedRoutineGroups.length > 1) {
-      this.selectedMuscleGroup = 'Rutina combinada';
-      await this.exerciseCatalogService.loadByGroups(matchedRoutineGroups);
-    } else {
-      const targetGroup = this.resolveGroupToCatalog(group);
-      this.selectedMuscleGroup = targetGroup;
-      await this.exerciseCatalogService.loadByGroup(targetGroup);
+  async selectMuscleGroupSlide(key: string): Promise<void> {
+    const slide = this.muscleGroupSlides.find((g) => g.key === key);
+    if (!slide) {
+      return;
     }
-    this.showExerciseGroupModal = false;
-    this.showExerciseListModal = true;
+    this.activeMuscleGroup = key;
+    this.selectedMuscleGroup = slide.label;
+    this.selectedCatalogExerciseId = '';
+    this.catalogSearchQuery = '';
+    await this.exerciseCatalogService.loadByGroup(slide.label);
+  }
+
+  runCatalogSearch(): void {
+    const q = this.catalogSearchQuery.trim();
+    if (!q) {
+      void this.exerciseCatalogService.loadByGroup(this.selectedMuscleGroup || 'Pecho');
+      return;
+    }
+    void this.exerciseCatalogService.searchByName(q, this.selectedMuscleGroup || 'Busqueda');
+  }
+
+  dbBodyPart(v: string): string {
+    return translateBodyPart(v);
+  }
+
+  dbTarget(v: string): string {
+    return translateTarget(v);
+  }
+
+  dbEquipment(v: string): string {
+    return translateEquipment(v);
+  }
+
+  dbDifficulty(v: string): string {
+    return translateDifficulty(v);
+  }
+
+  dbCategory(v: string): string {
+    return translateCategory(v);
+  }
+
+  dbSecondaryMuscles(muscles: string[]): string {
+    return muscles.map((m) => translateTarget(m)).join(', ');
+  }
+
+  displayCatalogPrimaryName(item: ExerciseCatalogItem): string {
+    return translateExerciseName(item.name) || item.name;
+  }
+
+  displayCatalogSecondaryName(item: ExerciseCatalogItem): string {
+    const en = (item.name || '').trim();
+    const es = this.displayCatalogPrimaryName(item).trim();
+    return this.normalizeText(en) !== this.normalizeText(es) ? en : '';
+  }
+
+  displayExercisePrimaryName(exercise: WorkoutExerciseRecord): string {
+    const english = this.exerciseEnglishName(exercise);
+    return translateExerciseName(english) || exercise.name;
+  }
+
+  displayExerciseSecondaryName(exercise: WorkoutExerciseRecord): string {
+    const en = this.exerciseEnglishName(exercise);
+    const es = this.displayExercisePrimaryName(exercise);
+    return this.normalizeText(en) !== this.normalizeText(es) ? en : '';
   }
 
   async pickCatalogExercise(exercise: ExerciseCatalogItem): Promise<void> {
-    this.selectedCatalogExerciseId = exercise.id;
-    this.selectedCatalogExerciseMuscleGroup = exercise.muscle_group;
-  }
-
-  async confirmCatalogExercise(): Promise<void> {
-    const selected = this.exerciseCatalogService.items().find((item) => item.id === this.selectedCatalogExerciseId);
-    if (!selected) {
+    if (!this.currentWorkout) {
       return;
     }
-    this.manualExerciseName = selected.name;
-    await this.addExercise();
+    const muscleGroup = exercise.muscle_group || this.selectedMuscleGroup;
+    const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
+      name: exercise.name.trim(),
+      muscle_group: muscleGroup || undefined,
+      external_exercise_id: exercise.external_exercise_id ?? undefined,
+      exercise_detail: exercise.detail as unknown as Record<string, unknown> | undefined
+    });
+    if (!created) {
+      return;
+    }
+    this.selectedExerciseId = created.id;
+    await this.loadDetail(this.currentWorkout.id);
     this.showExerciseListModal = false;
     this.selectedCatalogExerciseId = '';
+    this.selectedCatalogExerciseMuscleGroup = '';
+    this.manualMode = false;
   }
 
   async addManualExerciseFromModal(): Promise<void> {
@@ -1212,6 +1579,7 @@ export class WorkoutsPage implements OnInit {
   cancelWorkoutView(): void {
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.workoutExerciseMediaUrls.set({});
     this.activeWorkout.finishWorkout();
   }
 
@@ -1230,6 +1598,7 @@ export class WorkoutsPage implements OnInit {
     this.showWorkoutSummaryModal = false;
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.workoutExerciseMediaUrls.set({});
     this.activeWorkout.finishWorkout();
   }
 
@@ -1317,6 +1686,33 @@ export class WorkoutsPage implements OnInit {
     return resolveExerciseImageByName(exercise.name, exercise.muscle_group || undefined);
   }
 
+  workoutExerciseHero(exercise: WorkoutExerciseRecord): string {
+    const blob = this.workoutExerciseMediaUrls()[exercise.id];
+    if (blob) {
+      return blob;
+    }
+    return this.exerciseImageFor(exercise);
+  }
+
+  exerciseDbDetail(exercise: WorkoutExerciseRecord): ExerciseDbExercise | null {
+    return isExerciseDbExercise(exercise.exercise_detail) ? exercise.exercise_detail : null;
+  }
+
+  private exerciseEnglishName(exercise: WorkoutExerciseRecord): string {
+    const d = this.exerciseDbDetail(exercise);
+    return (d?.name || exercise.name || '').trim();
+  }
+
+  selectedCatalogPreview(): ExerciseDbExercise | null {
+    const id = this.selectedCatalogExerciseId;
+    if (!id) {
+      return null;
+    }
+    const item = this.exerciseCatalogService.items().find((x) => x.id === id);
+    const d = item?.detail;
+    return d && isExerciseDbExercise(d) ? d : null;
+  }
+
   exerciseAltImageFor(exercise: WorkoutExerciseRecord): string {
     return resolveExerciseAltImageByName(exercise.name, exercise.muscle_group || undefined);
   }
@@ -1339,6 +1735,26 @@ export class WorkoutsPage implements OnInit {
 
   closeHistoryModal(): void {
     this.showHistoryModal = false;
+  }
+
+  openExerciseInfoModal(exercise: WorkoutExerciseRecord): void {
+    const detail = this.exerciseDbDetail(exercise);
+    if (!detail) {
+      return;
+    }
+    this.exerciseInfoName = exercise.name;
+    this.exerciseInfoDetail = detail;
+    this.showExerciseInfoModal = true;
+  }
+
+  closeExerciseInfoModal(): void {
+    this.showExerciseInfoModal = false;
+    this.exerciseInfoName = '';
+    this.exerciseInfoDetail = null;
+  }
+
+  selectedExerciseInfoDetail(): ExerciseDbExercise | null {
+    return this.exerciseInfoDetail;
   }
 
   lastHistoryPoint(): { workout_id: string; date: string; max_weight: number; max_reps: number } | null {
@@ -1388,22 +1804,6 @@ export class WorkoutsPage implements OnInit {
     return this.historyPoints.map((point, idx) => `${this.historyX(idx)},${this.historyRepsY(point.max_reps)}`).join(' ');
   }
 
-  private resolveGroupToCatalog(group: string): string {
-    const available = this.exerciseCatalogService.groups();
-    if (available.length === 0) {
-      return group;
-    }
-    const normalizedTarget = this.normalizeText(group);
-    const exact = available.find((item) => this.normalizeText(item) === normalizedTarget);
-    if (exact) {
-      return exact;
-    }
-    const contains = available.find(
-      (item) => this.normalizeText(item).includes(normalizedTarget) || normalizedTarget.includes(this.normalizeText(item))
-    );
-    return contains ?? available[0];
-  }
-
   private normalizeText(value: string): string {
     return (value || '')
       .normalize('NFD')
@@ -1427,6 +1827,7 @@ export class WorkoutsPage implements OnInit {
     this.activeWorkout.finishWorkout();
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.workoutExerciseMediaUrls.set({});
     this.pendingSetsByExercise = {};
     this.isFinalizing = false;
   }

@@ -143,7 +143,13 @@ export class WorkoutRecordService {
 
   async addExercise(
     workoutId: string,
-    payload: { name: string; muscle_group?: string; notes?: string }
+    payload: {
+      name: string;
+      muscle_group?: string;
+      notes?: string;
+      external_exercise_id?: string;
+      exercise_detail?: Record<string, unknown>;
+    }
   ): Promise<WorkoutExerciseRecord | null> {
     this.loading.set(true);
     this.error.set(null);

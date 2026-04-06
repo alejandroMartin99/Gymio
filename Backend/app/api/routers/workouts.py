@@ -91,8 +91,6 @@ def create_workout_record(
     workout_name = (payload.workout_name or "").strip()
     if not workout_name:
         raise HTTPException(status_code=400, detail="workout_name is required")
-    if len(payload.routine_types) == 0:
-        raise HTTPException(status_code=400, detail="At least one routine type is required")
     created = _insert_record(client, user_id, workout_name, payload.routine_types, payload.notes)
     return {"success": True, "data": created}
 
@@ -105,20 +103,20 @@ def add_exercise(
 ) -> dict[str, bool | object]:
     client = get_supabase_service_client()
     position = _next_exercise_position(client, workout_id)
-    result = (
-        client.table("workout_exercises")
-        .insert(
-            {
-                "workout_id": workout_id,
-                "user_id": user_id,
-                "name": payload.name,
-                "muscle_group": payload.muscle_group,
-                "notes": payload.notes,
-                "position": position,
-            }
-        )
-        .execute()
-    )
+    row: dict = {
+        "workout_id": workout_id,
+        "user_id": user_id,
+        "name": payload.name,
+        "muscle_group": payload.muscle_group,
+        "notes": payload.notes,
+        "position": position,
+    }
+    if payload.external_exercise_id:
+        row["external_exercise_id"] = payload.external_exercise_id.strip()
+    if payload.exercise_detail is not None:
+        row["exercise_detail"] = payload.exercise_detail
+
+    result = client.table("workout_exercises").insert(row).execute()
     if not result.data:
         raise HTTPException(status_code=400, detail="Unable to add exercise")
     return {"success": True, "data": result.data[0]}
@@ -369,20 +367,19 @@ def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_work
     exercise_id_map: dict[str, str] = {}
 
     for old in old_exercises.data or []:
-        new_ex = (
-            client.table("workout_exercises")
-            .insert(
-                {
-                    "workout_id": to_workout_id,
-                    "user_id": user_id,
-                    "name": old["name"],
-                    "muscle_group": old.get("muscle_group"),
-                    "notes": old.get("notes"),
-                    "position": old.get("position", 0),
-                }
-            )
-            .execute()
-        )
+        insert_row: dict = {
+            "workout_id": to_workout_id,
+            "user_id": user_id,
+            "name": old["name"],
+            "muscle_group": old.get("muscle_group"),
+            "notes": old.get("notes"),
+            "position": old.get("position", 0),
+        }
+        if old.get("external_exercise_id"):
+            insert_row["external_exercise_id"] = old["external_exercise_id"]
+        if old.get("exercise_detail") is not None:
+            insert_row["exercise_detail"] = old["exercise_detail"]
+        new_ex = client.table("workout_exercises").insert(insert_row).execute()
         if not new_ex.data:
             continue
         exercise_id_map[old["id"]] = new_ex.data[0]["id"]

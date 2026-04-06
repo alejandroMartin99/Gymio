@@ -46,6 +46,8 @@ class AddExerciseRequest(BaseModel):
     name: str
     muscle_group: str | None = None
     notes: str | None = None
+    external_exercise_id: str | None = None
+    exercise_detail: dict | None = None
 
 
 class AddSetRequest(BaseModel):
