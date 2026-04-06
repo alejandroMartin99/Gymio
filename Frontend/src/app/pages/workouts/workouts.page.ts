@@ -28,6 +28,22 @@ interface PendingSetDraft {
   comment?: string;
 }
 
+interface WorkoutTemplateExercise {
+  name: string;
+  exerciseId?: string;
+  muscle_group?: string;
+}
+
+interface WorkoutTemplate {
+  id: string;
+  title: string;
+  subtitle: string;
+  muscleFocus: 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'full';
+  equipment: 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight';
+  workoutName: string;
+  exercises: WorkoutTemplateExercise[];
+}
+
 @Component({
   selector: 'app-workouts-page',
   standalone: true,
@@ -59,6 +75,72 @@ interface PendingSetDraft {
             </div>
           }
           </div>
+
+        @if (!workoutRecordService.loading()) {
+          <div class="templates-zone">
+            <div class="templates-head">
+              <h3>Workout Templates</h3>
+              <small>Rutinas completas y listas para empezar.</small>
+            </div>
+
+            <div class="template-filter-row">
+              @for (f of templateMuscleFilters; track f.key) {
+                <button
+                  type="button"
+                  class="template-chip"
+                  [class.active]="selectedTemplateMuscleFilter === f.key"
+                  (click)="selectedTemplateMuscleFilter = f.key"
+                >{{ f.label }}</button>
+              }
+            </div>
+            <div class="template-filter-row">
+              @for (f of templateEquipmentFilters; track f.key) {
+                <button
+                  type="button"
+                  class="template-chip"
+                  [class.active]="selectedTemplateEquipmentFilter === f.key"
+                  (click)="selectedTemplateEquipmentFilter = f.key"
+                >{{ f.label }}</button>
+              }
+            </div>
+
+            <div class="template-grid">
+              @for (tpl of filteredTemplates(); track tpl.id) {
+                <article class="template-card">
+                  <div class="template-content">
+                    <strong>{{ tpl.title }}</strong>
+                    <small>{{ tpl.subtitle }}</small>
+                    <div class="template-badges">
+                      <span>{{ templateMuscleLabel(tpl.muscleFocus) }}</span>
+                      <span>{{ templateEquipmentLabel(tpl.equipment) }}</span>
+                    </div>
+                    <div class="template-gif-strip">
+                      @for (ex of tpl.exercises; track $index) {
+                        @if (ex.exerciseId) {
+                          <img [src]="templateGifUrl(ex.exerciseId)" alt="" />
+                        } @else {
+                          <div class="gif-placeholder">{{ ex.muscle_group?.[0] ?? '·' }}</div>
+                        }
+                      }
+                    </div>
+                    <button
+                      type="button"
+                      class="template-cta"
+                      [disabled]="isCreatingTemplate() || workoutRecordService.loading()"
+                      (click)="startWorkoutFromTemplate(tpl)"
+                    >
+                      @if (activeTemplateId() === tpl.id) {
+                        Cargando rutina...
+                      } @else {
+                        Cargar rutina
+                      }
+                    </button>
+                  </div>
+                </article>
+              }
+            </div>
+          </div>
+        }
       }
 
       @if (currentWorkout) {
@@ -437,10 +519,10 @@ interface PendingSetDraft {
     .empty {
       border: 1px solid #ececec;
       border-radius: 14px;
-      padding: 0.9rem;
-      background: #fafafa;
+      padding: 0.58rem;
+      background: #fff;
       display: grid;
-      gap: 0.35rem;
+      gap: 0.28rem;
     }
 
     .empty strong {
@@ -455,14 +537,16 @@ interface PendingSetDraft {
 
     .empty button {
       border: 1px solid #111;
-      border-radius: 10px;
+      border-radius: 8px;
       background: #111;
       color: #fff;
-      padding: 0.55rem 0.9rem;
+      padding: 0.36rem 0.58rem;
       font: inherit;
+      font-size: 0.72rem;
       font-weight: 600;
       cursor: pointer;
       width: 100%;
+      line-height: 1.2;
     }
 
     .empty button:disabled {
@@ -472,12 +556,187 @@ interface PendingSetDraft {
 
     .action-row {
       display: flex;
-      gap: 0.5rem;
+      gap: 0.35rem;
       width: 100%;
     }
 
     .action-row button {
       flex: 1;
+    }
+
+    .templates-zone {
+      margin-top: 0.68rem;
+      display: grid;
+      gap: 0.34rem;
+    }
+
+    .templates-head {
+      display: grid;
+      gap: 0.12rem;
+    }
+
+    .templates-head h3 {
+      margin: 0;
+      font-size: 1.3rem;
+      color: #111;
+    }
+
+    .templates-head small {
+      margin: 0.25rem 0 0;
+      font-size: 1rem;
+      color: #666;
+    }
+
+    .template-filter-row {
+      display: flex;
+      gap: 0.3rem;
+      overflow-x: auto;
+      padding-bottom: 0.1rem;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      margin-top: 0.1rem;
+    }
+
+    .template-filter-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .template-chip {
+      flex-shrink: 0;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      color: #475569;
+      border-radius: 6px;
+      padding: 0.22rem 0.6rem;
+      font-size: 0.7rem;
+      font-weight: 500;
+      white-space: nowrap;
+      cursor: pointer;
+      width: auto !important;
+      line-height: 1.3;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+
+    .template-chip:hover {
+      border-color: #94a3b8;
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .template-chip.active {
+      border-color: #0f172a;
+      background: #0f172a;
+      color: #fff;
+    }
+
+    .template-grid {
+      display: grid;
+      gap: 0.45rem;
+      grid-template-columns: 1fr;
+    }
+
+    .template-card {
+      position: relative;
+      border-radius: 12px;
+      min-height: 128px;
+      border: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+    }
+
+    .template-content {
+      display: grid;
+      gap: 0.28rem;
+      padding: 0.45rem 0.5rem;
+      color: #0f172a;
+    }
+
+    .template-content strong {
+      font-size: 0.8rem;
+      line-height: 1.2;
+    }
+
+    .template-content small {
+      font-size: 0.72rem;
+      line-height: 1.2;
+      color: #64748b;
+    }
+
+    .template-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.25rem;
+      margin-top: 0.1rem;
+    }
+
+    .template-badges span {
+      font-size: 0.62rem;
+      border: 1px solid #e2e8f0;
+      background: #f1f5f9;
+      color: #475569;
+      padding: 0.1rem 0.38rem;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .template-gif-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 0.22rem;
+      margin-top: 0.1rem;
+    }
+
+    .template-gif-strip img,
+    .gif-placeholder {
+      width: 100%;
+      height: 38px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .template-gif-strip img {
+      object-fit: contain;
+      background: #f8fafc;
+    }
+
+    .gif-placeholder {
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+    }
+
+    .template-cta {
+      margin-top: 0.12rem;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #0f172a;
+      border-radius: 8px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.7rem;
+      font-weight: 700;
+      cursor: pointer;
+      width: 100%;
+      box-shadow: none;
+      transition: border-color 0.12s ease, background 0.12s ease;
+    }
+
+    .template-cta:hover:not(:disabled) {
+      border-color: #94a3b8;
+      background: #f8fafc;
+    }
+
+    .template-cta:active:not(:disabled) {
+      background: #f1f5f9;
+    }
+
+    .template-cta:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
 
     .loading-state {
@@ -1301,6 +1560,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   activeMuscleGroup = '';
   selectedEquipmentFilter: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free' = 'all';
   selectedCatalogThumbs = signal<string[]>([]);
+  selectedTemplateMuscleFilter: 'all' | WorkoutTemplate['muscleFocus'] = 'all';
+  selectedTemplateEquipmentFilter: 'all' | WorkoutTemplate['equipment'] = 'all';
+  readonly activeTemplateId = signal<string | null>(null);
+  private isBootstrappingTemplate = false;
 
   readonly muscleGroupSlides = [
     { key: 'pecho', label: 'Pecho', image: '/exercises/groups/pecho.png' },
@@ -1318,6 +1581,206 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     { key: 'barbell', label: 'Barra' },
     { key: 'machine', label: 'Maquina' },
     { key: 'free', label: 'Libre' }
+  ];
+  readonly templateMuscleFilters: Array<{ key: 'all' | WorkoutTemplate['muscleFocus']; label: string }> = [
+    { key: 'all', label: 'Todos' },
+    { key: 'chest', label: 'Pecho' },
+    { key: 'back', label: 'Espalda' },
+    { key: 'legs', label: 'Pierna' },
+    { key: 'shoulders', label: 'Hombro' },
+    { key: 'arms', label: 'Brazos' },
+    { key: 'core', label: 'Core' },
+    { key: 'full', label: 'Full Body' }
+  ];
+  readonly templateEquipmentFilters: Array<{ key: 'all' | WorkoutTemplate['equipment']; label: string }> = [
+    { key: 'all', label: 'Todo' },
+    { key: 'barbell', label: 'Barra' },
+    { key: 'dumbbell', label: 'Mancuerna' },
+    { key: 'machine', label: 'Máquina' },
+    { key: 'cable', label: 'Polea' },
+    { key: 'bodyweight', label: 'Peso libre' }
+  ];
+  readonly workoutTemplates: WorkoutTemplate[] = [
+    {
+      id: 'chest-barbell',
+      title: 'Pecho · Potencia',
+      subtitle: 'Press plano, inclinado y declinado con barra',
+      muscleFocus: 'chest',
+      equipment: 'barbell',
+      workoutName: 'Pecho · Potencia',
+      exercises: [
+        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+        { name: 'barbell incline bench press', exerciseId: '0047', muscle_group: 'Pecho' },
+        { name: 'barbell decline bench press', exerciseId: '0033', muscle_group: 'Pecho' },
+        { name: 'barbell guillotine bench press', exerciseId: '0045', muscle_group: 'Pecho' },
+        { name: 'barbell close-grip bench press', exerciseId: '0030', muscle_group: 'Triceps' }
+      ]
+    },
+    {
+      id: 'chest-dumbbell',
+      title: 'Pecho · Hipertrofia',
+      subtitle: 'Press e isla con mancuerna, rango completo',
+      muscleFocus: 'chest',
+      equipment: 'dumbbell',
+      workoutName: 'Pecho · Hipertrofia',
+      exercises: [
+        { name: 'dumbbell bench press', muscle_group: 'Pecho' },
+        { name: 'dumbbell incline bench press', muscle_group: 'Pecho' },
+        { name: 'dumbbell fly', muscle_group: 'Pecho' },
+        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+        { name: 'barbell incline bench press', exerciseId: '0047', muscle_group: 'Pecho' }
+      ]
+    },
+    {
+      id: 'chest-machine',
+      title: 'Pecho · Máquina',
+      subtitle: 'Prensa, cruces en polea y peck-deck',
+      muscleFocus: 'chest',
+      equipment: 'machine',
+      workoutName: 'Pecho · Máquina',
+      exercises: [
+        { name: 'chest press machine', muscle_group: 'Pecho' },
+        { name: 'incline chest press machine', muscle_group: 'Pecho' },
+        { name: 'pec deck fly', muscle_group: 'Pecho' },
+        { name: 'assisted chest dip (kneeling)', exerciseId: '0009', muscle_group: 'Pecho' },
+        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' }
+      ]
+    },
+    {
+      id: 'back-barbell',
+      title: 'Espalda · Remos',
+      subtitle: 'Remos bilaterales y unilaterales con barra',
+      muscleFocus: 'back',
+      equipment: 'barbell',
+      workoutName: 'Espalda · Remos',
+      exercises: [
+        { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
+        { name: 'barbell incline row', exerciseId: '0049', muscle_group: 'Espalda' },
+        { name: 'barbell one arm bent over row', exerciseId: '0064', muscle_group: 'Espalda' },
+        { name: 'barbell pullover', exerciseId: '0073', muscle_group: 'Espalda' },
+        { name: 'barbell shrug', exerciseId: '0095', muscle_group: 'Espalda' }
+      ]
+    },
+    {
+      id: 'back-machine',
+      title: 'Espalda · Jalones',
+      subtitle: 'Dominadas asistidas, jalones y remo en polea',
+      muscleFocus: 'back',
+      equipment: 'machine',
+      workoutName: 'Espalda · Jalones',
+      exercises: [
+        { name: 'assisted pull-up', exerciseId: '0017', muscle_group: 'Espalda' },
+        { name: 'assisted parallel close grip pull-up', exerciseId: '0015', muscle_group: 'Espalda' },
+        { name: 'alternate lateral pulldown', exerciseId: '0007', muscle_group: 'Espalda' },
+        { name: 'lat pulldown', muscle_group: 'Espalda' },
+        { name: 'seated cable row', muscle_group: 'Espalda' }
+      ]
+    },
+    {
+      id: 'legs-barbell',
+      title: 'Pierna · Fuerza',
+      subtitle: 'Sentadilla, peso muerto y lunges con barra',
+      muscleFocus: 'legs',
+      equipment: 'barbell',
+      workoutName: 'Pierna · Fuerza',
+      exercises: [
+        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
+        { name: 'barbell deadlift', exerciseId: '0032', muscle_group: 'Pierna' },
+        { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' },
+        { name: 'barbell lunge', exerciseId: '0054', muscle_group: 'Pierna' },
+        { name: 'barbell good morning', exerciseId: '0044', muscle_group: 'Pierna' }
+      ]
+    },
+    {
+      id: 'legs-machine',
+      title: 'Pierna · Máquina',
+      subtitle: 'Prensa, extensiones y curl femoral',
+      muscleFocus: 'legs',
+      equipment: 'machine',
+      workoutName: 'Pierna · Máquina',
+      exercises: [
+        { name: 'leg press', muscle_group: 'Pierna' },
+        { name: 'leg extension', muscle_group: 'Pierna' },
+        { name: 'seated leg curl', muscle_group: 'Pierna' },
+        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
+        { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' }
+      ]
+    },
+    {
+      id: 'shoulders-barbell',
+      title: 'Hombro · Presion',
+      subtitle: 'Press militar, frontal y posterior con barra',
+      muscleFocus: 'shoulders',
+      equipment: 'barbell',
+      workoutName: 'Hombro · Presion',
+      exercises: [
+        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
+        { name: 'barbell seated behind head military press', exerciseId: '0086', muscle_group: 'Hombro' },
+        { name: 'barbell front raise', exerciseId: '0041', muscle_group: 'Hombro' },
+        { name: 'barbell rear delt raise', exerciseId: '0075', muscle_group: 'Hombro' },
+        { name: 'barbell rear delt row', exerciseId: '0076', muscle_group: 'Hombro' }
+      ]
+    },
+    {
+      id: 'shoulders-dumbbell',
+      title: 'Hombro · Definicion',
+      subtitle: 'Press, elevaciones y delt posterior con mancuerna',
+      muscleFocus: 'shoulders',
+      equipment: 'dumbbell',
+      workoutName: 'Hombro · Definicion',
+      exercises: [
+        { name: 'dumbbell shoulder press', muscle_group: 'Hombro' },
+        { name: 'dumbbell lateral raise', muscle_group: 'Hombro' },
+        { name: 'dumbbell front raise', muscle_group: 'Hombro' },
+        { name: 'barbell rear delt raise', exerciseId: '0075', muscle_group: 'Hombro' },
+        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' }
+      ]
+    },
+    {
+      id: 'arms-barbell',
+      title: 'Brazos · Barra',
+      subtitle: 'Biceps y triceps con barra libre',
+      muscleFocus: 'arms',
+      equipment: 'barbell',
+      workoutName: 'Brazos · Barra',
+      exercises: [
+        { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Biceps' },
+        { name: 'barbell preacher curl', exerciseId: '0070', muscle_group: 'Biceps' },
+        { name: 'barbell lying triceps extension skull crusher', exerciseId: '0060', muscle_group: 'Triceps' },
+        { name: 'barbell seated overhead triceps extension', exerciseId: '0092', muscle_group: 'Triceps' },
+        { name: 'barbell drag curl', exerciseId: '0038', muscle_group: 'Biceps' }
+      ]
+    },
+    {
+      id: 'core-bodyweight',
+      title: 'Core · Abdomen',
+      subtitle: 'Abdominales y oblicuos sin maquina',
+      muscleFocus: 'core',
+      equipment: 'bodyweight',
+      workoutName: 'Core · Abdomen',
+      exercises: [
+        { name: '3/4 sit-up', exerciseId: '0001', muscle_group: 'Core' },
+        { name: 'air bike', exerciseId: '0003', muscle_group: 'Core' },
+        { name: 'alternate heel touchers', exerciseId: '0006', muscle_group: 'Core' },
+        { name: 'assisted hanging knee raise', exerciseId: '0011', muscle_group: 'Core' },
+        { name: 'barbell rollerout from bench', exerciseId: '0083', muscle_group: 'Core' }
+      ]
+    },
+    {
+      id: 'fullbody-barbell',
+      title: 'Full Body · Barra',
+      subtitle: 'Pierna, pecho, espalda, hombro y brazos',
+      muscleFocus: 'full',
+      equipment: 'barbell',
+      workoutName: 'Full Body · Barra',
+      exercises: [
+        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
+        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+        { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
+        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
+        { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Brazos' }
+      ]
+    }
   ];
   pendingSetsByExercise: Record<string, PendingSetDraft[]> = {};
   showWorkoutSummaryModal = false;
@@ -1366,6 +1829,66 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       if (!this.currentWorkout) {
         this.activeWorkout.finishWorkout();
       }
+    }
+  }
+
+  isCreatingTemplate(): boolean {
+    return this.activeTemplateId() !== null;
+  }
+
+  templateMuscleLabel(v: WorkoutTemplate['muscleFocus']): string {
+    const map: Record<WorkoutTemplate['muscleFocus'], string> = {
+      chest: 'Pecho', back: 'Espalda', legs: 'Pierna',
+      shoulders: 'Hombro', arms: 'Brazos', core: 'Core', full: 'Full Body'
+    };
+    return map[v];
+  }
+
+  templateEquipmentLabel(v: WorkoutTemplate['equipment']): string {
+    const map: Record<WorkoutTemplate['equipment'], string> = {
+      barbell: 'Barra', dumbbell: 'Mancuerna', machine: 'Máquina',
+      cable: 'Polea', bodyweight: 'Peso libre'
+    };
+    return map[v];
+  }
+
+  filteredTemplates(): WorkoutTemplate[] {
+    return this.workoutTemplates.filter((tpl) => {
+      const byMuscle = this.selectedTemplateMuscleFilter === 'all' || tpl.muscleFocus === this.selectedTemplateMuscleFilter;
+      const byEquip = this.selectedTemplateEquipmentFilter === 'all' || tpl.equipment === this.selectedTemplateEquipmentFilter;
+      return byMuscle && byEquip;
+    });
+  }
+
+  templateGifUrl(gifId: string): string {
+    return `/exercises/exercisedb/gifs/${gifId}.gif`;
+  }
+
+  async startWorkoutFromTemplate(template: WorkoutTemplate): Promise<void> {
+    if (this.isCreatingTemplate()) {
+      return;
+    }
+    this.activeTemplateId.set(template.id);
+    this.isBootstrappingTemplate = true;
+    try {
+      const created = await this.workoutRecordService.createWorkout(template.workoutName, []);
+      if (!created) {
+        return;
+      }
+      this.showNewSessionModal = false;
+      this.activeWorkout.startWorkout(created.id, created.workout_name);
+      await this.loadDetail(created.id);
+      for (const ex of template.exercises) {
+        await this.workoutRecordService.addExercise(created.id, {
+          name: ex.name,
+          muscle_group: ex.muscle_group
+        });
+      }
+      await this.loadDetail(created.id);
+      this.showExerciseListModal = false;
+    } finally {
+      this.isBootstrappingTemplate = false;
+      this.activeTemplateId.set(null);
     }
   }
 
@@ -1554,6 +2077,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (
       detail.exercises.length === 0 &&
       !this.showExerciseListModal &&
+      !this.isBootstrappingTemplate &&
       this.autoOpenedPickerForWorkoutId !== detail.id
     ) {
       this.autoOpenedPickerForWorkoutId = detail.id;
