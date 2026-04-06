@@ -41,8 +41,8 @@ FRONTEND_GIFS_DIR = BACKEND_DIR.parent / "Frontend" / "public" / "exercises" / "
 FRONTEND_MEDIA_INDEX = BACKEND_DIR.parent / "Frontend" / "src" / "app" / "core" / "exercisedb-local-media.ts"
 
 BASE = "https://exercisedb.p.rapidapi.com"
-DEFAULT_PER_BATCH = 10
-DEFAULT_INTERVAL_MINUTES = 60
+DEFAULT_PER_BATCH = 50
+DEFAULT_INTERVAL_MINUTES = 10
 
 load_dotenv(BACKEND_DIR / ".env")
 
