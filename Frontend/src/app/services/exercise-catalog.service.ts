@@ -3,6 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { mergeQueriesFromLabels, normalizeRoutineLabel, type ExerciseDbQuery } from '../core/exercise-db-queries';
+import { resolveExerciseImageByName } from '../core/exercise-icons';
 import { environment } from '../../environments/environment';
 import { ExerciseCatalogItem } from '../models/exercise-catalog.model';
 import type { ExerciseDbExercise } from '../models/exercisedb.model';
@@ -37,6 +38,8 @@ export class ExerciseCatalogService {
 
   private readonly http = inject(HttpClient);
   private readonly media = inject(ExerciseDbMediaService);
+  private localExercises: ExerciseDbExercise[] | null = null;
+  private localExercisesLoadPromise: Promise<ExerciseDbExercise[]> | null = null;
 
   async loadGroups(): Promise<void> {
     this.loading.set(true);
@@ -73,20 +76,15 @@ export class ExerciseCatalogService {
     this.error.set(null);
     this.listThumbs.set({});
     try {
-      const headers = await this.authHeaders();
-      const res = await firstValueFrom(
-        this.http.get<ApiResponse<ExerciseDbExercise[]>>(`${environment.apiUrl}/api/exercisedb/search`, {
-          headers,
-          params: { name: q }
-        })
-      );
-      const items: ExerciseCatalogItem[] = (res.data ?? [])
+      const local = await this.loadLocalExercises();
+      const items: ExerciseCatalogItem[] = local
+        .filter((row) => row.name.toLowerCase().includes(q.toLowerCase()))
         .sort((a, b) => a.name.localeCompare(b.name, 'es'))
         .map((row) => this.toCatalogItem(row, displayLabel));
       this.items.set(items);
       void this.prefetchListThumbs(items);
     } catch {
-      this.error.set('No se pudo buscar en ExerciseDB.');
+      this.error.set('No se pudo buscar en el catalogo local.');
       this.items.set([]);
     } finally {
       this.loading.set(false);
@@ -102,31 +100,19 @@ export class ExerciseCatalogService {
     this.error.set(null);
     this.listThumbs.set({});
     try {
-      const headers = await this.authHeaders();
+      const local = await this.loadLocalExercises();
       const merged = new Map<string, ExerciseDbExercise>();
       for (const query of queries) {
-        const params: Record<string, string | number> =
+        const rows =
           query.kind === 'body_part'
-            ? { body_part: query.value, limit: 80, offset: 0 }
-            : { target: query.value, limit: 80, offset: 0 };
-        const res = await firstValueFrom(
-          this.http.get<ApiResponse<ExerciseDbExercise[]>>(`${environment.apiUrl}/api/exercisedb/exercises`, {
-            headers,
-            params
-          })
-        );
-        for (const row of res.data ?? []) {
+            ? local.filter((row) => (row.bodyPart || '').toLowerCase() === query.value.toLowerCase())
+            : local.filter((row) => (row.target || '').toLowerCase() === query.value.toLowerCase());
+        for (const row of rows) {
           merged.set(row.id, row);
         }
       }
       if (merged.size === 0) {
-        const resAll = await firstValueFrom(
-          this.http.get<ApiResponse<ExerciseDbExercise[]>>(`${environment.apiUrl}/api/exercisedb/exercises`, {
-            headers,
-            params: { limit: 80, offset: 0 }
-          })
-        );
-        for (const row of resAll.data ?? []) {
+        for (const row of local) {
           merged.set(row.id, row);
         }
       }
@@ -136,7 +122,7 @@ export class ExerciseCatalogService {
       this.items.set(items);
       void this.prefetchListThumbs(items);
     } catch {
-      this.error.set('No se pudo cargar el catalogo ExerciseDB. Revisa RAPIDAPI_KEY en el backend.');
+      this.error.set('No se pudo cargar el catalogo local.');
       this.items.set([]);
     } finally {
       this.loading.set(false);
@@ -148,20 +134,14 @@ export class ExerciseCatalogService {
     this.error.set(null);
     this.listThumbs.set({});
     try {
-      const headers = await this.authHeaders();
-      const res = await firstValueFrom(
-        this.http.get<ApiResponse<ExerciseDbExercise[]>>(`${environment.apiUrl}/api/exercisedb/exercises`, {
-          headers,
-          params: { limit: 80, offset: 0 }
-        })
-      );
-      const items: ExerciseCatalogItem[] = (res.data ?? [])
+      const local = await this.loadLocalExercises();
+      const items: ExerciseCatalogItem[] = local
         .sort((a, b) => a.name.localeCompare(b.name, 'es'))
         .map((row) => this.toCatalogItem(row, displayGroupLabel));
       this.items.set(items);
       void this.prefetchListThumbs(items);
     } catch {
-      this.error.set('No se pudo cargar el catalogo ExerciseDB. Revisa RAPIDAPI_KEY en el backend.');
+      this.error.set('No se pudo cargar el catalogo local.');
       this.items.set([]);
     } finally {
       this.loading.set(false);
@@ -190,6 +170,9 @@ export class ExerciseCatalogService {
       const url = await this.media.getObjectUrl(ext, '180');
       if (url) {
         next[item.id] = url;
+      } else {
+        // Fallback visual local para ejercicios sin media ExerciseDB local.
+        next[item.id] = resolveExerciseImageByName(item.name, item.muscle_group);
       }
     }
     this.listThumbs.set(next);
@@ -222,5 +205,25 @@ export class ExerciseCatalogService {
       throw new Error('No active session');
     }
     return { Authorization: `Bearer ${token}` };
+  }
+
+  private async loadLocalExercises(): Promise<ExerciseDbExercise[]> {
+    if (this.localExercises) {
+      return this.localExercises;
+    }
+    if (this.localExercisesLoadPromise) {
+      return this.localExercisesLoadPromise;
+    }
+    this.localExercisesLoadPromise = firstValueFrom(
+      this.http.get<ExerciseDbExercise[]>('/exercises/exercisedb/exercises.json')
+    )
+      .then((data) => {
+        this.localExercises = Array.isArray(data) ? data : [];
+        return this.localExercises;
+      })
+      .finally(() => {
+        this.localExercisesLoadPromise = null;
+      });
+    return this.localExercisesLoadPromise;
   }
 }

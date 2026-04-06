@@ -251,6 +251,26 @@ interface PendingSetDraft {
               <button type="button" class="catalog-search-btn" (click)="runCatalogSearch()">Buscar</button>
             </div>
 
+            <div class="equipment-slider">
+              @for (f of equipmentFilters; track f.key) {
+                <button
+                  type="button"
+                  class="equipment-chip"
+                  [class.active]="selectedEquipmentFilter === f.key"
+                  (click)="setEquipmentFilter(f.key)"
+                >
+                  {{ f.label }}
+                </button>
+              }
+            </div>
+
+            @if (selectedCatalogThumb()) {
+              <div class="selected-thumb-block">
+                <small>Seleccionado</small>
+                <img [src]="selectedCatalogThumb()!" alt="" />
+              </div>
+            }
+
             @if (exerciseCatalogService.loading()) {
               <div class="loading-state">
                 <span class="spinner" aria-hidden="true"></span>
@@ -259,21 +279,16 @@ interface PendingSetDraft {
             }
 
             <div class="history-list exercise-catalog-scroll">
-              @for (exercise of exerciseCatalogService.items(); track exercise.id) {
+              @for (exercise of filteredCatalogItems(); track exercise.id) {
                 <button
                   type="button"
                   class="exercise-option"
                   (click)="pickCatalogExercise(exercise)"
                 >
                   <span class="option-thumb-wrap">
-                    @if (exerciseCatalogService.listThumbs()[exercise.id]; as thumb) {
-                      <img [src]="thumb" alt="" class="option-thumb" />
-                    } @else {
-                      <span class="option-thumb-ph" aria-hidden="true"></span>
-                    }
+                    <img [src]="catalogThumb(exercise)" alt="" class="option-thumb" />
                   </span>
                   <span class="option-text">
-                    <span class="option-arrow">></span>
                     <span class="option-name">
                       <span>{{ displayCatalogPrimaryName(exercise) }}</span>
                       @if (displayCatalogSecondaryName(exercise); as enName) {
@@ -284,7 +299,7 @@ interface PendingSetDraft {
                 </button>
               }
             </div>
-            @if (exerciseCatalogService.items().length === 0 && !exerciseCatalogService.loading()) {
+            @if (filteredCatalogItems().length === 0 && !exerciseCatalogService.loading()) {
               <small class="note">No hay ejercicios para este grupo. Prueba con otro o agrega manualmente.</small>
             }
 
@@ -924,14 +939,24 @@ interface PendingSetDraft {
     }
 
     .option-name > span {
-      line-height: 1.12;
+      line-height: 1.1;
+      font-size: 0.8rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
     }
 
     .option-name small {
       color: #6b7280;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       font-weight: 500;
       line-height: 1.05;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
     }
 
     .catalog-detail-preview {
@@ -1003,6 +1028,33 @@ interface PendingSetDraft {
       white-space: nowrap;
     }
 
+    .selected-thumb-block {
+      display: grid;
+      gap: 0.3rem;
+      justify-items: start;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 0.45rem 0.55rem;
+      background: #fafafa;
+      width: fit-content;
+    }
+
+    .selected-thumb-block small {
+      color: #6b7280;
+      font-size: 0.72rem;
+      line-height: 1;
+    }
+
+    .selected-thumb-block img {
+      width: 56px;
+      height: 56px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      display: block;
+    }
+
     .catalog-search-row {
       display: flex;
       gap: 0.45rem;
@@ -1030,6 +1082,38 @@ interface PendingSetDraft {
       font-size: 0.8rem;
       font-weight: 600;
       cursor: pointer;
+    }
+
+    .equipment-slider {
+      display: flex;
+      gap: 0.4rem;
+      overflow-x: auto;
+      padding: 0.1rem 0 0.05rem;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+
+    .equipment-slider::-webkit-scrollbar {
+      display: none;
+    }
+
+    .equipment-chip {
+      flex-shrink: 0;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #374151;
+      border-radius: 999px;
+      padding: 0.34rem 0.62rem;
+      font: inherit;
+      font-size: 0.76rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .equipment-chip.active {
+      border-color: #111;
+      background: #111;
+      color: #fff;
     }
 
     .exercise-db-meta {
@@ -1202,6 +1286,8 @@ export class WorkoutsPage implements OnInit {
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
     {};
   activeMuscleGroup = '';
+  selectedEquipmentFilter: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free' = 'all';
+  selectedCatalogThumb = signal<string | null>(null);
 
   readonly muscleGroupSlides = [
     { key: 'pecho', label: 'Pecho', image: '/exercises/groups/pecho.png' },
@@ -1212,6 +1298,13 @@ export class WorkoutsPage implements OnInit {
     { key: 'hombro', label: 'Hombro', image: '/exercises/groups/hombro.png' },
     { key: 'core', label: 'Core', image: '/exercises/groups/core.png' },
     { key: 'cardio', label: 'Cardio', image: '/exercises/groups/cardio.png' }
+  ];
+  readonly equipmentFilters: Array<{ key: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free'; label: string }> = [
+    { key: 'all', label: 'Todos' },
+    { key: 'dumbbell', label: 'Mancuerna' },
+    { key: 'barbell', label: 'Barra' },
+    { key: 'machine', label: 'Maquina' },
+    { key: 'free', label: 'Libre' }
   ];
   pendingSetsByExercise: Record<string, PendingSetDraft[]> = {};
   showWorkoutSummaryModal = false;
@@ -1454,12 +1547,16 @@ export class WorkoutsPage implements OnInit {
 
 
   async openExerciseGroupModal(): Promise<void> {
+    // Evita solape con el modal de "Definir entrenamiento".
+    this.showNewSessionModal = false;
     this.selectedExerciseId = '';
     this.manualMode = false;
     this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
+    this.selectedEquipmentFilter = 'all';
+    this.selectedCatalogThumb.set(null);
     const firstSlide = this.muscleGroupSlides[0];
     this.activeMuscleGroup = firstSlide.key;
     this.selectedMuscleGroup = firstSlide.label;
@@ -1469,10 +1566,13 @@ export class WorkoutsPage implements OnInit {
 
   closeExerciseListModal(): void {
     this.showExerciseListModal = false;
+    // Si por cualquier motivo quedo abierto en segundo plano, cerrarlo tambien.
+    this.showNewSessionModal = false;
     this.manualMode = false;
     this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
+    this.selectedCatalogThumb.set(null);
   }
 
   async selectMuscleGroupSlide(key: string): Promise<void> {
@@ -1484,7 +1584,12 @@ export class WorkoutsPage implements OnInit {
     this.selectedMuscleGroup = slide.label;
     this.selectedCatalogExerciseId = '';
     this.catalogSearchQuery = '';
+    this.selectedEquipmentFilter = 'all';
     await this.exerciseCatalogService.loadByGroup(slide.label);
+  }
+
+  setEquipmentFilter(key: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free'): void {
+    this.selectedEquipmentFilter = key;
   }
 
   runCatalogSearch(): void {
@@ -1494,6 +1599,15 @@ export class WorkoutsPage implements OnInit {
       return;
     }
     void this.exerciseCatalogService.searchByName(q, this.selectedMuscleGroup || 'Busqueda');
+  }
+
+  filteredCatalogItems(): ExerciseCatalogItem[] {
+    const base = this.exerciseCatalogService.items();
+    const mode = this.selectedEquipmentFilter;
+    if (mode === 'all') {
+      return base;
+    }
+    return base.filter((item) => this.matchesEquipmentFilter(item, mode));
   }
 
   dbBodyPart(v: string): string {
@@ -1545,6 +1659,7 @@ export class WorkoutsPage implements OnInit {
     if (!this.currentWorkout) {
       return;
     }
+    this.selectedCatalogThumb.set(this.catalogThumb(exercise));
     const muscleGroup = exercise.muscle_group || this.selectedMuscleGroup;
     const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
       name: exercise.name.trim(),
@@ -1561,6 +1676,10 @@ export class WorkoutsPage implements OnInit {
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.manualMode = false;
+  }
+
+  catalogThumb(item: ExerciseCatalogItem): string {
+    return this.exerciseCatalogService.listThumbs()[item.id] || this.exerciseIcon(item);
   }
 
   async addManualExerciseFromModal(): Promise<void> {
@@ -1701,6 +1820,34 @@ export class WorkoutsPage implements OnInit {
   private exerciseEnglishName(exercise: WorkoutExerciseRecord): string {
     const d = this.exerciseDbDetail(exercise);
     return (d?.name || exercise.name || '').trim();
+  }
+
+  private matchesEquipmentFilter(
+    item: ExerciseCatalogItem,
+    mode: 'dumbbell' | 'barbell' | 'machine' | 'free'
+  ): boolean {
+    const eq = this.normalizeText(item.detail?.equipment ?? '');
+    if (!eq) {
+      return mode === 'free';
+    }
+    if (mode === 'dumbbell') {
+      return eq.includes('dumbbell');
+    }
+    if (mode === 'barbell') {
+      return eq.includes('barbell') || eq.includes('ez bar');
+    }
+    if (mode === 'machine') {
+      return eq.includes('machine') || eq.includes('smith') || eq.includes('leverage') || eq.includes('cable');
+    }
+    return !(
+      eq.includes('dumbbell') ||
+      eq.includes('barbell') ||
+      eq.includes('ez bar') ||
+      eq.includes('machine') ||
+      eq.includes('smith') ||
+      eq.includes('leverage') ||
+      eq.includes('cable')
+    );
   }
 
   selectedCatalogPreview(): ExerciseDbExercise | null {

@@ -1,4 +1,5 @@
 /** Traducciones UI para valores en ingles devueltos por ExerciseDB (v1). */
+import { EXERCISE_NAME_ES_MANUAL } from './exercisedb-name-manual-es';
 import { EXERCISE_NAME_ES } from './exercisedb-name-translations';
 
 const BODY_PART_ES: Record<string, string> = {
@@ -158,6 +159,10 @@ export function translateExerciseName(value?: string | null): string {
   if (!value) return '';
   const src = value.trim();
   if (!src) return '';
+  const manualExact = EXERCISE_NAME_ES_MANUAL[src];
+  if (manualExact) return manualExact;
+  const manualNormalized = EXERCISE_NAME_ES_MANUAL_BY_NORM[normKey(src)];
+  if (manualNormalized) return manualNormalized;
   const exact = EXERCISE_NAME_ES[src];
   if (exact) return exact;
   const normalizedLookup = EXERCISE_NAME_ES_BY_NORM[normKey(src)];
@@ -176,6 +181,10 @@ export function translateExerciseName(value?: string | null): string {
 
 const EXERCISE_NAME_ES_BY_NORM: Record<string, string> = Object.fromEntries(
   Object.entries(EXERCISE_NAME_ES).map(([en, es]) => [normKey(en), es])
+);
+
+const EXERCISE_NAME_ES_MANUAL_BY_NORM: Record<string, string> = Object.fromEntries(
+  Object.entries(EXERCISE_NAME_ES_MANUAL).map(([en, es]) => [normKey(en), es])
 );
 
 function capitalizeWords(s: string): string {
