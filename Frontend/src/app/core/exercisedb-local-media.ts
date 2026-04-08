@@ -845,4 +845,8 @@ export const EXERCISEDB_LOCAL_MEDIA_IDS = new Set<string>([
   '1381',
   '1382',
   '1383',
+  '1384',
+  '1385',
+  '1386',
+  '1387',
 ]);

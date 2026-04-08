@@ -9701,11 +9701,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 84739 bytes",
+    "last_attempt_at": "2026-04-08T10:52:07.268988+00:00"
   },
   {
     "id": "1336",
@@ -9713,11 +9713,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 85436 bytes",
+    "last_attempt_at": "2026-04-08T10:52:09.593248+00:00"
   },
   {
     "id": "1338",
@@ -9725,11 +9725,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 158875 bytes",
+    "last_attempt_at": "2026-04-08T10:52:11.087317+00:00"
   },
   {
     "id": "1339",
@@ -9737,11 +9737,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 102923 bytes",
+    "last_attempt_at": "2026-04-08T10:52:12.551582+00:00"
   },
   {
     "id": "1341",
@@ -9749,11 +9749,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 73922 bytes",
+    "last_attempt_at": "2026-04-08T10:52:14.038240+00:00"
   },
   {
     "id": "1342",
@@ -9761,11 +9761,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 72737 bytes",
+    "last_attempt_at": "2026-04-08T10:52:15.504753+00:00"
   },
   {
     "id": "1343",
@@ -9773,11 +9773,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "stability ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 86709 bytes",
+    "last_attempt_at": "2026-04-08T10:52:16.957698+00:00"
   },
   {
     "id": "1344",
@@ -9785,11 +9785,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "ez barbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 90179 bytes",
+    "last_attempt_at": "2026-04-08T10:52:18.501192+00:00"
   },
   {
     "id": "1345",
@@ -9797,11 +9797,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "kettlebell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 101759 bytes",
+    "last_attempt_at": "2026-04-08T10:52:20.002093+00:00"
   },
   {
     "id": "1346",
@@ -9809,11 +9809,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 69095 bytes",
+    "last_attempt_at": "2026-04-08T10:52:21.529824+00:00"
   },
   {
     "id": "1347",
@@ -9821,11 +9821,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 138066 bytes",
+    "last_attempt_at": "2026-04-08T10:52:23.059493+00:00"
   },
   {
     "id": "1348",
@@ -9833,11 +9833,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 136833 bytes",
+    "last_attempt_at": "2026-04-08T10:52:24.556946+00:00"
   },
   {
     "id": "1349",
@@ -9845,11 +9845,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 117168 bytes",
+    "last_attempt_at": "2026-04-08T10:52:26.435919+00:00"
   },
   {
     "id": "1350",
@@ -9857,11 +9857,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 136785 bytes",
+    "last_attempt_at": "2026-04-08T10:52:28.069889+00:00"
   },
   {
     "id": "1351",
@@ -9869,11 +9869,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 70244 bytes",
+    "last_attempt_at": "2026-04-08T10:52:29.737716+00:00"
   },
   {
     "id": "1352",
@@ -9881,11 +9881,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 60693 bytes",
+    "last_attempt_at": "2026-04-08T10:52:31.567721+00:00"
   },
   {
     "id": "1353",
@@ -9893,11 +9893,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "medicine ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 102576 bytes",
+    "last_attempt_at": "2026-04-08T10:52:33.450165+00:00"
   },
   {
     "id": "1354",
@@ -9905,11 +9905,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "medicine ball",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 65305 bytes",
+    "last_attempt_at": "2026-04-08T10:52:35.109038+00:00"
   },
   {
     "id": "1355",
@@ -9917,11 +9917,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 85841 bytes",
+    "last_attempt_at": "2026-04-08T10:52:36.940243+00:00"
   },
   {
     "id": "1356",
@@ -9929,11 +9929,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 134362 bytes",
+    "last_attempt_at": "2026-04-08T10:52:38.443333+00:00"
   },
   {
     "id": "1358",
@@ -9941,11 +9941,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 53529 bytes",
+    "last_attempt_at": "2026-04-08T10:52:40.164207+00:00"
   },
   {
     "id": "1359",
@@ -9953,11 +9953,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "smith machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 109739 bytes",
+    "last_attempt_at": "2026-04-08T10:52:41.697823+00:00"
   },
   {
     "id": "1360",
@@ -9965,11 +9965,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "smith machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 111326 bytes",
+    "last_attempt_at": "2026-04-08T10:52:43.294999+00:00"
   },
   {
     "id": "1361",
@@ -9977,11 +9977,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "smith machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 107035 bytes",
+    "last_attempt_at": "2026-04-08T10:52:44.947754+00:00"
   },
   {
     "id": "1362",
@@ -9989,11 +9989,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 54820 bytes",
+    "last_attempt_at": "2026-04-08T10:52:46.428517+00:00"
   },
   {
     "id": "1363",
@@ -10001,11 +10001,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 119336 bytes",
+    "last_attempt_at": "2026-04-08T10:52:48.044370+00:00"
   },
   {
     "id": "1364",
@@ -10013,11 +10013,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 72271 bytes",
+    "last_attempt_at": "2026-04-08T10:52:49.201473+00:00"
   },
   {
     "id": "1365",
@@ -10025,11 +10025,11 @@
     "bodyPart": "back",
     "target": "upper back",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 70887 bytes",
+    "last_attempt_at": "2026-04-08T10:52:50.702723+00:00"
   },
   {
     "id": "1366",
@@ -10037,11 +10037,11 @@
     "bodyPart": "back",
     "target": "spine",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 67084 bytes",
+    "last_attempt_at": "2026-04-08T10:52:52.225502+00:00"
   },
   {
     "id": "1367",
@@ -10049,11 +10049,11 @@
     "bodyPart": "back",
     "target": "lats",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 63062 bytes",
+    "last_attempt_at": "2026-04-08T10:52:53.740111+00:00"
   },
   {
     "id": "1368",
@@ -10061,11 +10061,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 67960 bytes",
+    "last_attempt_at": "2026-04-08T10:52:55.429851+00:00"
   },
   {
     "id": "1369",
@@ -10073,11 +10073,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "band",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 78133 bytes",
+    "last_attempt_at": "2026-04-08T10:52:57.044798+00:00"
   },
   {
     "id": "1370",
@@ -10085,11 +10085,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "barbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 87793 bytes",
+    "last_attempt_at": "2026-04-08T10:52:58.595904+00:00"
   },
   {
     "id": "1371",
@@ -10097,11 +10097,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "barbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 120803 bytes",
+    "last_attempt_at": "2026-04-08T10:53:00.071365+00:00"
   },
   {
     "id": "1372",
@@ -10109,11 +10109,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "barbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 91083 bytes",
+    "last_attempt_at": "2026-04-08T10:53:01.554430+00:00"
   },
   {
     "id": "1373",
@@ -10121,11 +10121,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 62166 bytes",
+    "last_attempt_at": "2026-04-08T10:53:03.081747+00:00"
   },
   {
     "id": "1374",
@@ -10133,11 +10133,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 98948 bytes",
+    "last_attempt_at": "2026-04-08T10:53:04.543491+00:00"
   },
   {
     "id": "1375",
@@ -10145,11 +10145,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "cable",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 102452 bytes",
+    "last_attempt_at": "2026-04-08T10:53:06.129443+00:00"
   },
   {
     "id": "1376",
@@ -10157,11 +10157,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "cable",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 123583 bytes",
+    "last_attempt_at": "2026-04-08T10:53:07.604388+00:00"
   },
   {
     "id": "1377",
@@ -10169,11 +10169,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 82277 bytes",
+    "last_attempt_at": "2026-04-08T10:53:09.110287+00:00"
   },
   {
     "id": "1378",
@@ -10181,11 +10181,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "rope",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 78867 bytes",
+    "last_attempt_at": "2026-04-08T10:53:10.529757+00:00"
   },
   {
     "id": "1379",
@@ -10193,11 +10193,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "dumbbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 116155 bytes",
+    "last_attempt_at": "2026-04-08T10:53:11.972266+00:00"
   },
   {
     "id": "1380",
@@ -10205,11 +10205,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "dumbbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 107547 bytes",
+    "last_attempt_at": "2026-04-08T10:53:13.412344+00:00"
   },
   {
     "id": "1381",
@@ -10217,11 +10217,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "dumbbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 125452 bytes",
+    "last_attempt_at": "2026-04-08T10:53:14.946916+00:00"
   },
   {
     "id": "1382",
@@ -10229,11 +10229,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "dumbbell",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 81773 bytes",
+    "last_attempt_at": "2026-04-08T10:53:16.465975+00:00"
   },
   {
     "id": "1383",
@@ -10241,11 +10241,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "sled machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 105243 bytes",
+    "last_attempt_at": "2026-04-08T10:53:17.966792+00:00"
   },
   {
     "id": "1384",
@@ -10253,11 +10253,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "sled machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 108648 bytes",
+    "last_attempt_at": "2026-04-08T10:53:19.401117+00:00"
   },
   {
     "id": "1385",
@@ -10265,11 +10265,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "leverage machine",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 117220 bytes",
+    "last_attempt_at": "2026-04-08T10:53:21.224071+00:00"
   },
   {
     "id": "1386",
@@ -10277,11 +10277,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 88991 bytes",
+    "last_attempt_at": "2026-04-08T10:53:22.365754+00:00"
   },
   {
     "id": "1387",
@@ -10289,11 +10289,11 @@
     "bodyPart": "lower legs",
     "target": "calves",
     "equipment": "body weight",
-    "backend_gif_exists": false,
-    "frontend_gif_exists": false,
-    "last_status": null,
-    "last_detail": null,
-    "last_attempt_at": null
+    "backend_gif_exists": true,
+    "frontend_gif_exists": true,
+    "last_status": "OK",
+    "last_detail": "saved 70083 bytes",
+    "last_attempt_at": "2026-04-08T10:53:23.842440+00:00"
   },
   {
     "id": "1388",
