@@ -229,8 +229,8 @@ interface WorkoutTemplate {
                     [placeholder]="previousMaxReps(exercise)"
                   />
                   <select [(ngModel)]="setInputs[exercise.id].mode">
-                    <option value="bilateral">BI</option>
-                    <option value="unilateral">UNI</option>
+                    <option value="bilateral">Bilateral</option>
+                    <option value="unilateral">Unilateral</option>
                   </select>
                   <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
                 </div>
@@ -1522,15 +1522,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     { key: 'bodyweight', label: 'Libre / sin material' },
   ];
   readonly workoutTemplates: WorkoutTemplate[] = [
-    // ── 2 DÍAS: PUSH (Pecho · Hombros · Tríceps) ────────────────────────────
-    // ── 2 DÍAS: PUSH ─────────────────────────────────────────────────────────
-    { id: '2d-push-gym', title: 'Push · Gym', subtitle: 'Pecho · Hombros · Tríceps', daysFilter: '2d', equipment: 'gym', workoutName: 'Push · Gym completo', exercises: [
-      { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
-      { name: 'dumbbell incline hammer press', exerciseId: '0321', muscle_group: 'Pecho' },
-      { name: 'cable alternate shoulder press', exerciseId: '0148', muscle_group: 'Hombro' },
-      { name: 'dumbbell seated lateral raise', exerciseId: '0396', muscle_group: 'Hombro' },
-      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
-    ]},
     // ── 2 DÍAS: PUSH (Gym) ────────────────────────────────────────────────────
     { id: '2d-push-gym', title: 'Push · Gym', subtitle: 'Pecho · Hombros · Tríceps', daysFilter: '2d', equipment: 'gym', workoutName: 'Push · Gym completo', exercises: [
       { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
