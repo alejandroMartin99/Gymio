@@ -1,10 +1,6 @@
-from pathlib import Path
-
 from dotenv import load_dotenv
 
-# Cargar Backend/.env aunque uvicorn se lance desde otra carpeta (cwd).
-_backend_dir = Path(__file__).resolve().parent.parent
-load_dotenv(_backend_dir / ".env")
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
