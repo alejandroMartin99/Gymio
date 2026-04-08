@@ -11,7 +11,7 @@ export class ExerciseDbMediaService {
   private readonly objectUrlCache = new Map<string, string>();
   private readonly inFlight = new Map<string, Promise<string | null>>();
   private readonly failedCache = new Set<string>();
-  private readonly failedCacheStorageKey = 'gymio:exercisedb:media:failed:v1';
+  private readonly failedCacheStorageKey = 'gymio:exercisedb:media:failed:v2';
 
   constructor() {
     this.restoreFailedCache();
@@ -23,43 +23,52 @@ export class ExerciseDbMediaService {
 
   /**
    * URL local persistente; no dispara peticiones de red.
+   *
+   * Comprueba primero el índice local compilado. Si el ID está en el set,
+   * devuelve la URL directamente y limpia cualquier entrada obsoleta en el
+   * failedCache de localStorage (puede quedar de sesiones anteriores a la
+   * descarga del GIF).
    */
-  async getObjectUrl(exerciseId: string, resolution: ExerciseDbImageResolution = '180'): Promise<string | null> {
+  getObjectUrl(exerciseId: string, resolution: ExerciseDbImageResolution = '180'): Promise<string | null> {
     const id = exerciseId.trim();
     if (!id) {
-      return null;
+      return Promise.resolve(null);
     }
     const ck = this.cacheKey(id, resolution);
+
+    // Fast path: el GIF existe localmente según el índice compilado.
+    if (EXERCISEDB_LOCAL_MEDIA_IDS.has(id)) {
+      const localUrl = `/exercises/exercisedb/gifs/${id}.gif`;
+      this.objectUrlCache.set(ck, localUrl);
+      // Limpia entrada obsoleta en failedCache si existiera de otra sesión.
+      if (this.failedCache.has(ck)) {
+        this.failedCache.delete(ck);
+        this.persistFailedCache();
+      }
+      return Promise.resolve(localUrl);
+    }
+
     const hit = this.objectUrlCache.get(ck);
     if (hit) {
-      return hit;
+      return Promise.resolve(hit);
     }
     if (this.failedCache.has(ck)) {
-      return null;
+      return Promise.resolve(null);
     }
     const running = this.inFlight.get(ck);
     if (running) {
       return running;
     }
 
-    const task = this.resolveObjectUrl(id, ck);
+    const task = this.resolveNotLocal(id, ck);
     this.inFlight.set(ck, task);
-    try {
-      return await task;
-    } finally {
-      this.inFlight.delete(ck);
-    }
+    return task.finally(() => this.inFlight.delete(ck));
   }
 
-  private async resolveObjectUrl(exerciseId: string, ck: string): Promise<string | null> {
-    if (!EXERCISEDB_LOCAL_MEDIA_IDS.has(exerciseId)) {
-      this.failedCache.add(ck);
-      this.persistFailedCache();
-      return null;
-    }
-    const localUrl = `/exercises/exercisedb/gifs/${exerciseId}.gif`;
-    this.objectUrlCache.set(ck, localUrl);
-    return localUrl;
+  private async resolveNotLocal(exerciseId: string, ck: string): Promise<string | null> {
+    this.failedCache.add(ck);
+    this.persistFailedCache();
+    return null;
   }
 
   private restoreFailedCache(): void {

@@ -11,6 +11,7 @@ import {
   translateTarget
 } from '../../core/exercisedb-i18n';
 import { resolveExerciseAltImageByName, resolveExerciseIcon, resolveExerciseImageByName } from '../../core/exercise-icons';
+import { EXERCISEDB_LOCAL_MEDIA_IDS } from '../../core/exercisedb-local-media';
 import { ExerciseCatalogItem } from '../../models/exercise-catalog.model';
 import { isExerciseDbExercise } from '../../models/exercisedb.model';
 import type { ExerciseDbExercise } from '../../models/exercisedb.model';
@@ -38,8 +39,8 @@ interface WorkoutTemplate {
   id: string;
   title: string;
   subtitle: string;
-  muscleFocus: 'chest' | 'back' | 'legs' | 'shoulders' | 'arms' | 'core' | 'full';
-  equipment: 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight';
+  daysFilter: '2d' | '3-4d' | '5d';
+  equipment: 'gym' | 'bodyweight';
   workoutName: string;
   exercises: WorkoutTemplateExercise[];
 }
@@ -83,25 +84,31 @@ interface WorkoutTemplate {
               <small>Rutinas completas y listas para empezar.</small>
             </div>
 
-            <div class="template-filter-row">
-              @for (f of templateMuscleFilters; track f.key) {
-                <button
-                  type="button"
-                  class="template-chip"
-                  [class.active]="selectedTemplateMuscleFilter === f.key"
-                  (click)="selectedTemplateMuscleFilter = f.key"
-                >{{ f.label }}</button>
-              }
+            <div class="template-filter-group">
+              <span class="filter-label">Días / semana</span>
+              <div class="template-filter-row">
+                @for (f of templateDaysFilters; track f.key) {
+                  <button
+                    type="button"
+                    class="template-chip"
+                    [class.active]="selectedTemplateDaysFilter === f.key"
+                    (click)="selectedTemplateDaysFilter = f.key"
+                  >{{ f.label }}</button>
+                }
+              </div>
             </div>
-            <div class="template-filter-row">
-              @for (f of templateEquipmentFilters; track f.key) {
-                <button
-                  type="button"
-                  class="template-chip"
-                  [class.active]="selectedTemplateEquipmentFilter === f.key"
-                  (click)="selectedTemplateEquipmentFilter = f.key"
-                >{{ f.label }}</button>
-              }
+            <div class="template-filter-group">
+              <span class="filter-label">Equipamiento</span>
+              <div class="template-filter-row">
+                @for (f of templateEquipmentFilters; track f.key) {
+                  <button
+                    type="button"
+                    class="template-chip"
+                    [class.active]="selectedTemplateEquipmentFilter === f.key"
+                    (click)="selectedTemplateEquipmentFilter = f.key"
+                  >{{ f.label }}</button>
+                }
+              </div>
             </div>
 
             <div class="template-grid">
@@ -111,7 +118,7 @@ interface WorkoutTemplate {
                     <strong>{{ tpl.title }}</strong>
                     <small>{{ tpl.subtitle }}</small>
                     <div class="template-badges">
-                      <span>{{ templateMuscleLabel(tpl.muscleFocus) }}</span>
+                      <span>{{ templateDaysLabel(tpl.daysFilter) }}</span>
                       <span>{{ templateEquipmentLabel(tpl.equipment) }}</span>
                     </div>
                     <div class="template-gif-strip">
@@ -387,24 +394,7 @@ interface WorkoutTemplate {
               }
             </div>
             @if (filteredCatalogItems().length === 0 && !exerciseCatalogService.loading()) {
-              <small class="note">No hay ejercicios para este grupo. Prueba con otro o agrega manualmente.</small>
-            }
-
-            <button type="button" class="manual-inline" (click)="manualMode = !manualMode">
-              <span>Agregar manualmente</span>
-              <span class="plus">+</span>
-            </button>
-
-            @if (manualMode) {
-              <div class="manual-card">
-                <label>
-                  Nombre ejercicio
-                  <input [(ngModel)]="manualExerciseName" placeholder="Ej: Press banca agarre cerrado" />
-                </label>
-                <button type="button" class="primary" (click)="addManualExerciseFromModal()" [disabled]="workoutRecordService.loading()">
-                  Guardar y agregar
-                </button>
-              </div>
+              <small class="note">No hay ejercicios para este grupo. Prueba con otro.</small>
             }
 
             <button type="button" class="close close-danger" (click)="closeExerciseListModal()">Cancelar</button>
@@ -587,6 +577,20 @@ interface WorkoutTemplate {
       color: #666;
     }
 
+    .template-filter-group {
+      margin-bottom: 0.45rem;
+    }
+
+    .filter-label {
+      display: block;
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.2rem;
+    }
+
     .template-filter-row {
       display: flex;
       gap: 0.3rem;
@@ -594,7 +598,6 @@ interface WorkoutTemplate {
       padding-bottom: 0.1rem;
       scrollbar-width: none;
       -webkit-overflow-scrolling: touch;
-      margin-top: 0.1rem;
     }
 
     .template-filter-row::-webkit-scrollbar {
@@ -1430,32 +1433,6 @@ interface WorkoutTemplate {
       text-align: center;
     }
 
-    .manual-inline {
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0.6rem 0.7rem;
-      font: inherit;
-      cursor: pointer;
-    }
-
-    .manual-inline .plus {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: #111;
-    }
-
-    .manual-card {
-      border: 1px solid #ececec;
-      border-radius: 10px;
-      padding: 0.7rem;
-      display: grid;
-      gap: 0.6rem;
-    }
-
     .close {
       justify-self: end;
       border: 0;
@@ -1551,8 +1528,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   selectedCatalogExerciseMuscleGroup = '';
   selectedExerciseId = '';
   completedExerciseIds = new Set<string>();
-  manualMode = false;
-  manualExerciseName = '';
   catalogSearchQuery = '';
   debouncedCatalogSearchQuery = '';
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
@@ -1560,8 +1535,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   activeMuscleGroup = '';
   selectedEquipmentFilter: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free' = 'all';
   selectedCatalogThumbs = signal<string[]>([]);
-  selectedTemplateMuscleFilter: 'all' | WorkoutTemplate['muscleFocus'] = 'all';
-  selectedTemplateEquipmentFilter: 'all' | WorkoutTemplate['equipment'] = 'all';
+  selectedTemplateDaysFilter: WorkoutTemplate['daysFilter'] = '2d';
+  selectedTemplateEquipmentFilter: WorkoutTemplate['equipment'] = 'gym';
   readonly activeTemplateId = signal<string | null>(null);
   private isBootstrappingTemplate = false;
 
@@ -1582,205 +1557,192 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     { key: 'machine', label: 'Maquina' },
     { key: 'free', label: 'Libre' }
   ];
-  readonly templateMuscleFilters: Array<{ key: 'all' | WorkoutTemplate['muscleFocus']; label: string }> = [
-    { key: 'all', label: 'Todos' },
-    { key: 'chest', label: 'Pecho' },
-    { key: 'back', label: 'Espalda' },
-    { key: 'legs', label: 'Pierna' },
-    { key: 'shoulders', label: 'Hombro' },
-    { key: 'arms', label: 'Brazos' },
-    { key: 'core', label: 'Core' },
-    { key: 'full', label: 'Full Body' }
+  readonly templateDaysFilters: Array<{ key: WorkoutTemplate['daysFilter']; label: string }> = [
+    { key: '2d', label: '2 días' },
+    { key: '3-4d', label: '3-4 días' },
+    { key: '5d', label: '5 días' },
   ];
-  readonly templateEquipmentFilters: Array<{ key: 'all' | WorkoutTemplate['equipment']; label: string }> = [
-    { key: 'all', label: 'Todo' },
-    { key: 'barbell', label: 'Barra' },
-    { key: 'dumbbell', label: 'Mancuerna' },
-    { key: 'machine', label: 'Máquina' },
-    { key: 'cable', label: 'Polea' },
-    { key: 'bodyweight', label: 'Peso libre' }
+  readonly templateEquipmentFilters: Array<{ key: WorkoutTemplate['equipment']; label: string }> = [
+    { key: 'gym', label: 'Gym completo' },
+    { key: 'bodyweight', label: 'Libre / sin material' },
   ];
   readonly workoutTemplates: WorkoutTemplate[] = [
-    {
-      id: 'chest-barbell',
-      title: 'Pecho · Potencia',
-      subtitle: 'Press plano, inclinado y declinado con barra',
-      muscleFocus: 'chest',
-      equipment: 'barbell',
-      workoutName: 'Pecho · Potencia',
-      exercises: [
-        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
-        { name: 'barbell incline bench press', exerciseId: '0047', muscle_group: 'Pecho' },
-        { name: 'barbell decline bench press', exerciseId: '0033', muscle_group: 'Pecho' },
-        { name: 'barbell guillotine bench press', exerciseId: '0045', muscle_group: 'Pecho' },
-        { name: 'barbell close-grip bench press', exerciseId: '0030', muscle_group: 'Triceps' }
-      ]
-    },
-    {
-      id: 'chest-dumbbell',
-      title: 'Pecho · Hipertrofia',
-      subtitle: 'Press e isla con mancuerna, rango completo',
-      muscleFocus: 'chest',
-      equipment: 'dumbbell',
-      workoutName: 'Pecho · Hipertrofia',
-      exercises: [
-        { name: 'dumbbell bench press', muscle_group: 'Pecho' },
-        { name: 'dumbbell incline bench press', muscle_group: 'Pecho' },
-        { name: 'dumbbell fly', muscle_group: 'Pecho' },
-        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
-        { name: 'barbell incline bench press', exerciseId: '0047', muscle_group: 'Pecho' }
-      ]
-    },
-    {
-      id: 'chest-machine',
-      title: 'Pecho · Máquina',
-      subtitle: 'Prensa, cruces en polea y peck-deck',
-      muscleFocus: 'chest',
-      equipment: 'machine',
-      workoutName: 'Pecho · Máquina',
-      exercises: [
-        { name: 'chest press machine', muscle_group: 'Pecho' },
-        { name: 'incline chest press machine', muscle_group: 'Pecho' },
-        { name: 'pec deck fly', muscle_group: 'Pecho' },
-        { name: 'assisted chest dip (kneeling)', exerciseId: '0009', muscle_group: 'Pecho' },
-        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' }
-      ]
-    },
-    {
-      id: 'back-barbell',
-      title: 'Espalda · Remos',
-      subtitle: 'Remos bilaterales y unilaterales con barra',
-      muscleFocus: 'back',
-      equipment: 'barbell',
-      workoutName: 'Espalda · Remos',
-      exercises: [
-        { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
-        { name: 'barbell incline row', exerciseId: '0049', muscle_group: 'Espalda' },
-        { name: 'barbell one arm bent over row', exerciseId: '0064', muscle_group: 'Espalda' },
-        { name: 'barbell pullover', exerciseId: '0073', muscle_group: 'Espalda' },
-        { name: 'barbell shrug', exerciseId: '0095', muscle_group: 'Espalda' }
-      ]
-    },
-    {
-      id: 'back-machine',
-      title: 'Espalda · Jalones',
-      subtitle: 'Dominadas asistidas, jalones y remo en polea',
-      muscleFocus: 'back',
-      equipment: 'machine',
-      workoutName: 'Espalda · Jalones',
-      exercises: [
-        { name: 'assisted pull-up', exerciseId: '0017', muscle_group: 'Espalda' },
-        { name: 'assisted parallel close grip pull-up', exerciseId: '0015', muscle_group: 'Espalda' },
-        { name: 'alternate lateral pulldown', exerciseId: '0007', muscle_group: 'Espalda' },
-        { name: 'lat pulldown', muscle_group: 'Espalda' },
-        { name: 'seated cable row', muscle_group: 'Espalda' }
-      ]
-    },
-    {
-      id: 'legs-barbell',
-      title: 'Pierna · Fuerza',
-      subtitle: 'Sentadilla, peso muerto y lunges con barra',
-      muscleFocus: 'legs',
-      equipment: 'barbell',
-      workoutName: 'Pierna · Fuerza',
-      exercises: [
-        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
-        { name: 'barbell deadlift', exerciseId: '0032', muscle_group: 'Pierna' },
-        { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' },
-        { name: 'barbell lunge', exerciseId: '0054', muscle_group: 'Pierna' },
-        { name: 'barbell good morning', exerciseId: '0044', muscle_group: 'Pierna' }
-      ]
-    },
-    {
-      id: 'legs-machine',
-      title: 'Pierna · Máquina',
-      subtitle: 'Prensa, extensiones y curl femoral',
-      muscleFocus: 'legs',
-      equipment: 'machine',
-      workoutName: 'Pierna · Máquina',
-      exercises: [
-        { name: 'leg press', muscle_group: 'Pierna' },
-        { name: 'leg extension', muscle_group: 'Pierna' },
-        { name: 'seated leg curl', muscle_group: 'Pierna' },
-        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
-        { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' }
-      ]
-    },
-    {
-      id: 'shoulders-barbell',
-      title: 'Hombro · Presion',
-      subtitle: 'Press militar, frontal y posterior con barra',
-      muscleFocus: 'shoulders',
-      equipment: 'barbell',
-      workoutName: 'Hombro · Presion',
-      exercises: [
-        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
-        { name: 'barbell seated behind head military press', exerciseId: '0086', muscle_group: 'Hombro' },
-        { name: 'barbell front raise', exerciseId: '0041', muscle_group: 'Hombro' },
-        { name: 'barbell rear delt raise', exerciseId: '0075', muscle_group: 'Hombro' },
-        { name: 'barbell rear delt row', exerciseId: '0076', muscle_group: 'Hombro' }
-      ]
-    },
-    {
-      id: 'shoulders-dumbbell',
-      title: 'Hombro · Definicion',
-      subtitle: 'Press, elevaciones y delt posterior con mancuerna',
-      muscleFocus: 'shoulders',
-      equipment: 'dumbbell',
-      workoutName: 'Hombro · Definicion',
-      exercises: [
-        { name: 'dumbbell shoulder press', muscle_group: 'Hombro' },
-        { name: 'dumbbell lateral raise', muscle_group: 'Hombro' },
-        { name: 'dumbbell front raise', muscle_group: 'Hombro' },
-        { name: 'barbell rear delt raise', exerciseId: '0075', muscle_group: 'Hombro' },
-        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' }
-      ]
-    },
-    {
-      id: 'arms-barbell',
-      title: 'Brazos · Barra',
-      subtitle: 'Biceps y triceps con barra libre',
-      muscleFocus: 'arms',
-      equipment: 'barbell',
-      workoutName: 'Brazos · Barra',
-      exercises: [
-        { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Biceps' },
-        { name: 'barbell preacher curl', exerciseId: '0070', muscle_group: 'Biceps' },
-        { name: 'barbell lying triceps extension skull crusher', exerciseId: '0060', muscle_group: 'Triceps' },
-        { name: 'barbell seated overhead triceps extension', exerciseId: '0092', muscle_group: 'Triceps' },
-        { name: 'barbell drag curl', exerciseId: '0038', muscle_group: 'Biceps' }
-      ]
-    },
-    {
-      id: 'core-bodyweight',
-      title: 'Core · Abdomen',
-      subtitle: 'Abdominales y oblicuos sin maquina',
-      muscleFocus: 'core',
-      equipment: 'bodyweight',
-      workoutName: 'Core · Abdomen',
-      exercises: [
-        { name: '3/4 sit-up', exerciseId: '0001', muscle_group: 'Core' },
-        { name: 'air bike', exerciseId: '0003', muscle_group: 'Core' },
-        { name: 'alternate heel touchers', exerciseId: '0006', muscle_group: 'Core' },
-        { name: 'assisted hanging knee raise', exerciseId: '0011', muscle_group: 'Core' },
-        { name: 'barbell rollerout from bench', exerciseId: '0083', muscle_group: 'Core' }
-      ]
-    },
-    {
-      id: 'fullbody-barbell',
-      title: 'Full Body · Barra',
-      subtitle: 'Pierna, pecho, espalda, hombro y brazos',
-      muscleFocus: 'full',
-      equipment: 'barbell',
-      workoutName: 'Full Body · Barra',
-      exercises: [
-        { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
-        { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
-        { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
-        { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
-        { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Brazos' }
-      ]
-    }
+    // ── 2 DÍAS: PUSH (Pecho · Hombros · Tríceps) ────────────────────────────
+    // ── 2 DÍAS: PUSH ─────────────────────────────────────────────────────────
+    { id: '2d-push-gym', title: 'Push · Gym', subtitle: 'Pecho · Hombros · Tríceps', daysFilter: '2d', equipment: 'gym', workoutName: 'Push · Gym completo', exercises: [
+      { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+      { name: 'dumbbell incline hammer press', exerciseId: '0321', muscle_group: 'Pecho' },
+      { name: 'cable alternate shoulder press', exerciseId: '0148', muscle_group: 'Hombro' },
+      { name: 'dumbbell seated lateral raise', exerciseId: '0396', muscle_group: 'Hombro' },
+      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
+    ]},
+    // ── 2 DÍAS: PUSH (Gym) ────────────────────────────────────────────────────
+    { id: '2d-push-gym', title: 'Push · Gym', subtitle: 'Pecho · Hombros · Tríceps', daysFilter: '2d', equipment: 'gym', workoutName: 'Push · Gym completo', exercises: [
+      { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+      { name: 'dumbbell incline hammer press', exerciseId: '0321', muscle_group: 'Pecho' },
+      { name: 'cable alternate shoulder press', exerciseId: '0148', muscle_group: 'Hombro' },
+      { name: 'dumbbell seated lateral raise', exerciseId: '0396', muscle_group: 'Hombro' },
+      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
+    ]},
+    // ── 2 DÍAS: PUSH (Libre) ─────────────────────────────────────────────────
+    { id: '2d-push-bw', title: 'Push · Libre', subtitle: 'Pecho · Hombros · Tríceps', daysFilter: '2d', equipment: 'bodyweight', workoutName: 'Push · Libre', exercises: [
+      { name: 'chest dip', exerciseId: '0251', muscle_group: 'Pecho' },
+      { name: 'incline push-up', exerciseId: '0493', muscle_group: 'Pecho' },
+      { name: 'decline push-up', exerciseId: '0279', muscle_group: 'Pecho' },
+      { name: 'close-grip push-up', exerciseId: '0259', muscle_group: 'Triceps' },
+      { name: 'bench dip (knees bent)', exerciseId: '0129', muscle_group: 'Triceps' }
+    ]},
+    // ── 2 DÍAS: PULL (Gym) ────────────────────────────────────────────────────
+    { id: '2d-pull-gym', title: 'Pull · Gym', subtitle: 'Espalda · Bíceps', daysFilter: '2d', equipment: 'gym', workoutName: 'Pull · Gym completo', exercises: [
+      { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
+      { name: 'alternate lateral pulldown', exerciseId: '0007', muscle_group: 'Espalda' },
+      { name: 'dumbbell one arm bent-over row', exerciseId: '0292', muscle_group: 'Espalda' },
+      { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Biceps' },
+      { name: 'cable hammer curl (with rope)', exerciseId: '0165', muscle_group: 'Biceps' }
+    ]},
+    // ── 2 DÍAS: PULL (Libre) ─────────────────────────────────────────────────
+    { id: '2d-pull-bw', title: 'Pull · Libre', subtitle: 'Espalda · Bíceps', daysFilter: '2d', equipment: 'bodyweight', workoutName: 'Pull · Libre', exercises: [
+      { name: 'chin-ups (narrow parallel grip)', exerciseId: '0253', muscle_group: 'Espalda' },
+      { name: 'biceps pull-up', exerciseId: '0140', muscle_group: 'Biceps' },
+      { name: 'hyperextension (on bench)', exerciseId: '0488', muscle_group: 'Espalda' },
+      { name: 'inverted row v. 2', exerciseId: '0497', muscle_group: 'Espalda' },
+      { name: 'body-up', exerciseId: '0137', muscle_group: 'Core' }
+    ]},
+    // ── 3-4 DÍAS: DÍA 1 (Pecho + Tríceps) ──────────────────────────────────
+    { id: '34d-d1-pecho-tri-gym', title: 'Día 1 · Pecho + Tríceps', subtitle: 'Press plano, cruces y extensiones', daysFilter: '3-4d', equipment: 'gym', workoutName: 'Día 1 · Pecho + Tríceps', exercises: [
+      { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+      { name: 'dumbbell incline hammer press', exerciseId: '0321', muscle_group: 'Pecho' },
+      { name: 'cable cross-over variation', exerciseId: '0155', muscle_group: 'Pecho' },
+      { name: 'barbell lying triceps extension skull crusher', exerciseId: '0060', muscle_group: 'Triceps' },
+      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
+    ]},
+    { id: '34d-d1-pecho-tri-bw', title: 'Día 1 · Pecho + Tríceps', subtitle: 'Fondos, flexiones y extensiones sin material', daysFilter: '3-4d', equipment: 'bodyweight', workoutName: 'Día 1 · Pecho + Tríceps', exercises: [
+      { name: 'chest dip', exerciseId: '0251', muscle_group: 'Pecho' },
+      { name: 'incline push-up', exerciseId: '0493', muscle_group: 'Pecho' },
+      { name: 'decline push-up', exerciseId: '0279', muscle_group: 'Pecho' },
+      { name: 'close-grip push-up', exerciseId: '0259', muscle_group: 'Triceps' },
+      { name: 'bench dip (knees bent)', exerciseId: '0129', muscle_group: 'Triceps' }
+    ]},
+    // ── 3-4 DÍAS: DÍA 2 (Espalda + Bíceps) ─────────────────────────────────
+    { id: '34d-d2-espalda-bi-gym', title: 'Día 2 · Espalda + Bíceps', subtitle: 'Remos, jalones y curl mixto', daysFilter: '3-4d', equipment: 'gym', workoutName: 'Día 2 · Espalda + Bíceps', exercises: [
+      { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
+      { name: 'alternate lateral pulldown', exerciseId: '0007', muscle_group: 'Espalda' },
+      { name: 'dumbbell incline row', exerciseId: '0327', muscle_group: 'Espalda' },
+      { name: 'barbell preacher curl', exerciseId: '0070', muscle_group: 'Biceps' },
+      { name: 'cable hammer curl (with rope)', exerciseId: '0165', muscle_group: 'Biceps' }
+    ]},
+    { id: '34d-d2-espalda-bi-bw', title: 'Día 2 · Espalda + Bíceps', subtitle: 'Dominadas, remo invertido y curl corporal', daysFilter: '3-4d', equipment: 'bodyweight', workoutName: 'Día 2 · Espalda + Bíceps', exercises: [
+      { name: 'chin-ups (narrow parallel grip)', exerciseId: '0253', muscle_group: 'Espalda' },
+      { name: 'biceps pull-up', exerciseId: '0140', muscle_group: 'Biceps' },
+      { name: 'hyperextension (on bench)', exerciseId: '0488', muscle_group: 'Espalda' },
+      { name: 'inverted row v. 2', exerciseId: '0497', muscle_group: 'Espalda' },
+      { name: 'body-up', exerciseId: '0137', muscle_group: 'Core' }
+    ]},
+    // ── 3-4 DÍAS: DÍA 3 (Piernas) ───────────────────────────────────────────
+    { id: '34d-d3-piernas-gym', title: 'Día 3 · Piernas', subtitle: 'Sentadilla, peso muerto y femoral mixto', daysFilter: '3-4d', equipment: 'gym', workoutName: 'Día 3 · Piernas', exercises: [
+      { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
+      { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' },
+      { name: 'dumbbell single leg split squat', exerciseId: '0410', muscle_group: 'Pierna' },
+      { name: 'assisted prone hamstring', exerciseId: '0016', muscle_group: 'Pierna' },
+      { name: 'cable pull through (with rope)', exerciseId: '0196', muscle_group: 'Pierna' }
+    ]},
+    { id: '34d-d3-piernas-bw', title: 'Día 3 · Piernas', subtitle: 'Sentadilla, zancada y glúteo sin material', daysFilter: '3-4d', equipment: 'bodyweight', workoutName: 'Día 3 · Piernas', exercises: [
+      { name: 'bench hip extension', exerciseId: '0130', muscle_group: 'Pierna' },
+      { name: 'flutter kicks', exerciseId: '0459', muscle_group: 'Pierna' },
+      { name: 'inverse leg curl (bench support)', exerciseId: '0496', muscle_group: 'Pierna' },
+      { name: 'bodyweight squat', muscle_group: 'Pierna' },
+      { name: 'forward lunge', muscle_group: 'Pierna' }
+    ]},
+    // ── 3-4 DÍAS: DÍA 4 (Hombros + Brazos) ─────────────────────────────────
+    { id: '34d-d4-hombros-brazos-gym', title: 'Día 4 · Hombros + Brazos', subtitle: 'Press, elevaciones, curl y tríceps mixto', daysFilter: '3-4d', equipment: 'gym', workoutName: 'Día 4 · Hombros + Brazos', exercises: [
+      { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
+      { name: 'dumbbell seated lateral raise', exerciseId: '0396', muscle_group: 'Hombro' },
+      { name: 'cable cross-over reverse fly', exerciseId: '0154', muscle_group: 'Hombro' },
+      { name: 'dumbbell hammer curl', exerciseId: '0313', muscle_group: 'Biceps' },
+      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
+    ]},
+    { id: '34d-d4-hombros-brazos-bw', title: 'Día 4 · Hombros + Brazos', subtitle: 'Press vertical, curl y fondos sin material', daysFilter: '3-4d', equipment: 'bodyweight', workoutName: 'Día 4 · Hombros + Brazos', exercises: [
+      { name: 'kettlebell alternating press', exerciseId: '0520', muscle_group: 'Hombro' },
+      { name: 'handstand push-up', exerciseId: '0471', muscle_group: 'Hombro' },
+      { name: 'biceps pull-up', exerciseId: '0140', muscle_group: 'Biceps' },
+      { name: 'diamond push-up', exerciseId: '0283', muscle_group: 'Triceps' },
+      { name: 'bench dip (knees bent)', exerciseId: '0129', muscle_group: 'Triceps' }
+    ]},
+    // ── 5 DÍAS: DÍA 1 (Pecho) ───────────────────────────────────────────────
+    { id: '5d-d1-pecho-gym', title: 'Día 1 · Pecho', subtitle: 'Volumen completo con barra, mancuerna y polea', daysFilter: '5d', equipment: 'gym', workoutName: 'Día 1 · Pecho', exercises: [
+      { name: 'barbell bench press', exerciseId: '0025', muscle_group: 'Pecho' },
+      { name: 'dumbbell incline hammer press', exerciseId: '0321', muscle_group: 'Pecho' },
+      { name: 'cable cross-over variation', exerciseId: '0155', muscle_group: 'Pecho' },
+      { name: 'dumbbell fly', exerciseId: '0308', muscle_group: 'Pecho' },
+      { name: 'assisted chest dip (kneeling)', exerciseId: '0009', muscle_group: 'Pecho' }
+    ]},
+    { id: '5d-d1-pecho-bw', title: 'Día 1 · Pecho', subtitle: 'Flexiones y fondos en todos los ángulos', daysFilter: '5d', equipment: 'bodyweight', workoutName: 'Día 1 · Pecho', exercises: [
+      { name: 'chest dip', exerciseId: '0251', muscle_group: 'Pecho' },
+      { name: 'clock push-up', exerciseId: '0258', muscle_group: 'Pecho' },
+      { name: 'incline push-up', exerciseId: '0493', muscle_group: 'Pecho' },
+      { name: 'decline push-up', exerciseId: '0279', muscle_group: 'Pecho' },
+      { name: 'incline reverse grip push-up', exerciseId: '0494', muscle_group: 'Pecho' }
+    ]},
+    // ── 5 DÍAS: DÍA 2 (Espalda) ─────────────────────────────────────────────
+    { id: '5d-d2-espalda-gym', title: 'Día 2 · Espalda', subtitle: 'Remos, jalones y polea mixto', daysFilter: '5d', equipment: 'gym', workoutName: 'Día 2 · Espalda', exercises: [
+      { name: 'barbell bent over row', exerciseId: '0027', muscle_group: 'Espalda' },
+      { name: 'dumbbell one arm bent-over row', exerciseId: '0292', muscle_group: 'Espalda' },
+      { name: 'alternate lateral pulldown', exerciseId: '0007', muscle_group: 'Espalda' },
+      { name: 'cable cross-over lateral pulldown', exerciseId: '0153', muscle_group: 'Espalda' },
+      { name: 'barbell pullover', exerciseId: '0073', muscle_group: 'Espalda' }
+    ]},
+    { id: '5d-d2-espalda-bw', title: 'Día 2 · Espalda', subtitle: 'Dominadas, remo invertido e hiperextensiones', daysFilter: '5d', equipment: 'bodyweight', workoutName: 'Día 2 · Espalda', exercises: [
+      { name: 'chin-ups (narrow parallel grip)', exerciseId: '0253', muscle_group: 'Espalda' },
+      { name: 'biceps pull-up', exerciseId: '0140', muscle_group: 'Espalda' },
+      { name: 'hyperextension (on bench)', exerciseId: '0488', muscle_group: 'Espalda' },
+      { name: 'inverted row v. 2', exerciseId: '0497', muscle_group: 'Espalda' },
+      { name: 'inverted row with straps', exerciseId: '0498', muscle_group: 'Espalda' }
+    ]},
+    // ── 5 DÍAS: DÍA 3 (Piernas) ─────────────────────────────────────────────
+    { id: '5d-d3-piernas-gym', title: 'Día 3 · Piernas', subtitle: 'Sentadilla, peso muerto y femoral mixto', daysFilter: '5d', equipment: 'gym', workoutName: 'Día 3 · Piernas', exercises: [
+      { name: 'barbell full squat', exerciseId: '0043', muscle_group: 'Pierna' },
+      { name: 'barbell romanian deadlift', exerciseId: '0085', muscle_group: 'Pierna' },
+      { name: 'dumbbell single leg split squat', exerciseId: '0410', muscle_group: 'Pierna' },
+      { name: 'assisted prone hamstring', exerciseId: '0016', muscle_group: 'Pierna' },
+      { name: 'cable pull through (with rope)', exerciseId: '0196', muscle_group: 'Pierna' }
+    ]},
+    { id: '5d-d3-piernas-bw', title: 'Día 3 · Piernas', subtitle: 'Sentadilla, zancada y glúteo sin material', daysFilter: '5d', equipment: 'bodyweight', workoutName: 'Día 3 · Piernas', exercises: [
+      { name: 'bench hip extension', exerciseId: '0130', muscle_group: 'Pierna' },
+      { name: 'flutter kicks', exerciseId: '0459', muscle_group: 'Pierna' },
+      { name: 'inverse leg curl (bench support)', exerciseId: '0496', muscle_group: 'Pierna' },
+      { name: 'bodyweight squat', muscle_group: 'Pierna' },
+      { name: 'forward lunge', muscle_group: 'Pierna' }
+    ]},
+    // ── 5 DÍAS: DÍA 4 (Hombros) ─────────────────────────────────────────────
+    { id: '5d-d4-hombros-gym', title: 'Día 4 · Hombros', subtitle: 'Press militar, elevaciones y vuelos mixto', daysFilter: '5d', equipment: 'gym', workoutName: 'Día 4 · Hombros', exercises: [
+      { name: 'barbell seated overhead press', exerciseId: '0091', muscle_group: 'Hombro' },
+      { name: 'dumbbell seated lateral raise', exerciseId: '0396', muscle_group: 'Hombro' },
+      { name: 'cable forward raise', exerciseId: '0161', muscle_group: 'Hombro' },
+      { name: 'barbell rear delt raise', exerciseId: '0075', muscle_group: 'Hombro' },
+      { name: 'dumbbell rear lateral raise', exerciseId: '0380', muscle_group: 'Hombro' }
+    ]},
+    { id: '5d-d4-hombros-bw', title: 'Día 4 · Hombros', subtitle: 'Press vertical y deltoides sin material', daysFilter: '5d', equipment: 'bodyweight', workoutName: 'Día 4 · Hombros', exercises: [
+      { name: 'kettlebell alternating press', exerciseId: '0520', muscle_group: 'Hombro' },
+      { name: 'kettlebell arnold press', exerciseId: '0523', muscle_group: 'Hombro' },
+      { name: 'kettlebell press', exerciseId: '0527', muscle_group: 'Hombro' },
+      { name: 'kettlebell one arm press', exerciseId: '0528', muscle_group: 'Hombro' },
+      { name: 'handstand push-up', exerciseId: '0471', muscle_group: 'Hombro' }
+    ]},
+    // ── 5 DÍAS: DÍA 5 (Brazos + Core) ───────────────────────────────────────
+    { id: '5d-d5-brazos-gym', title: 'Día 5 · Brazos + Core', subtitle: 'Curl y tríceps en barra, mancuerna y polea', daysFilter: '5d', equipment: 'gym', workoutName: 'Día 5 · Brazos + Core', exercises: [
+      { name: 'barbell curl', exerciseId: '0031', muscle_group: 'Biceps' },
+      { name: 'dumbbell hammer curl', exerciseId: '0313', muscle_group: 'Biceps' },
+      { name: 'cable hammer curl (with rope)', exerciseId: '0165', muscle_group: 'Biceps' },
+      { name: 'barbell lying triceps extension skull crusher', exerciseId: '0060', muscle_group: 'Triceps' },
+      { name: 'cable alternate triceps extension', exerciseId: '0149', muscle_group: 'Triceps' }
+    ]},
+    { id: '5d-d5-brazos-bw', title: 'Día 5 · Brazos + Core', subtitle: 'Dominadas, fondos y core sin material', daysFilter: '5d', equipment: 'bodyweight', workoutName: 'Día 5 · Brazos + Core', exercises: [
+      { name: 'biceps pull-up', exerciseId: '0140', muscle_group: 'Biceps' },
+      { name: 'bench dip (knees bent)', exerciseId: '0129', muscle_group: 'Triceps' },
+      { name: 'diamond push-up', exerciseId: '0283', muscle_group: 'Triceps' },
+      { name: 'body-up', exerciseId: '0137', muscle_group: 'Core' },
+      { name: 'close-grip push-up', exerciseId: '0259', muscle_group: 'Triceps' }
+    ]}
   ];
   pendingSetsByExercise: Record<string, PendingSetDraft[]> = {};
   showWorkoutSummaryModal = false;
@@ -1836,28 +1798,26 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     return this.activeTemplateId() !== null;
   }
 
-  templateMuscleLabel(v: WorkoutTemplate['muscleFocus']): string {
-    const map: Record<WorkoutTemplate['muscleFocus'], string> = {
-      chest: 'Pecho', back: 'Espalda', legs: 'Pierna',
-      shoulders: 'Hombro', arms: 'Brazos', core: 'Core', full: 'Full Body'
+  templateDaysLabel(v: WorkoutTemplate['daysFilter']): string {
+    const map: Record<WorkoutTemplate['daysFilter'], string> = {
+      '2d': '2 días', '3-4d': '3-4 días', '5d': '5 días'
     };
     return map[v];
   }
 
   templateEquipmentLabel(v: WorkoutTemplate['equipment']): string {
     const map: Record<WorkoutTemplate['equipment'], string> = {
-      barbell: 'Barra', dumbbell: 'Mancuerna', machine: 'Máquina',
-      cable: 'Polea', bodyweight: 'Peso libre'
+      gym: 'Gym completo', bodyweight: 'Libre',
     };
     return map[v];
   }
 
   filteredTemplates(): WorkoutTemplate[] {
-    return this.workoutTemplates.filter((tpl) => {
-      const byMuscle = this.selectedTemplateMuscleFilter === 'all' || tpl.muscleFocus === this.selectedTemplateMuscleFilter;
-      const byEquip = this.selectedTemplateEquipmentFilter === 'all' || tpl.equipment === this.selectedTemplateEquipmentFilter;
-      return byMuscle && byEquip;
-    });
+    return this.workoutTemplates.filter(
+      (tpl) =>
+        tpl.daysFilter === this.selectedTemplateDaysFilter &&
+        tpl.equipment === this.selectedTemplateEquipmentFilter,
+    );
   }
 
   templateGifUrl(gifId: string): string {
@@ -1955,8 +1915,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   closeNewSessionModal(): void {
     this.showNewSessionModal = false;
     this.showExerciseListModal = false;
-    this.manualMode = false;
-    this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
@@ -1993,23 +1951,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.workoutName = '';
   }
 
-  async addExercise(): Promise<void> {
-    if (!this.currentWorkout || !this.selectedMuscleGroup) {
-      return;
-    }
-    const muscleFromSelection = this.selectedCatalogExerciseMuscleGroup || this.selectedMuscleGroup;
-    const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
-      name: this.manualExerciseName.trim(),
-      muscle_group: muscleFromSelection || undefined
-    });
-    if (!created) {
-      return;
-    }
-    this.manualExerciseName = '';
-    this.manualMode = false;
-    this.selectedExerciseId = created.id;
-    await this.loadDetail(this.currentWorkout.id);
-  }
 
   async addSet(exerciseId: string): Promise<void> {
     if (!this.currentWorkout) {
@@ -2111,8 +2052,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     // Evita solape con el modal de "Definir entrenamiento".
     this.showNewSessionModal = false;
     this.selectedExerciseId = '';
-    this.manualMode = false;
-    this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
@@ -2132,8 +2071,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.showExerciseListModal = false;
     // Si por cualquier motivo quedo abierto en segundo plano, cerrarlo tambien.
     this.showNewSessionModal = false;
-    this.manualMode = false;
-    this.manualExerciseName = '';
     this.selectedCatalogExerciseId = '';
     this.selectedCatalogExerciseMuscleGroup = '';
     this.debouncedCatalogSearchQuery = '';
@@ -2308,10 +2245,13 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     await this.loadDetail(this.currentWorkout.id);
     // Close picker after selecting so user can edit the added exercise immediately.
     this.showExerciseListModal = false;
-    this.manualMode = false;
   }
 
   catalogThumb(item: ExerciseCatalogItem): string {
+    const ext = item.external_exercise_id;
+    if (ext && EXERCISEDB_LOCAL_MEDIA_IDS.has(ext)) {
+      return `/exercises/exercisedb/gifs/${ext}.gif`;
+    }
     return this.exerciseCatalogService.listThumbs()[item.id] || this.exerciseIcon(item);
   }
 
@@ -2321,18 +2261,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.selectedCatalogThumbs.set(deduped.slice(0, 8));
   }
 
-  async addManualExerciseFromModal(): Promise<void> {
-    if (!this.manualExerciseName.trim() || !this.selectedMuscleGroup) {
-      return;
-    }
-    const custom = await this.exerciseCatalogService.createCustom(this.manualExerciseName.trim(), this.selectedMuscleGroup);
-    if (!custom) {
-      return;
-    }
-    this.manualExerciseName = custom.name;
-    await this.addExercise();
-    this.showExerciseListModal = false;
-  }
 
   cancelWorkoutView(): void {
     this.currentWorkout = null;
