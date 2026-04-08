@@ -7,7 +7,6 @@ export class ActiveWorkoutService {
   readonly workoutName = signal<string | null>(null);
   readonly startedAt = signal<number | null>(null);
   readonly elapsedSeconds = signal(0);
-  readonly lastSavedAt = signal<number | null>(null);
   readonly finalizeRequestTick = signal(0);
 
   private ticker: ReturnType<typeof setInterval> | null = null;
@@ -36,13 +35,7 @@ export class ActiveWorkoutService {
     this.workoutName.set(name);
     this.startedAt.set(Date.now());
     this.elapsedSeconds.set(0);
-    this.lastSavedAt.set(null);
     this.startTicker();
-    this.persist();
-  }
-
-  saveProgress(): void {
-    this.lastSavedAt.set(Date.now());
     this.persist();
   }
 
@@ -52,7 +45,6 @@ export class ActiveWorkoutService {
     this.workoutName.set(null);
     this.startedAt.set(null);
     this.elapsedSeconds.set(0);
-    this.lastSavedAt.set(null);
     this.finalizeRequestTick.set(0);
     this.persist();
   }

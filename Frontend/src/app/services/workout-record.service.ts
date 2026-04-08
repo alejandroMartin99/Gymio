@@ -65,27 +65,6 @@ export class WorkoutRecordService {
     }
   }
 
-  async replicateLatestWorkout(): Promise<WorkoutRecord | null> {
-    this.loading.set(true);
-    this.error.set(null);
-    try {
-      const res = await firstValueFrom(
-        this.http.post<ApiResponse<WorkoutRecord>>(
-          `${environment.apiUrl}/api/workouts/records`,
-          { replicate_latest: true },
-          { headers: await this.authHeaders() }
-        )
-      );
-      this.records.update((items) => [res.data, ...items]);
-      this.latest.set(res.data);
-      return res.data;
-    } catch {
-      this.error.set('No se pudo registrar el entrenamiento.');
-      return null;
-    } finally {
-      this.loading.set(false);
-    }
-  }
 
   async replicateWorkoutFrom(workoutId: string): Promise<WorkoutRecord | null> {
     this.loading.set(true);

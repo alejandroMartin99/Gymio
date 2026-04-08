@@ -844,14 +844,6 @@ interface WorkoutTemplate {
       box-shadow: inset 0 0 0 1px #bbf7d0;
     }
 
-    .toggle-manual {
-      border: 0;
-      background: transparent;
-      color: #2563eb;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 0;
-    }
 
     .exercise-card small {
       color: #666;
@@ -985,11 +977,6 @@ interface WorkoutTemplate {
       text-align: center;
     }
 
-    .done {
-      color: #22c55e;
-      font-weight: 700;
-      justify-self: center;
-    }
 
     .set-form {
       display: grid;
@@ -1185,11 +1172,6 @@ interface WorkoutTemplate {
       display: block;
     }
 
-    .option-thumb-ph {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
 
     .option-text {
       display: flex;
@@ -1226,26 +1208,6 @@ interface WorkoutTemplate {
       display: block;
     }
 
-    .catalog-detail-preview {
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 0.65rem 0.75rem;
-      background: #fafafa;
-      font-size: 0.82rem;
-      color: #374151;
-    }
-
-    .catalog-desc {
-      margin: 0 0 0.5rem;
-      line-height: 1.35;
-    }
-
-    .catalog-meta {
-      margin: 0;
-      padding-left: 1rem;
-      display: grid;
-      gap: 0.2rem;
-    }
 
     .group-slider {
       display: flex;
@@ -1426,12 +1388,6 @@ interface WorkoutTemplate {
       background: #f8fafc !important;
     }
 
-    .option-arrow {
-      color: #9ca3af;
-      font-weight: 700;
-      width: 10px;
-      text-align: center;
-    }
 
     .close {
       justify-self: end;
@@ -1525,7 +1481,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   showExerciseListModal = false;
   selectedMuscleGroup = '';
   selectedCatalogExerciseId = '';
-  selectedCatalogExerciseMuscleGroup = '';
   selectedExerciseId = '';
   completedExerciseIds = new Set<string>();
   catalogSearchQuery = '';
@@ -1756,7 +1711,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   exerciseInfoDetail: ExerciseDbExercise | null = null;
   historyExerciseName = '';
   historyPoints: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
-  readonly hasAnyWorkout = computed(() => this.workoutRecordService.records().length > 0);
   /** GIF ExerciseDB (720) por id de fila workout_exercises */
   readonly workoutExerciseMediaUrls = signal<Record<string, string>>({});
   private isFinalizing = false;
@@ -1784,7 +1738,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.workoutRecordService.loadRecords();
-    await this.exerciseCatalogService.loadGroups();
     const activeWorkoutId = this.activeWorkout.workoutId();
     if (activeWorkoutId) {
       await this.loadDetail(activeWorkoutId);
@@ -1916,7 +1869,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.showNewSessionModal = false;
     this.showExerciseListModal = false;
     this.selectedCatalogExerciseId = '';
-    this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
     this.debouncedCatalogSearchQuery = '';
     this.selectedEquipmentFilter = 'all';
@@ -2053,7 +2005,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.showNewSessionModal = false;
     this.selectedExerciseId = '';
     this.selectedCatalogExerciseId = '';
-    this.selectedCatalogExerciseMuscleGroup = '';
     this.catalogSearchQuery = '';
     this.debouncedCatalogSearchQuery = '';
     if (this.catalogSearchDebounceTimer) {
@@ -2072,7 +2023,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     // Si por cualquier motivo quedo abierto en segundo plano, cerrarlo tambien.
     this.showNewSessionModal = false;
     this.selectedCatalogExerciseId = '';
-    this.selectedCatalogExerciseMuscleGroup = '';
     this.debouncedCatalogSearchQuery = '';
     if (this.catalogSearchDebounceTimer) {
       clearTimeout(this.catalogSearchDebounceTimer);
@@ -2231,7 +2181,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.selectedCatalogExerciseId = exercise.id;
     this.pushSelectedCatalogThumb(this.catalogThumb(exercise));
     const muscleGroup = exercise.muscle_group || this.selectedMuscleGroup;
-    this.selectedCatalogExerciseMuscleGroup = muscleGroup || '';
     const created = await this.workoutRecordService.addExercise(this.currentWorkout.id, {
       name: exercise.name.trim(),
       muscle_group: muscleGroup || undefined,
@@ -2417,16 +2366,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       eq.includes('leverage') ||
       eq.includes('cable')
     );
-  }
-
-  selectedCatalogPreview(): ExerciseDbExercise | null {
-    const id = this.selectedCatalogExerciseId;
-    if (!id) {
-      return null;
-    }
-    const item = this.exerciseCatalogService.items().find((x) => x.id === id);
-    const d = item?.detail;
-    return d && isExerciseDbExercise(d) ? d : null;
   }
 
   exerciseAltImageFor(exercise: WorkoutExerciseRecord): string {
