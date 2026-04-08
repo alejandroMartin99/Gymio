@@ -1326,3 +1326,53 @@
 {"ts": "2026-04-08T13:51:57.055785+00:00", "exercise_id": "3664", "status": "OK", "detail": "saved 88146 bytes"}
 {"ts": "2026-04-08T13:51:58.472665+00:00", "exercise_id": "3665", "status": "OK", "detail": "saved 103255 bytes"}
 {"ts": "2026-04-08T13:52:00.043135+00:00", "exercise_id": "3666", "status": "OK", "detail": "saved 199540 bytes"}
+{"ts": "2026-04-08T14:02:02.799941+00:00", "exercise_id": "3667", "status": "OK", "detail": "saved 75055 bytes"}
+{"ts": "2026-04-08T14:02:04.540295+00:00", "exercise_id": "3669", "status": "OK", "detail": "saved 102609 bytes"}
+{"ts": "2026-04-08T14:02:06.219987+00:00", "exercise_id": "3670", "status": "OK", "detail": "saved 74877 bytes"}
+{"ts": "2026-04-08T14:02:07.872835+00:00", "exercise_id": "3671", "status": "OK", "detail": "saved 124080 bytes"}
+{"ts": "2026-04-08T14:02:09.622526+00:00", "exercise_id": "3672", "status": "OK", "detail": "saved 173160 bytes"}
+{"ts": "2026-04-08T14:02:11.275338+00:00", "exercise_id": "3679", "status": "OK", "detail": "saved 89579 bytes"}
+{"ts": "2026-04-08T14:02:13.426860+00:00", "exercise_id": "3697", "status": "OK", "detail": "saved 98068 bytes"}
+{"ts": "2026-04-08T14:02:14.876193+00:00", "exercise_id": "3698", "status": "OK", "detail": "saved 117496 bytes"}
+{"ts": "2026-04-08T14:02:16.403379+00:00", "exercise_id": "3699", "status": "OK", "detail": "saved 188154 bytes"}
+{"ts": "2026-04-08T14:02:17.667744+00:00", "exercise_id": "3758", "status": "OK", "detail": "saved 138205 bytes"}
+{"ts": "2026-04-08T14:02:19.247872+00:00", "exercise_id": "3759", "status": "OK", "detail": "saved 109836 bytes"}
+{"ts": "2026-04-08T14:02:20.774251+00:00", "exercise_id": "3760", "status": "OK", "detail": "saved 126660 bytes"}
+{"ts": "2026-04-08T14:02:22.338027+00:00", "exercise_id": "3769", "status": "OK", "detail": "saved 148841 bytes"}
+{"ts": "2026-04-08T14:02:23.886037+00:00", "exercise_id": "3785", "status": "OK", "detail": "saved 98564 bytes"}
+{"ts": "2026-04-08T14:02:25.626491+00:00", "exercise_id": "3888", "status": "OK", "detail": "saved 105539 bytes"}
+{"ts": "2026-04-08T14:02:27.272394+00:00", "exercise_id": "5201", "status": "OK", "detail": "saved 65483 bytes"}
+{"ts": "2026-04-08T14:02:28.749376+00:00", "exercise_id": "0001", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.751620+00:00", "exercise_id": "0002", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.753304+00:00", "exercise_id": "0003", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.755902+00:00", "exercise_id": "0006", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.758094+00:00", "exercise_id": "0007", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.761271+00:00", "exercise_id": "0009", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.763305+00:00", "exercise_id": "0010", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.766352+00:00", "exercise_id": "0011", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.768203+00:00", "exercise_id": "0012", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.770119+00:00", "exercise_id": "0013", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.771861+00:00", "exercise_id": "0014", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.773520+00:00", "exercise_id": "0015", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.775733+00:00", "exercise_id": "0016", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.780887+00:00", "exercise_id": "0017", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.783315+00:00", "exercise_id": "0018", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.785762+00:00", "exercise_id": "0019", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.787710+00:00", "exercise_id": "0020", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.797109+00:00", "exercise_id": "0022", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.798939+00:00", "exercise_id": "0023", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.802046+00:00", "exercise_id": "0024", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.829678+00:00", "exercise_id": "0025", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.849977+00:00", "exercise_id": "0026", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.856392+00:00", "exercise_id": "0027", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.858262+00:00", "exercise_id": "0028", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.872566+00:00", "exercise_id": "0029", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.875869+00:00", "exercise_id": "0030", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.881370+00:00", "exercise_id": "0031", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.883046+00:00", "exercise_id": "0032", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.884349+00:00", "exercise_id": "0033", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.886054+00:00", "exercise_id": "0034", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.897898+00:00", "exercise_id": "0035", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.900398+00:00", "exercise_id": "0036", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.905831+00:00", "exercise_id": "0037", "status": "OK", "detail": "already local"}
+{"ts": "2026-04-08T14:02:28.908195+00:00", "exercise_id": "0038", "status": "OK", "detail": "already local"}
