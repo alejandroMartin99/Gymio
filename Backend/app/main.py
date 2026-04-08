@@ -12,9 +12,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routers import auth, exercisedb, exercises, plans, progress, workouts
 
 app = FastAPI(title="Gymio API", version="0.1.0")
+import os
+
+_allowed_origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+]
+_frontend_url = os.getenv("FRONTEND_URL")
+if _frontend_url:
+    _allowed_origins.append(_frontend_url.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
