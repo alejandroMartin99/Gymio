@@ -14,9 +14,8 @@ _allowed_origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
 ]
-_frontend_url = os.getenv("FRONTEND_URL")
-if _frontend_url:
-    _allowed_origins.append(_frontend_url.rstrip("/"))
+_frontend_url = os.getenv("FRONTEND_URL", "https://gymio-kappa.vercel.app")
+_allowed_origins.append(_frontend_url.rstrip("/"))
 
 app.add_middleware(
     CORSMiddleware,
