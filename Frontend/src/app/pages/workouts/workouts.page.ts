@@ -699,7 +699,7 @@ interface WorkoutTemplate {
 
     .template-gif-strip img {
       object-fit: contain;
-      background: #f8fafc;
+      background: #ffffff;
     }
 
     .gif-placeholder {
