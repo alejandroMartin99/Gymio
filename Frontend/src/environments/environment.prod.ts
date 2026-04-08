@@ -2,7 +2,7 @@ import { Environment } from './environment.model';
 
 export const environment: Environment = {
   production: true,
-  apiUrl: 'https://<gymio-backend>.onrender.com',
+  apiUrl: 'https://gymio.onrender.com',
   supabaseUrl: 'https://ymuzqeaodreyxnzpwapp.supabase.co',
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InltdXpxZWFvZHJleXhuenB3YXBwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ5NDgxNjEsImV4cCI6MjA5MDUyNDE2MX0.6B8n2t6p2pympIT4tT4fgR3OtPzov_mi3_tldE219eU'
 };
