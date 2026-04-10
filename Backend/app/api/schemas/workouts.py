@@ -73,6 +73,7 @@ class UpdateExerciseNotesRequest(BaseModel):
 
 class UpdateWorkoutRecordRequest(BaseModel):
     workout_name: str
+    trained_at: datetime | None = None
 
 
 class WorkoutRecord(BaseModel):

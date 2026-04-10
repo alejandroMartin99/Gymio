@@ -2,18 +2,24 @@
   <header class="header">
     <div class="brand">
       <h1>Gymio</h1>
-      <p>{{ user.tagline }}</p>
+      <p>{{ tagline }}</p>
     </div>
 
     <div class="profile-wrap">
       <button class="profile-btn" type="button" (click)="toggleProfileMenu()">
-        <img [src]="user.photoUrl" alt="Foto de perfil" />
+        @if (auth.avatarUrl() && !avatarImgError) {
+          <img [src]="auth.avatarUrl()!" alt="Perfil" (error)="avatarImgError = true" />
+        } @else {
+          <span class="profile-initials">{{ auth.avatarInitials() }}</span>
+        }
       </button>
 
       @if (profileMenuOpen) {
+        <div class="profile-menu-overlay" (click)="closeProfileMenu()"></div>
         <div class="profile-menu">
-          <p>{{ user.name }}</p>
-          <button type="button" (click)="logout()">Cerrar sesion</button>
+          <p class="profile-menu-name">{{ auth.displayName() || auth.user()?.email }}</p>
+          <a class="profile-menu-item" routerLink="/profile" (click)="closeProfileMenu()">Mi perfil</a>
+          <button type="button" class="profile-menu-item profile-menu-item--danger" (click)="logout()">Cerrar sesión</button>
         </div>
       }
     </div>

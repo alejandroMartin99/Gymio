@@ -278,14 +278,16 @@ export class WorkoutRecordService {
     }
   }
 
-  async updateWorkoutName(workoutId: string, workoutName: string): Promise<boolean> {
+  async updateWorkoutName(workoutId: string, workoutName: string, trainedAt?: string): Promise<boolean> {
     this.loading.set(true);
     this.error.set(null);
     try {
+      const body: Record<string, unknown> = { workout_name: workoutName };
+      if (trainedAt) body['trained_at'] = trainedAt;
       const res = await firstValueFrom(
         this.http.patch<ApiResponse<WorkoutRecord>>(
           `${environment.apiUrl}/api/workouts/records/${workoutId}`,
-          { workout_name: workoutName },
+          body,
           { headers: await this.authHeaders() }
         )
       );

@@ -289,9 +289,12 @@ def update_workout_record(
     workout_name = (payload.workout_name or "").strip()
     if not workout_name:
         raise HTTPException(status_code=400, detail="workout_name is required")
+    updates: dict = {"workout_name": workout_name}
+    if payload.trained_at is not None:
+        updates["created_at"] = payload.trained_at.isoformat()
     updated = (
         client.table("workout_records")
-        .update({"workout_name": workout_name})
+        .update(updates)
         .eq("id", workout_id)
         .eq("user_id", user_id)
         .execute()

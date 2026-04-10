@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { translateExerciseName } from '../../core/exercisedb-i18n';
+import { EXERCISEDB_LOCAL_MEDIA_IDS } from '../../core/exercisedb-local-media';
 import {
   ExerciseSetRecord,
   WorkoutExerciseRecord,
@@ -138,6 +140,15 @@ interface CalendarCell {
                 </svg>
               </button>
             </div>
+            <div class="date-row">
+              <label class="date-label" for="editDate">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+                Fecha
+              </label>
+              <input id="editDate" type="date" class="date-input" [(ngModel)]="editingDate" [max]="todayDateString()" />
+            </div>
             <div class="day-summary">
               <div class="summary-pill">
                 <span class="summary-label">Ejercicios</span>
@@ -152,27 +163,36 @@ interface CalendarCell {
               @for (ex of sortedExercises(selectedDetail); track ex.id) {
                 <div class="exercise-block">
                   <div class="exercise-head-row">
-                    <div class="exercise-name">{{ ex.name }}</div>
-                    <span class="exercise-table-icon" aria-hidden="true">
-                      <img src="/icons/chart-line.svg" alt="" />
-                    </span>
-                  </div>
-                  @if (ex.sets.length === 0) {
-                    <small class="muted">Sin series</small>
-                  } @else {
-                    <div class="sets-grid header">
-                      <span>#</span>
-                      <span>KG</span>
-                      <span>REPS</span>
+                    <div class="exercise-name-block">
+                      <span class="exercise-name-es">{{ exNameEs(ex) }}</span>
+                      @if (exNameEs(ex) !== ex.name) {
+                        <span class="exercise-name-en">{{ ex.name }}</span>
+                      }
                     </div>
-                    @for (set of sortedSets(ex.sets); track set.id; let i = $index) {
-                      <div class="sets-grid edit">
-                        <span>{{ i + 1 }}</span>
-                        <input type="number" [(ngModel)]="setDrafts[set.id].weight" />
-                        <input type="number" [(ngModel)]="setDrafts[set.id].reps" />
-                      </div>
+                  </div>
+                  <div class="sets-and-gif">
+                    <div class="sets-col">
+                      @if (ex.sets.length === 0) {
+                        <small class="muted">Sin series</small>
+                      } @else {
+                        <div class="sets-grid header">
+                          <span>#</span>
+                          <span>KG</span>
+                          <span>REPS</span>
+                        </div>
+                        @for (set of sortedSets(ex.sets); track set.id; let i = $index) {
+                          <div class="sets-grid edit">
+                            <span>{{ i + 1 }}</span>
+                            <input type="number" [(ngModel)]="setDrafts[set.id].weight" />
+                            <input type="number" [(ngModel)]="setDrafts[set.id].reps" />
+                          </div>
+                        }
+                      }
+                    </div>
+                    @if (exGifUrl(ex); as gif) {
+                      <img [src]="gif" alt="" class="exercise-gif-thumb" aria-hidden="true" />
                     }
-                  }
+                  </div>
                 </div>
               }
             </div>
@@ -396,36 +416,53 @@ interface CalendarCell {
       box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
     }
 
-    .exercise-name {
+    .exercise-head-row {
+      margin-bottom: 0.3rem;
+    }
+
+    .exercise-name-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.08rem;
+      min-width: 0;
+    }
+
+    .exercise-name-es {
       font-size: 0.82rem;
       font-weight: 700;
       color: #111827;
-      margin-bottom: 0.34rem;
+      line-height: 1.25;
     }
 
-    .exercise-head-row {
+    .exercise-name-en {
+      font-size: 0.68rem;
+      font-weight: 400;
+      color: #9ca3af;
+      line-height: 1.2;
+    }
+
+    .sets-and-gif {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 0.45rem;
-      margin-bottom: 0.2rem;
+      align-items: stretch;
+      gap: 0.5rem;
     }
 
-    .exercise-table-icon {
-      width: 24px;
-      height: 24px;
-      border: 1px solid #dde6f0;
-      border-radius: 8px;
-      display: grid;
-      place-items: center;
-      background: #ffffff;
+    .sets-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .exercise-gif-thumb {
+      width: 50%;
+      max-width: 140px;
+      border-radius: 10px;
+      object-fit: contain;
+      background: #fff;
       flex-shrink: 0;
-    }
-
-    .exercise-table-icon img {
-      width: 13px;
-      height: 13px;
-      opacity: 0.75;
+      border: 1px solid #e9eff6;
+      align-self: center;
     }
 
     .sets-grid {
@@ -666,6 +703,43 @@ interface CalendarCell {
       background: #fff;
     }
 
+    .date-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.22rem 0.3rem;
+      border: 1px solid #e9eff6;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f6f9fc 100%);
+    }
+
+    .date-label {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #7b8798;
+      white-space: nowrap;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .date-input {
+      border: none;
+      background: transparent;
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: #111827;
+      cursor: pointer;
+      min-width: 0;
+      flex: 1;
+      padding: 0.1rem 0;
+
+      &:focus { outline: none; }
+    }
+
     .close {
       justify-self: end;
       border: 0;
@@ -739,7 +813,26 @@ export class HistoricPage implements OnInit {
   constructor(readonly workoutRecordService: WorkoutRecordService) {}
 
   readonly weekLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
-  readonly routinePastelPalette = ['#FBCFE8', '#BFDBFE', '#C7F9CC', '#FDE68A', '#DDD6FE', '#FBCFE8', '#A7F3D0', '#FECACA'];
+  readonly routinePastelPalette = [
+    '#BFDBFE', // azul
+    '#FBCFE8', // rosa
+    '#C7F9CC', // verde
+    '#FDE68A', // amarillo
+    '#DDD6FE', // violeta
+    '#FED7AA', // naranja
+    '#A7F3D0', // menta
+    '#FECACA', // rojo
+    '#BAE6FD', // celeste
+    '#E9D5FF', // lila
+    '#D9F99D', // lima
+    '#FDE8C8', // melocotón
+    '#C7F2FA', // aguamarina
+    '#FCE7F3', // blush
+    '#DCFCE7', // esmeralda claro
+    '#FEF9C3', // crema
+  ];
+
+  private _routineColorCache = new Map<string, string>();
 
   calendarYear = new Date().getFullYear();
   calendarMonth = new Date().getMonth();
@@ -752,6 +845,7 @@ export class HistoricPage implements OnInit {
   detailLoadingId = '';
   editingWorkoutName = '';
   isEditingWorkoutName = false;
+  editingDate = '';
   setDrafts: Record<string, { weight: number | null; reps: number | null; comment: string }> = {};
 
   async ngOnInit(): Promise<void> {
@@ -800,14 +894,27 @@ export class HistoricPage implements OnInit {
   }
 
   private colorByWorkoutName(name: string): string {
-    const n = (name || 'Rutina').trim().toLowerCase();
-    let hash = 0;
-    for (let i = 0; i < n.length; i++) {
-      hash = (hash << 5) - hash + n.charCodeAt(i);
-      hash |= 0;
+    const key = (name || 'Rutina').trim();
+    if (this._routineColorCache.has(key)) {
+      return this._routineColorCache.get(key)!;
     }
-    const idx = Math.abs(hash) % this.routinePastelPalette.length;
-    return this.routinePastelPalette[idx];
+    // Assign next available color in order of first appearance across all records
+    const allNames = this.workoutRecordService
+      .records()
+      .map((r) => (r.workout_name || 'Rutina').trim());
+    const seen = new Set<string>();
+    const ordered: string[] = [];
+    for (const n of allNames) {
+      if (!seen.has(n)) {
+        seen.add(n);
+        ordered.push(n);
+      }
+    }
+    this._routineColorCache.clear();
+    ordered.forEach((n, i) => {
+      this._routineColorCache.set(n, this.routinePastelPalette[i % this.routinePastelPalette.length]);
+    });
+    return this._routineColorCache.get(key) ?? this.routinePastelPalette[0];
   }
 
   routineChipStyle(name: string): Record<string, string> {
@@ -838,6 +945,22 @@ export class HistoricPage implements OnInit {
       month: 'long',
       year: 'numeric'
     });
+  }
+
+  todayDateString(): string {
+    return this.isoToDateInput(new Date().toISOString());
+  }
+
+  /** Convert ISO datetime string to YYYY-MM-DD for <input type="date"> */
+  isoToDateInput(iso: string): string {
+    if (!iso) return '';
+    return iso.slice(0, 10);
+  }
+
+  /** Convert YYYY-MM-DD to ISO string at noon UTC to avoid timezone drift */
+  dateInputToIso(dateStr: string): string {
+    if (!dateStr) return '';
+    return `${dateStr}T12:00:00Z`;
   }
 
   prevMonth(): void {
@@ -946,6 +1069,7 @@ export class HistoricPage implements OnInit {
     const detail = await this.workoutRecordService.getWorkoutDetailQuiet(recordId);
     this.selectedDetail = detail;
     this.editingWorkoutName = detail?.workout_name || '';
+    this.editingDate = detail ? this.isoToDateInput(detail.created_at) : '';
     this.isEditingWorkoutName = false;
     if (detail) {
       for (const ex of detail.exercises || []) {
@@ -974,6 +1098,18 @@ export class HistoricPage implements OnInit {
     this.isEditingWorkoutName = !this.isEditingWorkoutName;
   }
 
+  exNameEs(ex: WorkoutExerciseRecord): string {
+    return translateExerciseName(ex.name);
+  }
+
+  exGifUrl(ex: WorkoutExerciseRecord): string | null {
+    const id = ex.external_exercise_id?.trim();
+    if (id && EXERCISEDB_LOCAL_MEDIA_IDS.has(id)) {
+      return `/exercises/exercisedb/gifs/${id}.gif`;
+    }
+    return null;
+  }
+
   sortedExercises(detail: WorkoutRecordDetail): WorkoutExerciseRecord[] {
     return [...(detail.exercises || [])].sort((a, b) => a.position - b.position);
   }
@@ -995,8 +1131,16 @@ export class HistoricPage implements OnInit {
       return;
     }
     const nameDraft = this.editingWorkoutName.trim();
-    if (nameDraft.length > 0) {
-      const okName = await this.workoutRecordService.updateWorkoutName(this.selectedRecordId, nameDraft);
+    const dateDraft = this.editingDate ? this.dateInputToIso(this.editingDate) : undefined;
+    const originalDate = this.selectedDetail ? this.isoToDateInput(this.selectedDetail.created_at) : '';
+    const dateChanged = this.editingDate && this.editingDate !== originalDate;
+    if (nameDraft.length > 0 || dateChanged) {
+      const nameToSend = nameDraft.length > 0 ? nameDraft : (this.selectedDetail?.workout_name || '');
+      const okName = await this.workoutRecordService.updateWorkoutName(
+        this.selectedRecordId,
+        nameToSend,
+        dateChanged ? dateDraft : undefined
+      );
       if (!okName) {
         return;
       }
@@ -1026,6 +1170,9 @@ export class HistoricPage implements OnInit {
       }
     }
     await this.workoutRecordService.loadRecords();
+    if (dateChanged && this.editingDate) {
+      this.selectedDayKey = this.editingDate;
+    }
     if (this.selectedDayKey) {
       this.dayRecords = this.trainingMap().get(this.selectedDayKey) ?? [];
     }

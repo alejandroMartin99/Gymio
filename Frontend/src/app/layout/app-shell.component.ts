@@ -15,18 +15,15 @@ import { WorkoutRecordService } from '../services/workout-record.service';
 export class AppShellComponent {
   constructor(
     private readonly router: Router,
-    private readonly auth: AuthService,
+    readonly auth: AuthService,
     readonly activeWorkout: ActiveWorkoutService,
     private readonly workoutRecordService: WorkoutRecordService
   ) {}
 
   profileMenuOpen = false;
+  avatarImgError = false;
 
-  user = {
-    name: 'Perfil',
-    tagline: 'Entrena simple. Progresa constante.',
-    photoUrl: 'https://i.pravatar.cc/80?img=12'
-  };
+  readonly tagline = 'Entrena simple. Progresa constante.';
 
   navItems = [
     { label: 'Perfil', path: '/profile', iconSrc: '/icons/user-circle.svg', icon: '' },
