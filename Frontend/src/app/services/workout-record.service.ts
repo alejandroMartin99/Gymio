@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { supabase } from '../core/supabase.client';
 
 import { environment } from '../../environments/environment';
-import { WorkoutExerciseRecord, WorkoutRecord, WorkoutRecordDetail } from '../models/workout-record.model';
+import { WorkoutExerciseRecord, WorkoutRecord, WorkoutRecordDetail, WorkoutStats } from '../models/workout-record.model';
 
 interface ApiResponse<T> {
   success: boolean;
@@ -18,6 +18,8 @@ export class WorkoutRecordService {
   readonly latest = signal<WorkoutRecord | null>(null);
   readonly loading = signal(false);
   readonly error = signal<string | null>(null);
+  readonly stats = signal<WorkoutStats | null>(null);
+  readonly statsLoading = signal(false);
 
   constructor(private readonly http: HttpClient) {}
 
@@ -36,6 +38,22 @@ export class WorkoutRecordService {
       this.error.set('No se pudieron cargar entrenamientos.');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadStats(): Promise<void> {
+    this.statsLoading.set(true);
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ApiResponse<WorkoutStats>>(`${environment.apiUrl}/api/workouts/stats`, {
+          headers: await this.authHeaders()
+        })
+      );
+      this.stats.set(res.data ?? null);
+    } catch {
+      // stats are non-critical; silent fail
+    } finally {
+      this.statsLoading.set(false);
     }
   }
 

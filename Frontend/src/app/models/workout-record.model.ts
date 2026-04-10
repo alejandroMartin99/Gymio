@@ -45,3 +45,65 @@ export interface WorkoutExerciseRecord {
 export interface WorkoutRecordDetail extends WorkoutRecord {
   exercises: WorkoutExerciseRecord[];
 }
+
+export interface WorkoutStatsWeek {
+  label: string;
+  start_date: string;
+  count: number;
+}
+
+export interface WorkoutStatsExercise {
+  display: string;
+  count: number;
+  max_weight: number;
+}
+
+export interface WorkoutStatsMuscle {
+  group: string;
+  count: number;
+}
+
+export interface WorkoutStatsHistoryPoint {
+  date: string;
+  max_weight: number;
+  max_reps: number;
+}
+
+export interface WorkoutStatsProgressEntry {
+  display: string;
+  current_max: number;
+  prev_max: number;
+  change_pct: number | null;
+  all_time_min: number | null;
+  change_vs_min_pct: number | null;
+  history_points: WorkoutStatsHistoryPoint[];
+}
+
+export interface WorkoutStatsProgressGroup {
+  muscle_group: string;
+  exercises: WorkoutStatsProgressEntry[];
+}
+
+export interface WorkoutStatsMonthlyPersistence {
+  current_pct: number;
+  prev_pct: number;
+  current_sessions: number;
+  prev_sessions: number;
+  current_month: string;
+  prev_month: string;
+  change_pct: number;
+}
+
+export interface WorkoutStats {
+  sessions_per_week: WorkoutStatsWeek[];
+  muscle_breakdown: WorkoutStatsMuscle[];
+  progress_by_muscle: WorkoutStatsProgressGroup[];
+  monthly_persistence: WorkoutStatsMonthlyPersistence;
+  totals: {
+    sessions: number;
+    sets: number;
+    current_streak_weeks: number;
+    max_streak_weeks: number;
+    unique_days: number;
+  };
+}
