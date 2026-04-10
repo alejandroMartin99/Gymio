@@ -18,15 +18,15 @@ from app.services.supabase.supabase_service import get_supabase_service_client
 
 router = APIRouter()
 
-# Build a name→bodyPart lookup from the local exercises.json
-_EXERCISE_BODY_PART: dict[str, str] = {}
+# Build name → (bodyPart, target) lookup from the local exercises.json
+_EXERCISE_BODY_PART: dict[str, tuple[str, str]] = {}
 try:
     _ex_json_path = Path(__file__).parent.parent.parent.parent / "data" / "exercisedb" / "exercises.json"
     _ex_data = json.loads(_ex_json_path.read_text(encoding="utf-8"))
     for _ex in _ex_data:
         _key = re.sub(r"\s+", " ", (_ex.get("name") or "").strip().lower())
         if _key and _ex.get("bodyPart"):
-            _EXERCISE_BODY_PART[_key] = _ex["bodyPart"]
+            _EXERCISE_BODY_PART[_key] = (_ex["bodyPart"], _ex.get("target") or "")
 except Exception:
     pass
 
@@ -39,6 +39,7 @@ _MUSCLE_MAP: dict[str, str] = {
     # ── Pierna ─────────────────────────────
     "pierna": "Pierna", "piernas": "Pierna",
     "leg": "Pierna", "legs": "Pierna",
+    "upper legs": "Pierna", "lower legs": "Pierna",
     "quadriceps": "Pierna", "quads": "Pierna", "cuadriceps": "Pierna",
     "hamstrings": "Pierna", "isquiotibiales": "Pierna",
     "calves": "Pierna", "gemelos": "Pierna",
@@ -47,44 +48,72 @@ _MUSCLE_MAP: dict[str, str] = {
     "adductors": "Pierna", "abductors": "Pierna",
     # ── Biceps ─────────────────────────────
     "biceps": "Biceps", "bíceps": "Biceps", "bicep": "Biceps",
+    "lower arms": "Biceps", "forearms": "Biceps",
     # ── Triceps ────────────────────────────
     "triceps": "Triceps", "tríceps": "Triceps", "tricep": "Triceps",
+    # upper arms used by exercisedb for both biceps & triceps;
+    # the target field distinguishes them but bodyPart alone can't —
+    # we rely on the stored muscle_group (step 1) which is always correct
+    # when the exercise was added via a specific filter.
     # ── Hombro ─────────────────────────────
     "hombro": "Hombro", "hombros": "Hombro",
     "shoulder": "Hombro", "shoulders": "Hombro", "deltoids": "Hombro",
+    "neck": "Hombro",
     # ── Core ───────────────────────────────
     "core": "Core", "abs": "Core", "abdominals": "Core",
-    "abdominales": "Core", "abdomen": "Core",
+    "abdominales": "Core", "abdomen": "Core", "waist": "Core",
     # ── Cardio ─────────────────────────────
     "cardio": "Cardio",
 }
 
-def _normalize_muscle_group(raw: str | None, exercise_detail: dict | None = None) -> str:
+_VALID_GROUPS = {"Pecho", "Espalda", "Pierna", "Biceps", "Triceps", "Hombro", "Core", "Cardio"}
+
+def _normalize_muscle_group(
+    raw: str | None,
+    exercise_detail: dict | None = None,
+    exercise_name: str | None = None,
+) -> str | None:
     def _map(value: str) -> str | None:
         key = value.strip().lower()
         nfkd = unicodedata.normalize("NFKD", key)
         key_no_accent = "".join(c for c in nfkd if not unicodedata.combining(c))
         return _MUSCLE_MAP.get(key) or _MUSCLE_MAP.get(key_no_accent)
 
-    # Try stored muscle_group first
+    # 1. Try stored muscle_group (skip generic placeholders)
     if raw and raw.strip().lower() not in ("todos", "otros", ""):
         mapped = _map(raw)
         if mapped:
             return mapped
+        # Already a valid Spanish label stored directly
+        if raw.strip() in _VALID_GROUPS:
+            return raw.strip()
 
-    # Fall back to exercise_detail.bodyPart when muscle_group is absent/generic
+    # 2. Fall back to exercise_detail fields
     if exercise_detail and isinstance(exercise_detail, dict):
         body_part = exercise_detail.get("bodyPart") or ""
-        if body_part:
+        target    = exercise_detail.get("target") or ""
+        # "upper arms" is ambiguous — use target to distinguish
+        if body_part.lower() == "upper arms":
+            mapped = _map(target) or _map(body_part)
+        else:
             mapped = _map(body_part)
+        if mapped:
+            return mapped
+
+    # 3. Look up exercise name in local exercises.json
+    if exercise_name:
+        ex_key = re.sub(r"\s+", " ", exercise_name.strip().lower())
+        entry = _EXERCISE_BODY_PART.get(ex_key)
+        if entry:
+            body_part, target = entry
+            if body_part.lower() == "upper arms":
+                mapped = _map(target) or _map(body_part)
+            else:
+                mapped = _map(body_part)
             if mapped:
                 return mapped
 
-    # Last resort: use raw value if it looks like a known Spanish label
-    if raw and raw.strip() and raw.strip().lower() not in ("todos", "otros"):
-        return raw.strip()
-
-    return "Otros"
+    return None
 
 
 @router.get("")
@@ -407,7 +436,9 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     # Muscle group breakdown
     muscle_counts: dict[str, int] = {}
     for ex in ex_rows:
-        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"))
+        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"), ex.get("name"))
+        if not mg:
+            continue
         muscle_counts[mg] = muscle_counts.get(mg, 0) + 1
     muscle_breakdown = sorted(
         [{"group": k, "count": v} for k, v in muscle_counts.items()],
@@ -432,14 +463,17 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         workout_ts = record_date_map.get(wid)
         if workout_ts is None:
             continue
-        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"))
+        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"), ex.get("name"))
         if norm not in ex_progress:
             ex_progress[norm] = {
                 "display": ex.get("name", norm),
-                "muscle_group": mg,
+                "muscle_group": mg,  # may be None; will be resolved later
                 "current_max": 0.0,
                 "prev_max": 0.0,
             }
+        elif mg is not None and ex_progress[norm]["muscle_group"] is None:
+            # Upgrade unresolved group once we find a valid one
+            ex_progress[norm]["muscle_group"] = mg
         for s in sets_by_ex.get(ex["id"], []):
             w = float(s.get("weight") or 0)
             if w <= 0:
@@ -477,6 +511,8 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         if data["current_max"] <= 0:
             continue
         mg = data["muscle_group"]
+        if not mg or mg not in _VALID_GROUPS:
+            continue
         if mg not in progress_by_muscle_map:
             progress_by_muscle_map[mg] = []
         change_pct: float | None = None

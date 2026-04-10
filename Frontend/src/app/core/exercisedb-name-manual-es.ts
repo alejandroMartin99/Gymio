@@ -172,7 +172,7 @@ export const EXERCISE_NAME_ES_MANUAL: Record<string, string> = {
   'barbell lying close-grip press': 'Press cerrado tumbado con barra',
   'barbell lying close-grip triceps extension': 'Extension de triceps cerrada tumbado con barra',
   'barbell lying extension': 'Extension tumbada con barra',
-  'barbell lying lifting (on hip)': 'Elevacion de cadera tumbado con barra',
+  'barbell lying lifting (on hip)': 'Hip thrust con barra',
   'barbell lying preacher curl': 'Curl predicador tumbado con barra',
   'barbell lying triceps extension': 'Extension de triceps tumbado con barra',
   'barbell lying triceps extension skull crusher': 'Skull crusher con barra',

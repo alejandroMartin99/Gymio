@@ -8,25 +8,6 @@ import { ExerciseCatalogItem } from '../models/exercise-catalog.model';
 import type { ExerciseDbExercise } from '../models/exercisedb.model';
 import { ExerciseDbMediaService } from './exercise-db-media.service';
 
-const BODY_PART_ES: Record<string, string> = {
-  chest:        'Pecho',
-  back:         'Espalda',
-  'upper legs': 'Pierna',
-  'lower legs': 'Pierna',
-  waist:        'Core',
-  'upper arms': 'Biceps',
-  'lower arms': 'Biceps',
-  shoulders:    'Hombro',
-  cardio:       'Cardio',
-  neck:         'Hombro',
-};
-
-function bodyPartToEs(bodyPart: string | undefined, displayGroup: string): string {
-  if (displayGroup && displayGroup !== 'Todos') return displayGroup;
-  if (!bodyPart) return 'Otros';
-  return BODY_PART_ES[bodyPart.toLowerCase()] ?? bodyPart;
-}
-
 @Injectable({ providedIn: 'root' })
 export class ExerciseCatalogService {
   readonly items = signal<ExerciseCatalogItem[]>([]);
@@ -136,7 +117,7 @@ export class ExerciseCatalogService {
     return {
       id: `edb-${row.id}`,
       name: row.name,
-      muscle_group: bodyPartToEs(row.bodyPart, displayGroup),
+      muscle_group: displayGroup,
       is_custom: false,
       external_exercise_id: row.id,
       detail: row
