@@ -1,0 +1,295 @@
+<section class="profile-page">
+
+  <!-- ── Avatar + info ──────────────────────────────────── -->
+  <div class="avatar-section">
+    <button class="avatar-wrap" type="button" (click)="openUploadModal()" title="Cambiar foto">
+      @if (auth.avatarUrl() && !avatarImgError) {
+        <img [src]="auth.avatarUrl()!" alt="Foto de perfil" class="avatar-img" (error)="avatarImgError = true" />
+      } @else {
+        <span class="avatar-initials">{{ auth.avatarInitials() }}</span>
+      }
+      <span class="avatar-edit-badge" aria-hidden="true">
+        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+        </svg>
+      </span>
+    </button>
+    <div class="user-info">
+      <div class="name-row">
+        <strong class="user-name">{{ auth.displayName() || 'Sin nombre' }}</strong>
+        <button type="button" class="edit-btn" (click)="openNameModal()" title="Editar nombre">
+          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+          </svg>
+        </button>
+      </div>
+      <small class="user-email">{{ auth.user()?.email }}</small>
+    </div>
+  </div>
+
+  <!-- ── Dashboard ──────────────────────────────────────── -->
+  <div class="dashboard-title">
+    Estadísticas
+    @if (svc.statsLoading()) { <span class="loading-dot"></span> }
+  </div>
+
+  @if (svc.stats(); as s) {
+
+    <!-- Stat cards -->
+    <div class="stat-cards">
+      <div class="stat-card">
+        <span class="stat-value">{{ s.totals.sessions }}</span>
+        <span class="stat-label">Sesiones totales</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ s.totals.sets }}</span>
+        <span class="stat-label">Series totales</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">{{ avgSessionsPerWeek(s.sessions_per_week) }}</span>
+        <span class="stat-label">Media ses. / semana</span>
+      </div>
+    </div>
+
+    <!-- ── Persistencia mensual ────────────────────────── -->
+    @if (s.monthly_persistence.current_month) {
+      <div class="persist-card">
+        <div class="persist-header">
+          <div>
+            <div class="chart-title">Persistencia del mes</div>
+            <div class="chart-sub">objetivo: 4 días / semana · {{ s.monthly_persistence.current_month | titlecase }}</div>
+          </div>
+          <div class="persist-pct-badge"
+            [class.good]="s.monthly_persistence.current_pct >= 75"
+            [class.mid]="s.monthly_persistence.current_pct >= 40 && s.monthly_persistence.current_pct < 75"
+            [class.low]="s.monthly_persistence.current_pct < 40">
+            {{ s.monthly_persistence.current_pct }}%
+          </div>
+        </div>
+        <div class="persist-bar-wrap">
+          <div class="persist-bar-fill"
+            [class.good]="s.monthly_persistence.current_pct >= 75"
+            [class.mid]="s.monthly_persistence.current_pct >= 40 && s.monthly_persistence.current_pct < 75"
+            [class.low]="s.monthly_persistence.current_pct < 40"
+            [style.width.%]="s.monthly_persistence.current_pct">
+          </div>
+        </div>
+        <div class="persist-compare">
+          <span class="persist-vs">vs. {{ s.monthly_persistence.prev_month | titlecase }}</span>
+          @if (s.monthly_persistence.change_pct !== 0) {
+            <span class="persist-delta"
+              [class.up]="s.monthly_persistence.change_pct > 0"
+              [class.down]="s.monthly_persistence.change_pct < 0">
+              {{ s.monthly_persistence.change_pct > 0 ? '+' : '' }}{{ s.monthly_persistence.change_pct }}%
+            </span>
+          } @else {
+            <span class="persist-equal">Sin cambios</span>
+          }
+          <span class="persist-detail">{{ s.monthly_persistence.current_sessions }} sesiones · anterior: {{ s.monthly_persistence.prev_sessions }}</span>
+        </div>
+      </div>
+    }
+
+    <!-- ── Sessions per week — semáforo ───────────────── -->
+    @if (s.sessions_per_week.length > 0) {
+      <div class="chart-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Sesiones por semana</div>
+            <div class="chart-sub">desde enero 2026</div>
+          </div>
+          <div class="semaforo-legend">
+            <span class="s-dot" style="background:#16a34a"></span><span>4+</span>
+            <span class="s-dot" style="background:#4ade80"></span><span>3</span>
+            <span class="s-dot" style="background:#fb923c"></span><span>2</span>
+            <span class="s-dot" style="background:#fca5a5"></span><span>1</span>
+            <span class="s-dot" style="background:#ef4444"></span><span>0</span>
+          </div>
+        </div>
+        <svg class="chart-svg" viewBox="0 0 320 108" preserveAspectRatio="none">
+          @for (b of barBars(s.sessions_per_week); track $index) {
+            <rect [attr.x]="b.x" [attr.y]="b.y" [attr.width]="b.w" [attr.height]="b.h" [attr.fill]="b.fill" rx="2"/>
+          }
+          @for (lbl of barWeekLabels(s.sessions_per_week); track $index) {
+            <text [attr.x]="lbl.x" y="84" text-anchor="middle" font-size="6.5" fill="#d1d5db">{{ lbl.label }}</text>
+          }
+          <line x1="2" y1="89" x2="318" y2="89" stroke="#f3f4f6" stroke-width="0.5"/>
+          @for (m of barMonthLabels(s.sessions_per_week); track $index) {
+            <text [attr.x]="m.x" y="101" text-anchor="start" font-size="8" font-weight="600" fill="#6b7280">{{ m.label }}</text>
+          }
+        </svg>
+      </div>
+    }
+
+    <!-- ── Progreso por ejercicio ──────────────────────── -->
+    @if (s.progress_by_muscle.length > 0) {
+      <div class="list-card">
+        <div class="chart-header">
+          <div>
+            <div class="chart-title">Progreso por ejercicio</div>
+            <div class="chart-sub">últimas 2 semanas vs mínimo histórico</div>
+          </div>
+        </div>
+        @for (group of s.progress_by_muscle; track group.muscle_group; let last = $last) {
+          <div class="progress-group">
+            <div class="progress-group-label">{{ group.muscle_group }}</div>
+            <div class="progress-list">
+              @for (ex of group.exercises; track ex.display) {
+                <div class="progress-ex-block">
+                  <div class="progress-row">
+                    <span class="progress-name">{{ exEs(ex.display) }}</span>
+                    <span class="progress-weight">{{ ex.current_max | number:'1.1-1' }} kg</span>
+                    @if (ex.change_vs_min_pct !== null && ex.change_vs_min_pct !== undefined) {
+                      <span class="progress-delta up">+{{ ex.change_vs_min_pct }}%</span>
+                    } @else {
+                      <span class="progress-delta no-data">—</span>
+                    }
+                    <button type="button" class="chart-toggle-btn"
+                      [disabled]="!ex.history_points || ex.history_points.length < 1"
+                      (click)="openChartModal(ex)"
+                      title="Ver historial">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+          @if (!last) { <div class="progress-group-divider"></div> }
+        }
+      </div>
+    } @else if (!svc.statsLoading()) {
+      <p class="muted-hint">Entrena esta semana para ver tu progreso comparado con la semana anterior.</p>
+    }
+
+    <!-- ── Distribución muscular ────────────────────────── -->
+    @if (s.muscle_breakdown.length > 0) {
+      <div class="list-card">
+        <div class="chart-header">
+          <div class="chart-title">Distribución muscular</div>
+        </div>
+        <div class="bar-list">
+          @for (mg of s.muscle_breakdown; track $index) {
+            <div class="bar-list-row">
+              <span class="bar-list-label">{{ mg.group }}</span>
+              <div class="bar-list-track">
+                <div class="bar-list-fill muscle" [style.width.%]="pct(mg.count, s.muscle_breakdown[0].count)"></div>
+              </div>
+              <span class="bar-list-val">{{ mg.count }}</span>
+            </div>
+          }
+        </div>
+      </div>
+    }
+
+  } @else if (!svc.statsLoading()) {
+    <p class="muted-hint">Completa tu primer entrenamiento para ver estadísticas.</p>
+  }
+
+  <!-- ── Modal: subir foto ──────────────────────────────── -->
+  @if (uploadModalOpen) {
+    <div class="modal-backdrop" (click)="closeUploadModal()"></div>
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Cambiar foto de perfil</h3>
+      <p>Sube una imagen cuadrada o usa el zoom para ajustarla.</p>
+      <input type="file" accept="image/*" (change)="onFileSelected($event)" />
+      @if (previewUrl()) {
+        <div class="preview-wrap"
+          (wheel)="onWheel($event)"
+          (touchstart)="onTouchStart($event)"
+          (touchmove)="onTouchMove($event)"
+          (touchend)="onTouchEnd()">
+          <img [src]="previewUrl()!" alt="Vista previa" [style.transform]="'scale(' + zoom() + ')'" />
+        </div>
+        <small class="zoom-hint">Rueda del ratón o pellizco para hacer zoom</small>
+      }
+      @if (uploadError()) { <p class="form-error">{{ uploadError() }}</p> }
+      <div class="modal-actions">
+        <button type="button" (click)="closeUploadModal()" [disabled]="uploading()">Cancelar</button>
+        <button type="button" class="primary" (click)="confirmUpload()" [disabled]="!previewUrl() || uploading()">
+          {{ uploading() ? 'Subiendo…' : 'Guardar foto' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Modal: historial de ejercicio ────────────────── -->
+  @if (chartModalEx) {
+    <div class="modal-backdrop" (click)="closeChartModal()"></div>
+    <div class="modal chart-modal" (click)="$event.stopPropagation()">
+      <div class="chart-modal-header">
+        <span class="chart-modal-title">{{ exEs(chartModalEx.display) }}</span>
+        <button type="button" class="chart-modal-close" (click)="closeChartModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="chart-modal-meta">
+        <span class="progress-weight">{{ chartModalEx.current_max | number:'1.1-1' }} kg</span>
+        @if (changeVsPrev(chartModalEx); as cvp) {
+          <span class="progress-delta" [class.up]="cvp > 0" [class.down]="cvp < 0" [class.flat]="cvp === 0">
+            {{ cvp > 0 ? '+' : '' }}{{ cvp }}% vs anterior
+          </span>
+        }
+        @if (chartModalEx.change_vs_min_pct !== null && chartModalEx.change_vs_min_pct !== undefined) {
+          <span class="progress-delta up">+{{ chartModalEx.change_vs_min_pct }}% vs mínimo</span>
+        }
+      </div>
+      <div class="ex-charts">
+        <div class="ex-chart-label">Peso máximo (kg)</div>
+        <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+          @for (g of wChart(chartModalEx).grid; track $index) {
+            <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+              stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+            <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+          }
+          @for (xl of wChart(chartModalEx).xLabels; track $index) {
+            <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+          }
+          <path [attr.d]="wChart(chartModalEx).path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          @for (dot of wChart(chartModalEx).dots; track $index) {
+            <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+          }
+        </svg>
+        <div class="ex-chart-label">Reps en máximo</div>
+        <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+          @for (g of rChart(chartModalEx).grid; track $index) {
+            <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+              stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+            <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+          }
+          @for (xl of rChart(chartModalEx).xLabels; track $index) {
+            <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+          }
+          <path [attr.d]="rChart(chartModalEx).path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+          @for (dot of rChart(chartModalEx).dots; track $index) {
+            <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
+          }
+        </svg>
+      </div>
+    </div>
+  }
+
+  <!-- ── Modal: editar nombre ───────────────────────────── -->
+  @if (nameModalOpen) {
+    <div class="modal-backdrop" (click)="closeNameModal()"></div>
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Editar nombre</h3>
+      <label>
+        Nombre completo
+        <input [(ngModel)]="nameInput" placeholder="Tu nombre" (keyup.enter)="saveName()" autocomplete="name" />
+      </label>
+      @if (nameError()) { <p class="form-error">{{ nameError() }}</p> }
+      <div class="modal-actions">
+        <button type="button" (click)="closeNameModal()" [disabled]="nameSaving()">Cancelar</button>
+        <button type="button" class="primary" (click)="saveName()" [disabled]="!nameInput.trim() || nameSaving()">
+          {{ nameSaving() ? 'Guardando…' : 'Guardar' }}
+        </button>
+      </div>
+    </div>
+  }
+
+</section>

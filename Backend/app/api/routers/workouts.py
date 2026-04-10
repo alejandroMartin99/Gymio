@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+import json
 import re
 import unicodedata
+from pathlib import Path
 from postgrest.exceptions import APIError
 
 from app.api.schemas.workouts import (
@@ -15,6 +17,74 @@ from app.core.auth import get_current_user_id
 from app.services.supabase.supabase_service import get_supabase_service_client
 
 router = APIRouter()
+
+# Build a name→bodyPart lookup from the local exercises.json
+_EXERCISE_BODY_PART: dict[str, str] = {}
+try:
+    _ex_json_path = Path(__file__).parent.parent.parent.parent / "data" / "exercisedb" / "exercises.json"
+    _ex_data = json.loads(_ex_json_path.read_text(encoding="utf-8"))
+    for _ex in _ex_data:
+        _key = re.sub(r"\s+", " ", (_ex.get("name") or "").strip().lower())
+        if _key and _ex.get("bodyPart"):
+            _EXERCISE_BODY_PART[_key] = _ex["bodyPart"]
+except Exception:
+    pass
+
+_MUSCLE_MAP: dict[str, str] = {
+    # ── Pecho ──────────────────────────────
+    "pecho": "Pecho", "chest": "Pecho",
+    # ── Espalda ────────────────────────────
+    "espalda": "Espalda", "back": "Espalda", "lats": "Espalda",
+    "upper back": "Espalda", "lower back": "Espalda",
+    # ── Pierna ─────────────────────────────
+    "pierna": "Pierna", "piernas": "Pierna",
+    "leg": "Pierna", "legs": "Pierna",
+    "quadriceps": "Pierna", "quads": "Pierna", "cuadriceps": "Pierna",
+    "hamstrings": "Pierna", "isquiotibiales": "Pierna",
+    "calves": "Pierna", "gemelos": "Pierna",
+    "glutes": "Pierna", "gluteos": "Pierna", "glúteos": "Pierna",
+    "hip": "Pierna", "cadera": "Pierna",
+    "adductors": "Pierna", "abductors": "Pierna",
+    # ── Biceps ─────────────────────────────
+    "biceps": "Biceps", "bíceps": "Biceps", "bicep": "Biceps",
+    # ── Triceps ────────────────────────────
+    "triceps": "Triceps", "tríceps": "Triceps", "tricep": "Triceps",
+    # ── Hombro ─────────────────────────────
+    "hombro": "Hombro", "hombros": "Hombro",
+    "shoulder": "Hombro", "shoulders": "Hombro", "deltoids": "Hombro",
+    # ── Core ───────────────────────────────
+    "core": "Core", "abs": "Core", "abdominals": "Core",
+    "abdominales": "Core", "abdomen": "Core",
+    # ── Cardio ─────────────────────────────
+    "cardio": "Cardio",
+}
+
+def _normalize_muscle_group(raw: str | None, exercise_detail: dict | None = None) -> str:
+    def _map(value: str) -> str | None:
+        key = value.strip().lower()
+        nfkd = unicodedata.normalize("NFKD", key)
+        key_no_accent = "".join(c for c in nfkd if not unicodedata.combining(c))
+        return _MUSCLE_MAP.get(key) or _MUSCLE_MAP.get(key_no_accent)
+
+    # Try stored muscle_group first
+    if raw and raw.strip().lower() not in ("todos", "otros", ""):
+        mapped = _map(raw)
+        if mapped:
+            return mapped
+
+    # Fall back to exercise_detail.bodyPart when muscle_group is absent/generic
+    if exercise_detail and isinstance(exercise_detail, dict):
+        body_part = exercise_detail.get("bodyPart") or ""
+        if body_part:
+            mapped = _map(body_part)
+            if mapped:
+                return mapped
+
+    # Last resort: use raw value if it looks like a known Spanish label
+    if raw and raw.strip() and raw.strip().lower() not in ("todos", "otros"):
+        return raw.strip()
+
+    return "Otros"
 
 
 @router.get("")
@@ -259,7 +329,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
 
     ex_res = (
         client.table("workout_exercises")
-        .select("id, workout_id, name, muscle_group")
+        .select("id, workout_id, name, muscle_group, exercise_detail")
         .eq("user_id", user_id)
         .execute()
     )
@@ -337,7 +407,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     # Muscle group breakdown
     muscle_counts: dict[str, int] = {}
     for ex in ex_rows:
-        mg = (ex.get("muscle_group") or "Otros").strip() or "Otros"
+        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"))
         muscle_counts[mg] = muscle_counts.get(mg, 0) + 1
     muscle_breakdown = sorted(
         [{"group": k, "count": v} for k, v in muscle_counts.items()],
@@ -362,7 +432,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         workout_ts = record_date_map.get(wid)
         if workout_ts is None:
             continue
-        mg = (ex.get("muscle_group") or "Otros").strip() or "Otros"
+        mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"))
         if norm not in ex_progress:
             ex_progress[norm] = {
                 "display": ex.get("name", norm),
