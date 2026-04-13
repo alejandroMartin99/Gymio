@@ -1804,7 +1804,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   });
 
   async ngOnInit(): Promise<void> {
-    await this.workoutRecordService.loadRecords();
+    await this.workoutRecordService.loadRecords({ minIntervalMs: 12_000 });
     const activeWorkoutId = this.activeWorkout.workoutId();
     if (activeWorkoutId) {
       await this.loadDetail(activeWorkoutId);
@@ -2016,22 +2016,34 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
     this.setInputs[exerciseId] = {};
 
-    const persisted = await this.workoutRecordService.addSet(workoutId, exerciseId, {
+    const serverSet = await this.workoutRecordService.addSet(workoutId, exerciseId, {
       set_type: payload.set_type,
       done_reps: payload.done_reps,
       weight: payload.weight,
       comment: payload.comment
     });
-    if (persisted) {
+    if (!serverSet) {
+      if (exercise) {
+        exercise.sets = exercise.sets.filter((s) => s.id !== localId);
+        exercise.notes = this.buildExerciseNotes(exercise);
+      }
       this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
-        (set) => set.local_id !== localId
+        (s) => s.local_id !== localId
       );
-      await this.loadDetail(workoutId);
+      return;
+    }
+    this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
+      (set) => set.local_id !== localId
+    );
+    if (exercise) {
+      exercise.sets = exercise.sets.map((s) => (s.id === localId ? serverSet : s));
+      exercise.sets.sort((a, b) => a.position - b.position);
+      exercise.notes = this.buildExerciseNotes(exercise);
     }
   }
 
   private async loadDetail(workoutId: string): Promise<void> {
-    const detail = await this.workoutRecordService.getWorkoutDetail(workoutId);
+    const detail = await this.workoutRecordService.getWorkoutDetail(workoutId, { silent: true });
     if (!detail) {
       return;
     }
@@ -2301,8 +2313,30 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (!created) {
       return;
     }
-    this.selectedExerciseId = created.id;
-    await this.loadDetail(this.currentWorkout.id);
+    const newEx: WorkoutExerciseRecord = {
+      ...created,
+      sets: created.sets ?? [],
+      previous_sets: created.previous_sets ?? [],
+      history_points: created.history_points ?? []
+    };
+    this.currentWorkout = {
+      ...this.currentWorkout,
+      exercises: [...this.currentWorkout.exercises, newEx].sort((a, b) => a.position - b.position)
+    };
+    this.selectedExerciseId = newEx.id;
+    this.setInputs[newEx.id] = this.setInputs[newEx.id] ?? {};
+    void this.refreshWorkoutExerciseMedia();
+    void this.workoutRecordService.getWorkoutDetailQuiet(this.currentWorkout.id).then((detail) => {
+      if (!detail || !this.currentWorkout) {
+        return;
+      }
+      const fresh = detail.exercises.find((e) => e.id === newEx.id);
+      const target = this.currentWorkout.exercises.find((e) => e.id === newEx.id);
+      if (fresh && target) {
+        target.previous_sets = fresh.previous_sets ?? [];
+        target.history_points = fresh.history_points ?? [];
+      }
+    });
     // Close picker after selecting so user can edit the added exercise immediately.
     this.showExerciseListModal = false;
   }
@@ -2377,7 +2411,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       this.selectedExerciseId = '';
     }
     delete this.pendingSetsByExercise[exerciseId];
-    await this.loadDetail(this.currentWorkout.id);
+    this.currentWorkout = {
+      ...this.currentWorkout,
+      exercises: this.currentWorkout.exercises.filter((e) => e.id !== exerciseId)
+    };
   }
 
   async removeSet(exerciseId: string, setId: string): Promise<void> {
@@ -2628,13 +2665,13 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   private async flushPendingSets(workoutId: string): Promise<boolean> {
     for (const [exerciseId, pendingSets] of Object.entries(this.pendingSetsByExercise)) {
       for (const set of pendingSets) {
-        const ok = await this.workoutRecordService.addSet(workoutId, exerciseId, {
+        const createdSet = await this.workoutRecordService.addSet(workoutId, exerciseId, {
           set_type: set.set_type,
           done_reps: set.done_reps,
           weight: set.weight,
           comment: set.comment
         });
-        if (!ok) {
+        if (!createdSet) {
           return false;
         }
       }
