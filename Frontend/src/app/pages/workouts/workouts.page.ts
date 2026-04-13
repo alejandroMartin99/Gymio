@@ -35,6 +35,12 @@ interface WorkoutTemplateExercise {
   muscle_group?: string;
 }
 
+/** Gráficos de historial (mismo formato que perfil: dos SVG con grid). */
+interface HistoryChartPt { x: number; y: number; v: number; }
+interface HistoryGridLine { y: number; label: string; }
+interface HistoryXLabel { x: number; label: string; i: number; }
+interface HistoryChartData { path: string; dots: HistoryChartPt[]; grid: HistoryGridLine[]; xLabels: HistoryXLabel[]; }
+
 interface WorkoutTemplate {
   id: string;
   title: string;
@@ -419,29 +425,51 @@ interface WorkoutTemplate {
 
       @if (showHistoryModal) {
         <div class="modal-backdrop" (click)="closeHistoryModal()">
-          <div class="modal" (click)="$event.stopPropagation()">
-            <h3>Historial - {{ historyExerciseName }}</h3>
-            <p>Maximos por entrenamiento (peso y repeticiones).</p>
+          <div class="modal chart-modal" (click)="$event.stopPropagation()">
+            <div class="chart-modal-header">
+              <span class="chart-modal-title">Historial - {{ historyExerciseTitle }}</span>
+              <button type="button" class="chart-modal-close" (click)="closeHistoryModal()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <p class="history-chart-sub">Máximos por entrenamiento (peso y repeticiones).</p>
             @if (historyPoints.length > 0) {
-              <div class="line-chart">
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  <polyline class="line-weight" [attr.points]="historyWeightPath()"></polyline>
-                  <polyline class="line-reps" [attr.points]="historyRepsPath()"></polyline>
-                  @for (point of historyPoints; track point.workout_id; let idx = $index) {
-                    <circle class="dot-weight" [attr.cx]="historyX(idx)" [attr.cy]="historyWeightY(point.max_weight)" r="1.6"></circle>
-                    <circle class="dot-reps" [attr.cx]="historyX(idx)" [attr.cy]="historyRepsY(point.max_reps)" r="1.6"></circle>
+              <div class="ex-charts">
+                <div class="ex-chart-label">Peso máximo (kg)</div>
+                <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+                  @for (g of historyWChart().grid; track $index) {
+                    <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                      stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+                    <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+                  }
+                  @for (xl of historyWChart().xLabels; track $index) {
+                    <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+                  }
+                  <path [attr.d]="historyWChart().path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                  @for (dot of historyWChart().dots; track $index) {
+                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+                  }
+                </svg>
+                <div class="ex-chart-label">Reps en máximo</div>
+                <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+                  @for (g of historyRChart().grid; track $index) {
+                    <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                      stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+                    <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+                  }
+                  @for (xl of historyRChart().xLabels; track $index) {
+                    <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+                  }
+                  <path [attr.d]="historyRChart().path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                  @for (dot of historyRChart().dots; track $index) {
+                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
                   }
                 </svg>
               </div>
-              @if (lastHistoryPoint(); as last) {
-                <div class="history-summary">
-                  <small>{{ last.date }}</small>
-                  <strong>{{ last.max_weight || 0 }} kg</strong>
-                  <strong>{{ last.max_reps || 0 }} reps</strong>
-                </div>
-              }
             } @else {
-              <small class="note">No hay datos historicos para este ejercicio todavia.</small>
+              <small class="note">No hay datos históricos para este ejercicio todavía.</small>
             }
             <button type="button" class="close" (click)="closeHistoryModal()">Cerrar</button>
           </div>
@@ -1408,59 +1436,75 @@ interface WorkoutTemplate {
       gap: 0.6rem;
     }
 
-    .line-chart {
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      background: #fff;
-      padding: 0.4rem;
-      margin-bottom: 0.55rem;
+    .chart-modal {
+      width: min(480px, 94vw);
+      max-width: 480px;
     }
 
-    .line-chart svg {
-      width: 100%;
-      height: 180px;
-      display: block;
+    .chart-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
     }
 
-    .line-weight,
-    .line-reps {
-      fill: none;
-      stroke-width: 1.8;
-      vector-effect: non-scaling-stroke;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .line-weight {
-      stroke: #2563eb;
-    }
-
-    .line-reps {
-      stroke: #6b7280;
-    }
-
-    .dot-weight {
-      fill: #2563eb;
-    }
-
-    .dot-reps {
-      fill: #6b7280;
-    }
-
-    .history-summary {
-      display: grid;
-      gap: 0.15rem;
-      margin-bottom: 0.6rem;
+    .chart-modal-title {
+      font-size: 0.9rem;
+      font-weight: 700;
       color: #111827;
+      line-height: 1.25;
     }
 
-    .history-summary small {
+    .chart-modal-close {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #9ca3af;
+      padding: 2px;
+      line-height: 0;
+      border-radius: 4px;
+    }
+
+    .chart-modal-close:hover {
+      color: #374151;
+    }
+
+    .history-chart-sub {
+      margin: 0;
+      font-size: 0.82rem;
       color: #6b7280;
-      font-size: 0.76rem;
     }
 
-    .history-summary strong {
-      font-size: 0.88rem;
+    .ex-charts {
+      display: grid;
+      gap: 0.2rem;
+      padding: 0.35rem 0 0.1rem;
+      border-top: 1px solid #f3f4f6;
+    }
+
+    .ex-chart-label {
+      font-size: 0.64rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #9ca3af;
+      margin-bottom: -0.1rem;
+    }
+
+    .history-svg {
+      width: 100%;
+      display: block;
+      overflow: hidden;
+    }
+
+    .history-svg--lg {
+      height: 90px;
+    }
+
+    .note {
+      color: #7a7a7a;
+      font-size: 0.8rem;
     }
   `]
 })
@@ -1701,7 +1745,14 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   exerciseInfoName = '';
   exerciseInfoDetail: ExerciseDbExercise | null = null;
   historyExerciseName = '';
+  /** Título del modal (nombre en español, como en la tarjeta del ejercicio). */
+  historyExerciseTitle = '';
   historyPoints: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
+  /** Mismas constantes que perfil para los SVG de historial. */
+  readonly HC = { cw: 300, ch: 90, pt: 12, pb: 18, pl: 32, pr: 6 };
+  private _histW: HistoryChartData | null = null;
+  private _histR: HistoryChartData | null = null;
+  private _histCacheSig = '';
   /** GIF ExerciseDB (720) por id de fila workout_exercises */
   readonly workoutExerciseMediaUrls = signal<Record<string, string>>({});
   private isFinalizing = false;
@@ -2375,12 +2426,19 @@ export class WorkoutsPage implements OnInit, OnDestroy {
 
   openHistoryModal(exercise: WorkoutExerciseRecord): void {
     this.historyExerciseName = exercise.name;
+    this.historyExerciseTitle = this.displayExercisePrimaryName(exercise);
     this.historyPoints = [...(exercise.history_points || [])];
+    this._histCacheSig = '';
+    this._histW = null;
+    this._histR = null;
     this.showHistoryModal = true;
   }
 
   closeHistoryModal(): void {
     this.showHistoryModal = false;
+    this._histCacheSig = '';
+    this._histW = null;
+    this._histR = null;
   }
 
   openExerciseInfoModal(exercise: WorkoutExerciseRecord): void {
@@ -2403,51 +2461,71 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     return this.exerciseInfoDetail;
   }
 
-  lastHistoryPoint(): { workout_id: string; date: string; max_weight: number; max_reps: number } | null {
-    if (this.historyPoints.length === 0) {
-      return null;
-    }
-    return this.historyPoints[this.historyPoints.length - 1];
+  private historyChartCacheSig(): string {
+    return this.historyPoints.map((p) => `${p.date}:${p.max_weight}:${p.max_reps}`).join('|');
   }
 
-  historyX(index: number): number {
-    if (this.historyPoints.length <= 1) {
-      return 10;
-    }
-    const step = 80 / (this.historyPoints.length - 1);
-    return 10 + index * step;
+  private fmtHistChartDate(dateStr: string): string {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
   }
 
-  historyWeightY(value: number): number {
-    if (this.historyPoints.length === 0) {
-      return 90;
-    }
-    const max = Math.max(...this.historyPoints.map((item) => Number(item.max_weight || 0)), 1);
-    const normalized = Number(value || 0) / max;
-    return 90 - normalized * 70;
+  private buildHistoryChartFromPoints(rawPoints: Array<{ value: number; date: string }>): HistoryChartData {
+    const { cw, ch, pt, pb, pl, pr } = this.HC;
+    const iw = cw - pl - pr;
+    const ih = ch - pt - pb;
+
+    if (rawPoints.length === 0) return { path: '', dots: [], grid: [], xLabels: [] };
+
+    const vals = rawPoints.map((p) => p.value);
+    const maxV = Math.max(...vals);
+    const minV = Math.min(...vals);
+    const range = maxV - minV || 1;
+
+    const mapX = (i: number) =>
+      rawPoints.length === 1 ? pl + iw / 2 : pl + (i / (rawPoints.length - 1)) * iw;
+    const mapY = (v: number) => pt + ih - ((v - minV) / range) * ih;
+
+    const dots: HistoryChartPt[] = rawPoints.map((p, i) => ({ x: mapX(i), y: mapY(p.value), v: p.value }));
+    const path =
+      dots.length > 1 ? `M${dots.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join('L')}` : '';
+
+    const grid: HistoryGridLine[] = [0, 0.5, 1].map((ratio) => {
+      const v = minV + ratio * range;
+      return { y: mapY(v), label: v % 1 === 0 ? v.toString() : v.toFixed(1) };
+    });
+
+    const step = Math.max(1, Math.ceil(rawPoints.length / 5));
+    const xLabels: HistoryXLabel[] = rawPoints
+      .map((p, i) => ({ x: mapX(i), label: this.fmtHistChartDate(p.date), i }))
+      .filter((item, _, arr) => item.i % step === 0 || item.i === arr.length - 1);
+
+    return { path, dots, grid, xLabels };
   }
 
-  historyRepsY(value: number): number {
+  historyWChart(): HistoryChartData {
     if (this.historyPoints.length === 0) {
-      return 90;
+      return { path: '', dots: [], grid: [], xLabels: [] };
     }
-    const max = Math.max(...this.historyPoints.map((item) => Number(item.max_reps || 0)), 1);
-    const normalized = Number(value || 0) / max;
-    return 90 - normalized * 70;
+    const sig = this.historyChartCacheSig();
+    if (this._histCacheSig !== sig || !this._histW) {
+      this._histCacheSig = sig;
+      this._histW = this.buildHistoryChartFromPoints(
+        this.historyPoints.map((p) => ({ value: p.max_weight, date: p.date })),
+      );
+      this._histR = this.buildHistoryChartFromPoints(
+        this.historyPoints.map((p) => ({ value: p.max_reps, date: p.date })),
+      );
+    }
+    return this._histW;
   }
 
-  historyWeightPath(): string {
+  historyRChart(): HistoryChartData {
     if (this.historyPoints.length === 0) {
-      return '';
+      return { path: '', dots: [], grid: [], xLabels: [] };
     }
-    return this.historyPoints.map((point, idx) => `${this.historyX(idx)},${this.historyWeightY(point.max_weight)}`).join(' ');
-  }
-
-  historyRepsPath(): string {
-    if (this.historyPoints.length === 0) {
-      return '';
-    }
-    return this.historyPoints.map((point, idx) => `${this.historyX(idx)},${this.historyRepsY(point.max_reps)}`).join(' ');
+    this.historyWChart();
+    return this._histR!;
   }
 
   private normalizeText(value: string): string {
