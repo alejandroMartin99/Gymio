@@ -147,6 +147,21 @@
 .workout-overlay__meta {
   display: grid;
   gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  color: inherit;
+  min-width: 0;
+  flex: 1;
+  -webkit-tap-highlight-color: transparent;
+
+  &:active {
+    opacity: 0.88;
+  }
 }
 
 .workout-overlay__meta strong {

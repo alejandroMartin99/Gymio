@@ -17,6 +17,7 @@ import { isExerciseDbExercise } from '../../models/exercisedb.model';
 import type { ExerciseDbExercise } from '../../models/exercisedb.model';
 import { WorkoutExerciseRecord, WorkoutRecordDetail } from '../../models/workout-record.model';
 import { ActiveWorkoutService } from '../../services/active-workout.service';
+import { WorkoutSessionDraftService, type WorkoutSessionDraftPayload } from '../../services/workout-session-draft.service';
 import { ExerciseCatalogService } from '../../services/exercise-catalog.service';
 import { ExerciseDbMediaService } from '../../services/exercise-db-media.service';
 import { WorkoutRecordService } from '../../services/workout-record.service';
@@ -1513,7 +1514,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     readonly workoutRecordService: WorkoutRecordService,
     readonly exerciseCatalogService: ExerciseCatalogService,
     private readonly exerciseDbMedia: ExerciseDbMediaService,
-    private readonly activeWorkout: ActiveWorkoutService
+    private readonly activeWorkout: ActiveWorkoutService,
+    private readonly sessionDraft: WorkoutSessionDraftService
   ) {}
 
   workoutName = '';
@@ -1758,6 +1760,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   private isFinalizing = false;
   private autoOpenedPickerForWorkoutId = '';
   private catalogSearchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Evita reaplicar el borrador de sessionStorage en cada `loadDetail` del mismo montaje. */
+  private draftRestoredForWorkoutId: string | null = null;
 
   private readonly finalizeEffect = effect(() => {
     const tick = this.activeWorkout.finalizeRequestTick();
@@ -1769,6 +1773,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
 
   private readonly sessionClosedEffect = effect(() => {
     const isActive = this.activeWorkout.isActive();
+    if (!isActive) {
+      this.draftRestoredForWorkoutId = null;
+    }
     if (!isActive && this.currentWorkout) {
       this.currentWorkout = null;
       this.selectedExerciseId = '';
@@ -1776,6 +1783,24 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       this.showExerciseListModal = false;
       this.selectedCatalogThumbs.set([]);
     }
+  });
+
+  private readonly resumePanelEffect = effect(() => {
+    const tick = this.activeWorkout.resumeWorkoutPanelTick();
+    if (!tick) {
+      return;
+    }
+    const wid = this.activeWorkout.workoutId();
+    if (!wid) {
+      return;
+    }
+    queueMicrotask(() => {
+      void this.loadDetail(wid).then(() => {
+        const exercises = this.currentWorkout?.exercises ?? [];
+        const first = exercises.find((e) => !this.completedExerciseIds.has(e.id));
+        this.selectedExerciseId = first?.id ?? exercises[0]?.id ?? '';
+      });
+    });
   });
 
   async ngOnInit(): Promise<void> {
@@ -1851,6 +1876,17 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (this.catalogSearchDebounceTimer) {
       clearTimeout(this.catalogSearchDebounceTimer);
       this.catalogSearchDebounceTimer = null;
+    }
+    const activeId = this.activeWorkout.workoutId();
+    const cid = this.currentWorkout?.id;
+    if (activeId && cid && cid === activeId) {
+      const payload: WorkoutSessionDraftPayload = {
+        pendingSetsByExercise: JSON.parse(JSON.stringify(this.pendingSetsByExercise)),
+        setInputs: JSON.parse(JSON.stringify(this.setInputs)),
+        completedExerciseIds: [...this.completedExerciseIds],
+        selectedExerciseId: this.selectedExerciseId
+      };
+      this.sessionDraft.save(activeId, payload);
     }
   }
 
@@ -1999,6 +2035,39 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (!detail) {
       return;
     }
+    const exerciseIds = new Set(detail.exercises.map((e) => e.id));
+
+    if (this.draftRestoredForWorkoutId !== workoutId) {
+      const draft = this.sessionDraft.load(workoutId);
+      if (draft) {
+        const rawPending = JSON.parse(JSON.stringify(draft.pendingSetsByExercise)) as typeof this.pendingSetsByExercise;
+        this.pendingSetsByExercise = Object.fromEntries(
+          Object.entries(rawPending).filter(([id]) => exerciseIds.has(id))
+        );
+        this.completedExerciseIds = new Set(
+          draft.completedExerciseIds.filter((id) => exerciseIds.has(id))
+        );
+        const nextInputs: typeof this.setInputs = {};
+        for (const exercise of detail.exercises) {
+          const fromDraft = draft.setInputs[exercise.id];
+          nextInputs[exercise.id] = fromDraft ? { ...fromDraft } : {};
+        }
+        this.setInputs = nextInputs;
+        if (draft.selectedExerciseId && exerciseIds.has(draft.selectedExerciseId)) {
+          this.selectedExerciseId = draft.selectedExerciseId;
+        }
+      } else {
+        this.pendingSetsByExercise = {};
+        this.completedExerciseIds = new Set();
+        const nextInputs: typeof this.setInputs = {};
+        for (const exercise of detail.exercises) {
+          nextInputs[exercise.id] = {};
+        }
+        this.setInputs = nextInputs;
+      }
+      this.draftRestoredForWorkoutId = workoutId;
+    }
+
     this.currentWorkout = this.mergePendingSets(detail);
     if (!this.selectedExerciseId && detail.exercises.length > 0) {
       this.selectedExerciseId = detail.exercises[0].id;

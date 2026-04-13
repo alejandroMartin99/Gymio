@@ -31,10 +31,15 @@
 
   @if (activeWorkout.isActive()) {
     <div class="workout-overlay">
-      <div class="workout-overlay__meta">
+      <button
+        type="button"
+        class="workout-overlay__meta"
+        (click)="openActiveWorkoutSession()"
+        aria-label="Abrir entrenamiento en curso"
+      >
         <strong>{{ activeWorkout.workoutName() }}</strong>
         <span>Tiempo: {{ activeWorkout.elapsedLabel() }}</span>
-      </div>
+      </button>
       <div class="workout-overlay__actions">
         <button type="button" class="text-cancel" (click)="cancelWorkout()">Cancelar</button>
         <button type="button" class="text-finish" (click)="finishWorkout()">Finalizar</button>

@@ -65,6 +65,19 @@ export class AppShellComponent {
     this.pendingWorkoutAction = null;
   }
 
+  openActiveWorkoutSession(): void {
+    if (!this.activeWorkout.isActive()) {
+      return;
+    }
+    this.closeProfileMenu();
+    const path = this.router.url.split('?')[0];
+    if (path === '/workouts') {
+      this.activeWorkout.requestResumeWorkoutPanel();
+    } else {
+      void this.router.navigate(['/workouts']);
+    }
+  }
+
   async confirmWorkoutAction(): Promise<void> {
     if (this.pendingWorkoutAction === 'finish') {
       this.activeWorkout.requestFinalize();

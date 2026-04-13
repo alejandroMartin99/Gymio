@@ -1,5 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 
+import { WorkoutSessionDraftService } from './workout-session-draft.service';
+
 @Injectable({ providedIn: 'root' })
 export class ActiveWorkoutService {
   private readonly storageKey = 'gymio.activeWorkout';
@@ -8,6 +10,8 @@ export class ActiveWorkoutService {
   readonly startedAt = signal<number | null>(null);
   readonly elapsedSeconds = signal(0);
   readonly finalizeRequestTick = signal(0);
+  /** Se incrementa al pedir volver al panel de la sesión en curso (misma ruta /workouts). */
+  readonly resumeWorkoutPanelTick = signal(0);
 
   private ticker: ReturnType<typeof setInterval> | null = null;
 
@@ -23,7 +27,7 @@ export class ActiveWorkoutService {
     return `${hh}:${mm}:${ss}`;
   });
 
-  constructor() {
+  constructor(private readonly sessionDraft: WorkoutSessionDraftService) {
     this.restoreFromStorage();
   }
 
@@ -31,11 +35,16 @@ export class ActiveWorkoutService {
     if (this.workoutId() === id && this.startedAt()) {
       return;
     }
+    const prev = this.workoutId();
+    if (prev && prev !== id) {
+      this.sessionDraft.clear();
+    }
     this.workoutId.set(id);
     this.workoutName.set(name);
     this.startedAt.set(Date.now());
     this.elapsedSeconds.set(0);
     this.startTicker();
+    this.resumeWorkoutPanelTick.set(0);
     this.persist();
   }
 
@@ -46,7 +55,13 @@ export class ActiveWorkoutService {
     this.startedAt.set(null);
     this.elapsedSeconds.set(0);
     this.finalizeRequestTick.set(0);
+    this.resumeWorkoutPanelTick.set(0);
+    this.sessionDraft.clear();
     this.persist();
+  }
+
+  requestResumeWorkoutPanel(): void {
+    this.resumeWorkoutPanelTick.update((v) => v + 1);
   }
 
   requestFinalize(): void {
