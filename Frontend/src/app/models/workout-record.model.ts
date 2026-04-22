@@ -76,6 +76,8 @@ export interface WorkoutStatsProgressEntry {
   change_pct: number | null;
   all_time_min: number | null;
   change_vs_min_pct: number | null;
+  /** % cambio: máx. peso semana ISO actual vs semana ISO anterior (UTC). */
+  change_vs_prev_week_pct?: number | null;
   history_points: WorkoutStatsHistoryPoint[];
 }
 

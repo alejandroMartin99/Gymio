@@ -186,13 +186,17 @@ export class ProfilePage implements OnInit {
     return this._rChartCache.get(key)!;
   }
 
-  changeVsPrev(ex: WorkoutStatsProgressEntry): number | null {
-    const pts = ex.history_points;
-    if (!pts || pts.length < 2) return null;
-    const prev = pts[pts.length - 2].max_weight;
-    const last = pts[pts.length - 1].max_weight;
-    if (prev <= 0) return null;
-    return Math.round(((last - prev) / prev) * 1000) / 10;
+  progressPctLabel(v: number | null | undefined): string {
+    if (v === null || v === undefined) return '—';
+    const sign = v > 0 ? '+' : '';
+    return `${sign}${v}%`;
+  }
+
+  progressPctTone(v: number | null | undefined): string {
+    if (v === null || v === undefined) return 'no-data';
+    if (v > 0) return 'up';
+    if (v < 0) return 'down';
+    return 'flat';
   }
 
   private fmtDate(dateStr: string): string {

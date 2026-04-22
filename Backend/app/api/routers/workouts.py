@@ -340,7 +340,7 @@ def update_set(
 
 @router.get("/stats")
 def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
-    from datetime import datetime, timedelta, timezone
+    from datetime import date, datetime, timedelta, timezone
 
     client = get_supabase_service_client()
 
@@ -453,6 +453,26 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     # Progress by exercise — current 14 days vs previous 14 days
     cutoff_current = now_utc - timedelta(days=14)
     cutoff_previous = now_utc - timedelta(days=28)
+    today_d = now_utc.date()
+    dow = today_d.weekday()  # Monday = 0
+    week_mon_cur = today_d - timedelta(days=dow)
+    week_mon_prev = week_mon_cur - timedelta(days=7)
+    week_sun_prev = week_mon_cur - timedelta(days=1)
+    week_sun_cur = week_mon_cur + timedelta(days=6)
+
+    def _max_weight_between(dm: dict, start: date, end: date) -> float:
+        best = 0.0
+        for d_str, v in dm.items():
+            try:
+                d = date.fromisoformat(d_str)
+            except ValueError:
+                continue
+            w = float(v.get("max_weight") or 0)
+            if w <= 0:
+                continue
+            if start <= d <= end:
+                best = max(best, w)
+        return best
 
     ex_progress: dict[str, dict] = {}
     for ex in ex_rows:
@@ -527,8 +547,15 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         )
         all_time_min = min((p["max_weight"] for p in history_points), default=None)
         change_vs_min_pct: float | None = None
-        if all_time_min and all_time_min > 0 and data["current_max"] > all_time_min:
+        if all_time_min is not None and all_time_min > 0:
             change_vs_min_pct = round(((data["current_max"] - all_time_min) / all_time_min) * 100, 1)
+
+        cur_week_max = _max_weight_between(day_map, week_mon_cur, min(today_d, week_sun_cur))
+        prev_week_max = _max_weight_between(day_map, week_mon_prev, week_sun_prev)
+        change_vs_prev_week_pct: float | None = None
+        if prev_week_max > 0:
+            change_vs_prev_week_pct = round(((cur_week_max - prev_week_max) / prev_week_max) * 100, 1)
+
         progress_by_muscle_map[mg].append({
             "display": data["display"],
             "current_max": data["current_max"],
@@ -536,6 +563,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
             "change_pct": change_pct,
             "all_time_min": all_time_min,
             "change_vs_min_pct": change_vs_min_pct,
+            "change_vs_prev_week_pct": change_vs_prev_week_pct,
             "history_points": history_points,
         })
 

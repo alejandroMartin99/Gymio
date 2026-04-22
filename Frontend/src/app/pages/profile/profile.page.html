@@ -127,23 +127,27 @@
         <div class="chart-header">
           <div>
             <div class="chart-title">Progreso por ejercicio</div>
-            <div class="chart-sub">últimas 2 semanas vs mínimo histórico</div>
+            <div class="chart-sub">Máx. últimas 2 sem · % vs mín. histórico y vs semana anterior (lun–dom UTC)</div>
           </div>
         </div>
         @for (group of s.progress_by_muscle; track group.muscle_group; let last = $last) {
           <div class="progress-group">
             <div class="progress-group-label">{{ group.muscle_group }}</div>
+            <div class="progress-grid-head">
+              <span></span>
+              <span>Peso</span>
+              <span>Min</span>
+              <span>Sem</span>
+              <span>Graf</span>
+            </div>
             <div class="progress-list">
               @for (ex of group.exercises; track ex.display) {
                 <div class="progress-ex-block">
                   <div class="progress-row">
                     <span class="progress-name">{{ exEs(ex.display) }}</span>
                     <span class="progress-weight">{{ ex.current_max | number:'1.1-1' }} kg</span>
-                    @if (ex.change_vs_min_pct !== null && ex.change_vs_min_pct !== undefined) {
-                      <span class="progress-delta up">+{{ ex.change_vs_min_pct }}%</span>
-                    } @else {
-                      <span class="progress-delta no-data">—</span>
-                    }
+                    <span class="progress-delta" [ngClass]="progressPctTone(ex.change_vs_min_pct)">{{ progressPctLabel(ex.change_vs_min_pct) }}</span>
+                    <span class="progress-delta" [ngClass]="progressPctTone(ex.change_vs_prev_week_pct)">{{ progressPctLabel(ex.change_vs_prev_week_pct) }}</span>
                     <button type="button" class="chart-toggle-btn"
                       [disabled]="!ex.history_points || ex.history_points.length < 1"
                       (click)="openChartModal(ex)"
@@ -229,14 +233,16 @@
       </div>
       <div class="chart-modal-meta">
         <span class="progress-weight">{{ chartModalEx.current_max | number:'1.1-1' }} kg</span>
-        @if (changeVsPrev(chartModalEx); as cvp) {
-          <span class="progress-delta" [class.up]="cvp > 0" [class.down]="cvp < 0" [class.flat]="cvp === 0">
-            {{ cvp > 0 ? '+' : '' }}{{ cvp }}% vs anterior
-          </span>
-        }
-        @if (chartModalEx.change_vs_min_pct !== null && chartModalEx.change_vs_min_pct !== undefined) {
-          <span class="progress-delta up">+{{ chartModalEx.change_vs_min_pct }}% vs mínimo</span>
-        }
+        <div class="chart-modal-deltas">
+          <div class="progress-delta-line">
+            <span class="progress-delta-tag">mín</span>
+            <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_min_pct)">{{ progressPctLabel(chartModalEx.change_vs_min_pct) }}</span>
+          </div>
+          <div class="progress-delta-line">
+            <span class="progress-delta-tag">sem</span>
+            <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_prev_week_pct)">{{ progressPctLabel(chartModalEx.change_vs_prev_week_pct) }}</span>
+          </div>
+        </div>
       </div>
       <div class="ex-charts">
         <div class="ex-chart-label">Peso máximo (kg)</div>

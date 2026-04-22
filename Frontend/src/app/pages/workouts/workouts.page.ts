@@ -58,6 +58,18 @@ interface WorkoutTemplate {
   imports: [CommonModule, FormsModule],
   template: `
     <section class="workout-start">
+      @if (showRoutineStartOverlay) {
+        <div class="routine-start-overlay" role="alertdialog" aria-busy="true" aria-live="polite" aria-label="Iniciando rutina">
+          <div class="routine-start-card">
+            <div class="routine-loader-stage" aria-hidden="true">
+              <img class="routine-loader-gif" [src]="currentRoutineLoaderGif()" alt="" />
+            </div>
+            <p class="routine-start-title">Iniciando rutina</p>
+            <p class="routine-start-caption">Preparando ejercicios…</p>
+          </div>
+        </div>
+      }
+
       @if (!currentWorkout) {
         <div class="hero">
           <h2>New Workout</h2>
@@ -522,6 +534,73 @@ interface WorkoutTemplate {
       margin: 0 auto;
       display: grid;
       gap: 0.9rem;
+      position: relative;
+    }
+
+    .routine-start-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 1.25rem;
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    .routine-start-card {
+      width: min(300px, 92vw);
+      border-radius: 22px;
+      padding: 1.35rem 1.1rem 1.2rem;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow:
+        0 22px 50px rgba(15, 23, 42, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.85);
+      display: grid;
+      gap: 0.55rem;
+      text-align: center;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    .routine-loader-stage {
+      width: 76px;
+      height: 76px;
+      margin: 0.15rem auto 0.35rem;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid #dbe3ee;
+      background: #fff;
+      box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+    }
+
+    .routine-loader-gif {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .routine-start-title {
+      margin: 0;
+      font-size: 1.05rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+    }
+
+    .routine-start-caption {
+      margin: 0;
+      font-size: 0.82rem;
+      color: #64748b;
+      font-weight: 500;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .routine-loader-gif {
+        animation: none !important;
+      }
     }
 
     .hero h2 {
@@ -1521,6 +1600,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   workoutName = '';
   currentWorkout: WorkoutRecordDetail | null = null;
   showReplicateModal = false;
+  showRoutineStartOverlay = false;
   selectedReplicateWorkoutId = '';
   replicateSelectionConfirmed = false;
   showNewSessionModal = false;
@@ -1540,6 +1620,14 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   selectedTemplateEquipmentFilter: WorkoutTemplate['equipment'] = 'gym';
   readonly activeTemplateId = signal<string | null>(null);
   private isBootstrappingTemplate = false;
+  private routineLoaderGifTimer: ReturnType<typeof setInterval> | null = null;
+  private routineLoaderGifIndex = signal(0);
+  readonly routineLoaderGifs = [
+    '/icons/icons8-banca-pesas.gif',
+    '/icons/icons8-deadlift.gif',
+    '/icons/icons8-pullups.gif',
+    '/icons/icons8-running.gif'
+  ] as const;
 
   readonly muscleGroupSlides = [
     { key: 'pecho', label: 'Pecho', image: '/exercises/groups/pecho.png' },
@@ -1873,6 +1961,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopRoutineLoaderGifCycle();
     if (this.catalogSearchDebounceTimer) {
       clearTimeout(this.catalogSearchDebounceTimer);
       this.catalogSearchDebounceTimer = null;
@@ -1970,15 +2059,44 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   async replicateFrom(workoutId: string): Promise<void> {
-    const created = await this.workoutRecordService.replicateWorkoutFrom(workoutId);
-    if (!created) {
+    this.showRoutineStartOverlay = true;
+    this.startRoutineLoaderGifCycle();
+    try {
+      const created = await this.workoutRecordService.replicateWorkoutFrom(workoutId);
+      if (!created) {
+        return;
+      }
+      this.showReplicateModal = false;
+      this.replicateSelectionConfirmed = false;
+      this.activeWorkout.startWorkout(created.id, created.workout_name);
+      await this.loadDetail(created.id);
+      await this.refreshWorkoutExerciseMedia();
+      this.workoutName = '';
+    } finally {
+      this.showRoutineStartOverlay = false;
+      this.stopRoutineLoaderGifCycle();
+    }
+  }
+
+  currentRoutineLoaderGif(): string {
+    const idx = this.routineLoaderGifIndex() % this.routineLoaderGifs.length;
+    return this.routineLoaderGifs[idx];
+  }
+
+  private startRoutineLoaderGifCycle(): void {
+    this.stopRoutineLoaderGifCycle();
+    this.routineLoaderGifIndex.set(0);
+    this.routineLoaderGifTimer = setInterval(() => {
+      this.routineLoaderGifIndex.update((v) => (v + 1) % this.routineLoaderGifs.length);
+    }, 1500);
+  }
+
+  private stopRoutineLoaderGifCycle(): void {
+    if (!this.routineLoaderGifTimer) {
       return;
     }
-    this.showReplicateModal = false;
-    this.replicateSelectionConfirmed = false;
-    this.activeWorkout.startWorkout(created.id, created.workout_name);
-    await this.loadDetail(created.id);
-    this.workoutName = '';
+    clearInterval(this.routineLoaderGifTimer);
+    this.routineLoaderGifTimer = null;
   }
 
 
