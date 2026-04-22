@@ -28,6 +28,7 @@ interface PendingSetDraft {
   done_reps?: number;
   weight?: number;
   comment?: string;
+  assisted_reps?: number;
 }
 
 interface WorkoutTemplateExercise {
@@ -216,18 +217,25 @@ interface WorkoutTemplate {
                   <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
                 </div>
                 <div class="set-grid header">
-                  <span>SET</span>
                   <span>KG</span>
                   <span>REPS</span>
-                  <span>MODE</span>
+                  <span>REPS AYUDA</span>
+                  <span>TIPO</span>
                   <span></span>
                 </div>
                 @for (set of exercise.sets; track set.id; let idx = $index) {
-                  <div class="set-grid">
-                    <span class="set-num">{{ idx + 1 }}</span>
+                  <div class="set-grid confirmed">
                     <span>{{ set.weight || '-' }}</span>
                     <span>{{ set.done_reps || '-' }}</span>
-                    <span>{{ set.set_type === 'unilateral' ? 'UNI' : 'BI' }}</span>
+                    <span>{{ set.assisted_reps || '-' }}</span>
+                    <span
+                      class="set-type-pill"
+                      [class.drop]="set.set_type === 'dropset'"
+                      [class.assisted]="(set.assisted_reps ?? 0) > 0"
+                      [title]="setTypeText(set.set_type)"
+                    >
+                      {{ setTypeText(set.set_type) }}
+                    </span>
                     <button type="button" class="delete-set-btn" (click)="removeSet(exercise.id, set.id)">x</button>
                   </div>
                   @if (set.comment) {
@@ -236,23 +244,52 @@ interface WorkoutTemplate {
                 }
 
                 <div class="set-form">
-                  <span class="set-num next">{{ exercise.sets.length + 1 }}</span>
-                  <input
-                    type="number"
-                    [(ngModel)]="setInputs[exercise.id].weight"
-                    [placeholder]="previousMaxWeight(exercise)"
-                  />
-                  <input
-                    type="number"
-                    [(ngModel)]="setInputs[exercise.id].reps"
-                    [placeholder]="previousMaxReps(exercise)"
-                  />
-                  <select [(ngModel)]="setInputs[exercise.id].mode">
-                    <option value="bilateral">Bilateral</option>
-                    <option value="unilateral">Unilateral</option>
+                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'weight')">
+                    {{ setInputValueLabel(exercise.id, 'weight', previousMaxWeight(exercise)) }}
+                  </button>
+                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'reps')">
+                    {{ setInputValueLabel(exercise.id, 'reps', previousMaxReps(exercise)) }}
+                  </button>
+                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'assistReps')">
+                    {{ setInputValueLabel(exercise.id, 'assistReps', '') }}
+                  </button>
+                  <select [(ngModel)]="setInputs[exercise.id].setKind">
+                    <option value="normal">Normal</option>
+                    <option value="dropset">Drop set</option>
                   </select>
-                  <button type="button" class="check" (click)="addSet(exercise.id)">✓</button>
+                  <button
+                    type="button"
+                    class="check"
+                    [class.saving]="setSubmitStateByExercise[exercise.id] === 'saving'"
+                    [class.confirmed]="setSubmitStateByExercise[exercise.id] === 'confirmed'"
+                    (click)="addSet(exercise.id)"
+                  >
+                    @if (setSubmitStateByExercise[exercise.id] === 'saving') {
+                      …
+                    } @else if (setSubmitStateByExercise[exercise.id] === 'confirmed') {
+                      ✔
+                    } @else {
+                      ✓
+                    }
+                  </button>
                 </div>
+                @if (setInputs[exercise.id].setKind === 'dropset') {
+                  <div class="set-extra-row">
+                    <div class="drop-set-grid">
+                      <input
+                        type="text"
+                        [(ngModel)]="setInputs[exercise.id].dropWeights"
+                        placeholder="🏋️ 40>35>30"
+                      />
+                      <input
+                        type="text"
+                        [(ngModel)]="setInputs[exercise.id].dropReps"
+                        placeholder="🔁 10>8>6"
+                        inputmode="numeric"
+                      />
+                    </div>
+                  </div>
+                }
                 <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
                 <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
                   Terminar ejercicio
@@ -523,6 +560,39 @@ interface WorkoutTemplate {
               }
             </div>
             <button type="button" class="close" (click)="closeExerciseInfoModal()">Cerrar</button>
+          </div>
+        </div>
+      }
+
+      @if (numericPadOpen) {
+        <div class="numeric-pad-backdrop" (click)="hideNumericPad()"></div>
+        <div class="numeric-pad-sheet" (click)="$event.stopPropagation()">
+          <div class="numeric-pad-top">
+            <strong>{{ numericPadFieldLabel() }}</strong>
+            <span>{{ numericPadValue || '0' }}</span>
+          </div>
+          <div class="numeric-pad-grid">
+            @for (k of numericPadKeys; track k) {
+              <button type="button" (click)="onNumericPadKey(k)">{{ k }}</button>
+            }
+          </div>
+          <div class="numeric-pad-actions">
+            <button type="button" class="ghost" (click)="hideNumericPad()">Ocultar teclado</button>
+            <button type="button" class="ghost" (click)="onNumericPadBackspace()">Borrar</button>
+            <button type="button" class="primary" (click)="onNumericPadNext()">{{ numericPadNextLabel() }}</button>
+          </div>
+        </div>
+      }
+
+      @if (restTimerOpen) {
+        <div class="rest-timer-backdrop" (click)="skipRestTimer()"></div>
+        <div class="rest-timer-modal" (click)="$event.stopPropagation()">
+          <small>Descanso entre series</small>
+          <strong>{{ restTimerLabel() }}</strong>
+          <div class="rest-timer-actions">
+            <button type="button" (click)="toggleRestPause()">{{ restTimerPaused ? 'Reanudar' : 'Pause' }}</button>
+            <button type="button" (click)="resetRestTimer()">Reset</button>
+            <button type="button" class="skip" (click)="skipRestTimer()">Skip</button>
           </div>
         </div>
       }
@@ -1059,49 +1129,69 @@ interface WorkoutTemplate {
 
     .set-grid {
       display: grid;
-      grid-template-columns: 44px 72px 72px 96px 34px;
-      gap: 0.35rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 66px 28px;
+      gap: 0.22rem;
       align-items: center;
       font-size: 0.78rem;
       color: #4b5563;
     }
 
+    .set-grid.confirmed {
+      background: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      border-radius: 8px;
+      padding: 0.22rem 0.28rem;
+    }
+
     .set-grid span {
       text-align: center;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     .set-grid.header {
       color: #9ca3af;
       font-weight: 700;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       letter-spacing: 0.03em;
       margin-top: 0.2rem;
       text-align: center;
     }
 
-    .set-num {
-      color: #111;
-      font-weight: 700;
-      text-align: center;
-    }
-
-
     .set-form {
       display: grid;
-      grid-template-columns: 44px 72px 72px 96px 34px;
-      gap: 0.35rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 84px 30px;
+      gap: 0.22rem;
       align-items: center;
     }
 
     .set-form input,
     .set-form select {
       height: 30px;
-      padding: 0.25rem 0.4rem;
+      padding: 0.18rem 0.28rem;
       border-radius: 6px;
       border: 1px solid #e5e7eb;
-      font-size: 0.82rem;
+      font-size: 16px;
       text-align: center;
+      text-align-last: center;
       background: #fff;
+      min-width: 0;
+    }
+
+    .set-input-btn {
+      height: 30px;
+      border-radius: 6px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      font: inherit;
+      font-size: 16px;
+      color: #111827;
+      text-align: center;
+      padding: 0.18rem 0.28rem;
+      min-width: 0;
+      cursor: pointer;
     }
 
     .set-form input::placeholder {
@@ -1114,15 +1204,207 @@ interface WorkoutTemplate {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 0.4rem 0.5rem;
-      font-size: 0.8rem;
+      font-size: 16px;
       background: #fff;
+    }
+
+    .set-extra-row {
+      margin-top: 0.28rem;
+    }
+
+    .set-extra-row input {
+      width: 100%;
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 0.38rem 0.48rem;
+      font-size: 16px;
+      background: #fff;
+    }
+
+    .drop-set-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.3rem;
     }
 
     .set-comment {
       display: block;
-      margin-left: 40px;
+      margin-left: 0;
       color: #6b7280;
       font-size: 0.74rem;
+    }
+
+    .set-type-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 64px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.54rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      justify-self: center;
+      padding: 0 0.35rem;
+    }
+
+    .set-type-pill.drop {
+      background: #fff7ed;
+      border-color: #fdba74;
+      color: #c2410c;
+    }
+
+    .set-type-pill.assisted {
+      background: #eff6ff;
+      border-color: #93c5fd;
+      color: #1d4ed8;
+    }
+
+    .numeric-pad-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.28);
+      z-index: 120;
+    }
+
+    .numeric-pad-sheet {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 121;
+      background: #fff;
+      border-top-left-radius: 16px;
+      border-top-right-radius: 16px;
+      border: 1px solid #e5e7eb;
+      padding: 0.7rem 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+      display: grid;
+      gap: 0.5rem;
+      box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.16);
+    }
+
+    .numeric-pad-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.4rem;
+    }
+
+    .numeric-pad-top strong {
+      font-size: 0.82rem;
+      color: #6b7280;
+    }
+
+    .numeric-pad-top span {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .numeric-pad-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.38rem;
+    }
+
+    .numeric-pad-grid button {
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border-radius: 10px;
+      height: 40px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #0f172a;
+      cursor: pointer;
+    }
+
+    .numeric-pad-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.38rem;
+    }
+
+    .numeric-pad-actions button {
+      border: 1px solid #e5e7eb;
+      border-radius: 9px;
+      height: 36px;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #fff;
+      color: #334155;
+    }
+
+    .numeric-pad-actions .primary {
+      border-color: #111827;
+      background: #111827;
+      color: #fff;
+    }
+
+    .rest-timer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.38);
+      z-index: 130;
+    }
+
+    .rest-timer-modal {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: min(360px, 92vw);
+      border-radius: 18px;
+      border: 1px solid #d1fae5;
+      background: #ffffff;
+      padding: 1rem 1rem 0.9rem;
+      z-index: 131;
+      display: grid;
+      gap: 0.55rem;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+      text-align: center;
+    }
+
+    .rest-timer-modal small {
+      color: #6b7280;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .rest-timer-modal strong {
+      font-size: 2rem;
+      line-height: 1;
+      color: #065f46;
+      letter-spacing: -0.02em;
+    }
+
+    .rest-timer-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.4rem;
+    }
+
+    .rest-timer-actions button {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      color: #334155;
+      font: inherit;
+      font-size: 0.78rem;
+      font-weight: 700;
+      height: 36px;
+      cursor: pointer;
+    }
+
+    .rest-timer-actions .skip {
+      border-color: #111827;
+      background: #111827;
+      color: #fff;
     }
 
     .check {
@@ -1135,6 +1417,15 @@ interface WorkoutTemplate {
       font-weight: 700;
       cursor: pointer;
       justify-self: center;
+    }
+
+    .check.saving {
+      background: #64748b;
+    }
+
+    .check.confirmed {
+      background: #16a34a;
+      box-shadow: 0 0 0 2px #bbf7d0 inset;
     }
 
     .delete-set-btn {
@@ -1611,7 +1902,15 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   completedExerciseIds = new Set<string>();
   catalogSearchQuery = '';
   debouncedCatalogSearchQuery = '';
-  setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }> =
+  setInputs: Record<string, {
+    reps?: number;
+    weight?: number;
+    comment?: string;
+    setKind?: 'normal' | 'dropset';
+    assistReps?: number;
+    dropWeights?: string;
+    dropReps?: string;
+  }> =
     {};
   activeMuscleGroup = '';
   selectedEquipmentFilter: 'all' | 'dumbbell' | 'barbell' | 'machine' | 'free' = 'all';
@@ -1619,6 +1918,16 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   selectedTemplateDaysFilter: WorkoutTemplate['daysFilter'] = '2d';
   selectedTemplateEquipmentFilter: WorkoutTemplate['equipment'] = 'gym';
   readonly activeTemplateId = signal<string | null>(null);
+  numericPadOpen = false;
+  numericPadExerciseId = '';
+  numericPadField: 'weight' | 'reps' | 'assistReps' = 'weight';
+  numericPadValue = '';
+  readonly numericPadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
+  setSubmitStateByExercise: Record<string, 'idle' | 'saving' | 'confirmed'> = {};
+  restTimerOpen = false;
+  restRemainingSec = 120;
+  restTimerPaused = false;
+  private restTimerInterval: ReturnType<typeof setInterval> | null = null;
   private isBootstrappingTemplate = false;
   private routineLoaderGifTimer: ReturnType<typeof setInterval> | null = null;
   private routineLoaderGifIndex = signal(0);
@@ -1961,6 +2270,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.stopRestTimerInterval();
     this.stopRoutineLoaderGifCycle();
     if (this.catalogSearchDebounceTimer) {
       clearTimeout(this.catalogSearchDebounceTimer);
@@ -2099,48 +2409,182 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.routineLoaderGifTimer = null;
   }
 
+  openNumericPad(exerciseId: string, field: 'weight' | 'reps' | 'assistReps'): void {
+    this.setInputs[exerciseId] = this.setInputs[exerciseId] || {};
+    this.numericPadExerciseId = exerciseId;
+    this.numericPadField = field;
+    const current = this.setInputs[exerciseId]?.[field];
+    this.numericPadValue = current != null ? String(current) : '';
+    this.numericPadOpen = true;
+  }
+
+  hideNumericPad(): void {
+    this.numericPadOpen = false;
+    this.numericPadExerciseId = '';
+    this.numericPadValue = '';
+  }
+
+  onNumericPadKey(key: string): void {
+    if (key === '.' && this.numericPadField !== 'weight') {
+      return;
+    }
+    if (key === '.' && this.numericPadValue.includes('.')) {
+      return;
+    }
+    this.numericPadValue += key;
+  }
+
+  onNumericPadBackspace(): void {
+    this.numericPadValue = this.numericPadValue.slice(0, -1);
+  }
+
+  async onNumericPadNext(): Promise<void> {
+    this.commitNumericPadValue();
+    if (this.numericPadField === 'weight') {
+      this.openNumericPad(this.numericPadExerciseId, 'reps');
+      return;
+    }
+    if (this.numericPadField === 'reps') {
+      this.openNumericPad(this.numericPadExerciseId, 'assistReps');
+      return;
+    }
+    const exId = this.numericPadExerciseId;
+    this.hideNumericPad();
+    if (exId) {
+      await this.addSet(exId);
+    }
+  }
+
+  numericPadFieldLabel(): string {
+    if (this.numericPadField === 'weight') return 'Peso (kg)';
+    if (this.numericPadField === 'reps') return 'Reps';
+    return 'Reps Ayuda';
+  }
+
+  numericPadNextLabel(): string {
+    return this.numericPadField === 'assistReps' ? 'Confirmar' : 'Next';
+  }
+
+  setInputValueLabel(
+    exerciseId: string,
+    field: 'weight' | 'reps' | 'assistReps',
+    placeholder: string
+  ): string {
+    const val = this.setInputs[exerciseId]?.[field];
+    return val != null ? String(val) : placeholder;
+  }
+
+  private commitNumericPadValue(): void {
+    const exId = this.numericPadExerciseId;
+    if (!exId) return;
+    this.setInputs[exId] = this.setInputs[exId] || {};
+    const raw = this.numericPadValue.trim().replace(',', '.');
+    if (!raw) {
+      delete this.setInputs[exId][this.numericPadField];
+      return;
+    }
+    const parsed = Number(raw);
+    if (Number.isNaN(parsed)) return;
+    this.setInputs[exId][this.numericPadField] = parsed;
+  }
+
+  private startRestTimer(): void {
+    this.restTimerOpen = true;
+    this.restTimerPaused = false;
+    this.restRemainingSec = 120;
+    this.stopRestTimerInterval();
+    this.restTimerInterval = setInterval(() => {
+      if (this.restTimerPaused) return;
+      this.restRemainingSec = Math.max(0, this.restRemainingSec - 1);
+      if (this.restRemainingSec === 0) {
+        this.skipRestTimer();
+      }
+    }, 1000);
+  }
+
+  toggleRestPause(): void {
+    this.restTimerPaused = !this.restTimerPaused;
+  }
+
+  resetRestTimer(): void {
+    this.restRemainingSec = 120;
+    this.restTimerPaused = false;
+  }
+
+  skipRestTimer(): void {
+    this.restTimerOpen = false;
+    this.stopRestTimerInterval();
+  }
+
+  restTimerLabel(): string {
+    const m = Math.floor(this.restRemainingSec / 60).toString().padStart(2, '0');
+    const s = (this.restRemainingSec % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  private stopRestTimerInterval(): void {
+    if (!this.restTimerInterval) return;
+    clearInterval(this.restTimerInterval);
+    this.restTimerInterval = null;
+  }
+
 
   async addSet(exerciseId: string): Promise<void> {
     if (!this.currentWorkout) {
       return;
     }
     const workoutId = this.currentWorkout.id;
+    this.setSubmitStateByExercise[exerciseId] = 'saving';
     const input = this.setInputs[exerciseId] || {};
+    const exercise = this.currentWorkout.exercises.find((item) => item.id === exerciseId);
+    if (!exercise) {
+      this.setSubmitStateByExercise[exerciseId] = 'idle';
+      return;
+    }
+    const weight = this.resolveSetNumberInput(input.weight, this.previousMaxWeight(exercise));
+    const reps = this.resolveSetNumberInput(input.reps, this.previousMaxReps(exercise));
+    if (weight == null || reps == null) {
+      this.setSubmitStateByExercise[exerciseId] = 'idle';
+      return;
+    }
+    const setKind = input.setKind || 'normal';
     const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const comment = this.buildSetComment(input.comment, setKind, input.dropWeights, input.dropReps);
     const payload: PendingSetDraft = {
       local_id: localId,
-      set_type: input.mode || 'bilateral',
-      done_reps: input.reps,
-      weight: input.weight,
-      comment: input.comment
+      set_type: setKind,
+      done_reps: reps,
+      weight,
+      comment,
+      assisted_reps: input.assistReps
     };
     this.pendingSetsByExercise[exerciseId] = [...(this.pendingSetsByExercise[exerciseId] || []), payload];
 
-    const exercise = this.currentWorkout.exercises.find((item) => item.id === exerciseId);
-    if (exercise) {
-      exercise.sets = [
-        ...exercise.sets,
-        {
-          id: localId,
-          set_type: input.mode || 'bilateral',
-          done_reps: input.reps,
-          weight: input.weight,
-          comment: input.comment,
-          unit: 'kg',
-          position: exercise.sets.length + 1
-        }
-      ];
-      exercise.notes = this.buildExerciseNotes(exercise);
-    }
-    this.setInputs[exerciseId] = {};
+    exercise.sets = [
+      ...exercise.sets,
+      {
+        id: localId,
+        set_type: setKind,
+        done_reps: reps,
+        weight,
+        comment,
+        assisted_reps: input.assistReps,
+        unit: 'kg',
+        position: exercise.sets.length + 1
+      }
+    ];
+    exercise.notes = this.buildExerciseNotes(exercise);
+    this.setInputs[exerciseId] = { setKind: 'normal' };
 
     const serverSet = await this.workoutRecordService.addSet(workoutId, exerciseId, {
       set_type: payload.set_type,
       done_reps: payload.done_reps,
       weight: payload.weight,
-      comment: payload.comment
+      comment: payload.comment,
+      assisted_reps: payload.assisted_reps
     });
     if (!serverSet) {
+      this.setSubmitStateByExercise[exerciseId] = 'idle';
       if (exercise) {
         exercise.sets = exercise.sets.filter((s) => s.id !== localId);
         exercise.notes = this.buildExerciseNotes(exercise);
@@ -2158,6 +2602,24 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       exercise.sets.sort((a, b) => a.position - b.position);
       exercise.notes = this.buildExerciseNotes(exercise);
     }
+    this.setSubmitStateByExercise[exerciseId] = 'confirmed';
+    setTimeout(() => {
+      if (this.setSubmitStateByExercise[exerciseId] === 'confirmed') {
+        this.setSubmitStateByExercise[exerciseId] = 'idle';
+      }
+    }, 900);
+    this.startRestTimer();
+  }
+
+  private resolveSetNumberInput(rawValue: number | undefined, fallbackLabel: string): number | null {
+    if (rawValue != null && !Number.isNaN(rawValue)) {
+      return rawValue;
+    }
+    const fallback = Number(String(fallbackLabel || '').trim().replace(',', '.'));
+    if (Number.isNaN(fallback) || fallback <= 0) {
+      return null;
+    }
+    return fallback;
   }
 
   private async loadDetail(workoutId: string): Promise<void> {
@@ -2180,7 +2642,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         const nextInputs: typeof this.setInputs = {};
         for (const exercise of detail.exercises) {
           const fromDraft = draft.setInputs[exercise.id];
-          nextInputs[exercise.id] = fromDraft ? { ...fromDraft } : {};
+          nextInputs[exercise.id] = fromDraft ? { setKind: 'normal', ...fromDraft } : { setKind: 'normal' };
         }
         this.setInputs = nextInputs;
         if (draft.selectedExerciseId && exerciseIds.has(draft.selectedExerciseId)) {
@@ -2191,7 +2653,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         this.completedExerciseIds = new Set();
         const nextInputs: typeof this.setInputs = {};
         for (const exercise of detail.exercises) {
-          nextInputs[exercise.id] = {};
+          nextInputs[exercise.id] = { setKind: 'normal' };
         }
         this.setInputs = nextInputs;
       }
@@ -2204,7 +2666,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
     for (const exercise of detail.exercises) {
       if (!this.setInputs[exercise.id]) {
-        this.setInputs[exercise.id] = {};
+        this.setInputs[exercise.id] = { setKind: 'normal' };
+      } else if (!this.setInputs[exercise.id].setKind) {
+        this.setInputs[exercise.id].setKind = 'normal';
       }
     }
     void this.refreshWorkoutExerciseMedia();
@@ -2442,7 +2906,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       exercises: [...this.currentWorkout.exercises, newEx].sort((a, b) => a.position - b.position)
     };
     this.selectedExerciseId = newEx.id;
-    this.setInputs[newEx.id] = this.setInputs[newEx.id] ?? {};
+    this.setInputs[newEx.id] = this.setInputs[newEx.id] ?? { setKind: 'normal' };
     void this.refreshWorkoutExerciseMedia();
     void this.workoutRecordService.getWorkoutDetailQuiet(this.currentWorkout.id).then((detail) => {
       if (!detail || !this.currentWorkout) {
@@ -2563,7 +3027,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   clearSetDraft(exerciseId: string): void {
-    this.setInputs[exerciseId] = {};
+    this.setInputs[exerciseId] = { setKind: 'normal' };
   }
 
   completeExercise(exerciseId: string): void {
@@ -2787,7 +3251,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
           set_type: set.set_type,
           done_reps: set.done_reps,
           weight: set.weight,
-          comment: set.comment
+          comment: set.comment,
+          assisted_reps: set.assisted_reps
         });
         if (!createdSet) {
           return false;
@@ -2821,6 +3286,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         done_reps: set.done_reps,
         weight: set.weight,
         comment: set.comment,
+        assisted_reps: set.assisted_reps,
         unit: 'kg' as const,
         position: exercise.sets.length + index + 1
       }));
@@ -2839,6 +3305,47 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       .filter((item) => item.comment.length > 0)
       .map((item) => `Serie ${item.idx}: ${item.comment}`);
     return lines.join('\n');
+  }
+
+  setTypeIcon(setType: string, assistedReps?: number | null): string {
+    if (setType === 'dropset') return '⬇';
+    if (assistedReps && assistedReps > 0) return '🤝';
+    return '•';
+  }
+
+  setTypeText(setType: string): string {
+    return setType === 'dropset' ? 'DROPSET' : 'NORMAL';
+  }
+
+  setTypeTooltip(setType: string, assistedReps?: number | null): string {
+    if (setType === 'dropset') return 'Drop set';
+    if (assistedReps && assistedReps > 0) {
+      return assistedReps && assistedReps > 0 ? `Asistida (+${assistedReps})` : 'Asistida';
+    }
+    return 'Normal';
+  }
+
+  private buildSetComment(
+    base: string | undefined,
+    setKind: 'normal' | 'dropset',
+    dropWeights?: string,
+    dropReps?: string
+  ): string | undefined {
+    const plain = (base || '').trim();
+    if (setKind !== 'dropset') {
+      return plain || undefined;
+    }
+    const dropsW = (dropWeights || '').trim();
+    const dropsR = (dropReps || '').trim();
+    const chunks: string[] = [];
+    if (dropsW) chunks.push(`kg ${dropsW}`);
+    if (dropsR) chunks.push(`reps ${dropsR}`);
+    if (chunks.length === 0) return plain || undefined;
+    const dropInfo = `Drop: ${chunks.join(' · ')}`;
+    if (!plain) {
+      return dropInfo;
+    }
+    return `${plain} | ${dropInfo}`;
   }
 
 }
