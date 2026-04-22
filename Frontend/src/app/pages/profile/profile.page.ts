@@ -1,7 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
 
 import { translateExerciseName } from '../../core/exercisedb-i18n';
 import {
@@ -9,7 +7,6 @@ import {
   WorkoutStatsProgressEntry,
   WorkoutStatsWeek,
 } from '../../models/workout-record.model';
-import { AuthService } from '../../services/auth.service';
 import { WorkoutRecordService } from '../../services/workout-record.service';
 
 interface ChartPt   { x: number; y: number; v: number; }
@@ -20,35 +17,16 @@ interface ChartData { path: string; dots: ChartPt[]; grid: GridLine[]; xLabels: 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   templateUrl: './profile.page.html',
   styleUrl: './profile.page.scss',
 })
 export class ProfilePage implements OnInit {
   constructor(
-    readonly auth: AuthService,
-    private readonly router: Router,
     readonly svc: WorkoutRecordService,
   ) {}
 
   ngOnInit(): void { void this.svc.loadStats(); }
-
-  /* ── Avatar upload ──────────────────────────────────────── */
-  avatarImgError = false;
-  uploadModalOpen = false;
-  previewUrl = signal<string | null>(null);
-  zoom = signal(1);
-  uploading = signal(false);
-  uploadError = signal<string | null>(null);
-  private _previewBlobUrl: string | null = null;
-  private _lastTouchDist: number | null = null;
-  private _uploadFileName = 'avatar.webp';
-
-  /* ── Name edit ──────────────────────────────────────────── */
-  nameModalOpen = false;
-  nameInput = '';
-  nameSaving = signal(false);
-  nameError = signal<string | null>(null);
 
   /* ── Bar chart constants (viewBox 320×108) ──────────────── */
   private readonly B = { cw: 320, ch: 108, pt: 6, pb: 32, pl: 2, pr: 2 };
@@ -204,126 +182,4 @@ export class ProfilePage implements OnInit {
     return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
   }
 
-  /* ── Upload modal ───────────────────────────────────────── */
-  openUploadModal(): void {
-    this.uploadError.set(null);
-    this.zoom.set(1);
-    this.previewUrl.set(this.auth.avatarUrl());
-    this._uploadFileName = 'avatar.webp';
-    this.uploadModalOpen = true;
-  }
-
-  closeUploadModal(): void {
-    this.uploadModalOpen = false;
-    this._revokeBlobUrl();
-    this.previewUrl.set(null);
-    this.zoom.set(1);
-    this.uploadError.set(null);
-  }
-
-  onFileSelected(event: Event): void {
-    const file = (event.target as HTMLInputElement).files?.[0];
-    if (!file) return;
-    this._revokeBlobUrl();
-    this._previewBlobUrl = URL.createObjectURL(file);
-    this._uploadFileName = file.name;
-    this.previewUrl.set(this._previewBlobUrl);
-    this.zoom.set(1);
-    this.uploadError.set(null);
-  }
-
-  onWheel(event: WheelEvent): void {
-    event.preventDefault();
-    this.zoom.update(z => Math.min(3, Math.max(1, z + (event.deltaY > 0 ? -0.1 : 0.1))));
-  }
-
-  onTouchStart(event: TouchEvent): void {
-    if (event.touches.length === 2) {
-      const dx = event.touches[0].clientX - event.touches[1].clientX;
-      const dy = event.touches[0].clientY - event.touches[1].clientY;
-      this._lastTouchDist = Math.hypot(dx, dy);
-    }
-  }
-
-  onTouchMove(event: TouchEvent): void {
-    if (event.touches.length !== 2 || this._lastTouchDist === null) return;
-    event.preventDefault();
-    const dx = event.touches[0].clientX - event.touches[1].clientX;
-    const dy = event.touches[0].clientY - event.touches[1].clientY;
-    const dist = Math.hypot(dx, dy);
-    this.zoom.update(z => Math.min(3, Math.max(1, z * (dist / this._lastTouchDist!))));
-    this._lastTouchDist = dist;
-  }
-
-  onTouchEnd(): void { this._lastTouchDist = null; }
-
-  async confirmUpload(): Promise<void> {
-    const src = this.previewUrl();
-    if (!src) return;
-    this.uploading.set(true);
-    this.uploadError.set(null);
-    try {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = src;
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = () => reject(new Error('No se pudo cargar la imagen.'));
-      });
-      const z = Math.min(3, Math.max(1, this.zoom()));
-      const side = Math.min(img.width, img.height) / z;
-      const sx = (img.width - side) / 2;
-      const sy = (img.height - side) / 2;
-      const canvas = document.createElement('canvas');
-      canvas.width = 256;
-      canvas.height = 256;
-      canvas.getContext('2d')!.drawImage(img, sx, sy, side, side, 0, 0, 256, 256);
-      const blob: Blob = await new Promise((res, rej) =>
-        canvas.toBlob(b => (b ? res(b) : rej(new Error('Error al procesar imagen.'))), 'image/webp'),
-      );
-      const { error } = await this.auth.uploadAvatar(blob, this._uploadFileName);
-      if (error) { this.uploadError.set(error.message); return; }
-      this.avatarImgError = false;
-      this.closeUploadModal();
-    } catch (e: unknown) {
-      this.uploadError.set((e as Error)?.message ?? 'Error al subir la imagen.');
-    } finally {
-      this.uploading.set(false);
-    }
-  }
-
-  /* ── Name modal ─────────────────────────────────────────── */
-  openNameModal(): void {
-    this.nameInput = this.auth.displayName();
-    this.nameError.set(null);
-    this.nameModalOpen = true;
-  }
-
-  closeNameModal(): void {
-    this.nameModalOpen = false;
-    this.nameError.set(null);
-  }
-
-  async saveName(): Promise<void> {
-    if (!this.nameInput.trim()) return;
-    this.nameSaving.set(true);
-    this.nameError.set(null);
-    const { error } = await this.auth.updateProfile(this.nameInput.trim());
-    this.nameSaving.set(false);
-    if (error) { this.nameError.set(error.message); return; }
-    this.closeNameModal();
-  }
-
-  /* ── Logout ─────────────────────────────────────────────── */
-  async logout(): Promise<void> {
-    await this.auth.signOut();
-    void this.router.navigateByUrl('/login');
-  }
-
-  private _revokeBlobUrl(): void {
-    if (this._previewBlobUrl) {
-      URL.revokeObjectURL(this._previewBlobUrl);
-      this._previewBlobUrl = null;
-    }
-  }
 }

@@ -340,7 +340,7 @@ def update_set(
 
 @router.get("/stats")
 def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
-    from datetime import date, datetime, timedelta, timezone
+    from datetime import datetime, timedelta, timezone
 
     client = get_supabase_service_client()
 
@@ -397,9 +397,11 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         except ValueError:
             pass
 
-    # Sessions per week — from 2026-01-01 to now, with start_date for month axis
+    # Sessions per week — Monday to Sunday (Spanish convention), from 2026-01-01 to now
     now_utc = datetime.now(timezone.utc)
-    year_start = datetime(2026, 1, 6, tzinfo=timezone.utc)  # first Monday ≥ 2026-01-01
+    jan_1 = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    jan_1_monday = jan_1 - timedelta(days=jan_1.weekday())  # Monday of week containing Jan 1
+    year_start = jan_1_monday
     sessions_per_week = []
     week_start = year_start
     while week_start < now_utc:
@@ -453,27 +455,6 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     # Progress by exercise — current 14 days vs previous 14 days
     cutoff_current = now_utc - timedelta(days=14)
     cutoff_previous = now_utc - timedelta(days=28)
-    today_d = now_utc.date()
-    dow = today_d.weekday()  # Monday = 0
-    week_mon_cur = today_d - timedelta(days=dow)
-    week_mon_prev = week_mon_cur - timedelta(days=7)
-    week_sun_prev = week_mon_cur - timedelta(days=1)
-    week_sun_cur = week_mon_cur + timedelta(days=6)
-
-    def _max_weight_between(dm: dict, start: date, end: date) -> float:
-        best = 0.0
-        for d_str, v in dm.items():
-            try:
-                d = date.fromisoformat(d_str)
-            except ValueError:
-                continue
-            w = float(v.get("max_weight") or 0)
-            if w <= 0:
-                continue
-            if start <= d <= end:
-                best = max(best, w)
-        return best
-
     ex_progress: dict[str, dict] = {}
     for ex in ex_rows:
         norm = _normalize_name(ex.get("name", ""))
@@ -550,11 +531,14 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         if all_time_min is not None and all_time_min > 0:
             change_vs_min_pct = round(((data["current_max"] - all_time_min) / all_time_min) * 100, 1)
 
-        cur_week_max = _max_weight_between(day_map, week_mon_cur, min(today_d, week_sun_cur))
-        prev_week_max = _max_weight_between(day_map, week_mon_prev, week_sun_prev)
+        # "sem": compare latest metric vs immediately previous metric for this exercise.
+        # Example: 25 -> 30 -> 35  => sem = +16.7% (35 vs 30), not week-over-week calendar.
         change_vs_prev_week_pct: float | None = None
-        if prev_week_max > 0:
-            change_vs_prev_week_pct = round(((cur_week_max - prev_week_max) / prev_week_max) * 100, 1)
+        if len(history_points) >= 2:
+            latest_weight = float(history_points[-1]["max_weight"] or 0)
+            prev_weight = float(history_points[-2]["max_weight"] or 0)
+            if latest_weight > 0 and prev_weight > 0:
+                change_vs_prev_week_pct = round(((latest_weight - prev_weight) / prev_weight) * 100, 1)
 
         progress_by_muscle_map[mg].append({
             "display": data["display"],

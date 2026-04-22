@@ -1,32 +1,5 @@
 <section class="profile-page">
 
-  <!-- ── Avatar + info ──────────────────────────────────── -->
-  <div class="avatar-section">
-    <button class="avatar-wrap" type="button" (click)="openUploadModal()" title="Cambiar foto">
-      @if (auth.avatarUrl() && !avatarImgError) {
-        <img [src]="auth.avatarUrl()!" alt="Foto de perfil" class="avatar-img" (error)="avatarImgError = true" />
-      } @else {
-        <span class="avatar-initials">{{ auth.avatarInitials() }}</span>
-      }
-      <span class="avatar-edit-badge" aria-hidden="true">
-        <svg width="12" height="12" viewBox="0 0 20 20" fill="currentColor">
-          <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-        </svg>
-      </span>
-    </button>
-    <div class="user-info">
-      <div class="name-row">
-        <strong class="user-name">{{ auth.displayName() || 'Sin nombre' }}</strong>
-        <button type="button" class="edit-btn" (click)="openNameModal()" title="Editar nombre">
-          <svg width="13" height="13" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
-          </svg>
-        </button>
-      </div>
-      <small class="user-email">{{ auth.user()?.email }}</small>
-    </div>
-  </div>
-
   <!-- ── Dashboard ──────────────────────────────────────── -->
   <div class="dashboard-title">
     Estadísticas
@@ -127,7 +100,7 @@
         <div class="chart-header">
           <div>
             <div class="chart-title">Progreso por ejercicio</div>
-            <div class="chart-sub">Máx. últimas 2 sem · % vs mín. histórico y vs semana anterior (lun–dom UTC)</div>
+            <div class="chart-sub">Máx. últimas 2 sem · % vs mín. histórico y vs métrica anterior del ejercicio</div>
           </div>
         </div>
         @for (group of s.progress_by_muscle; track group.muscle_group; let last = $last) {
@@ -137,7 +110,7 @@
               <span></span>
               <span>Peso</span>
               <span>Min</span>
-              <span>Sem</span>
+              <span>vs ULT</span>
               <span>Graf</span>
             </div>
             <div class="progress-list">
@@ -192,32 +165,6 @@
     <p class="muted-hint">Completa tu primer entrenamiento para ver estadísticas.</p>
   }
 
-  <!-- ── Modal: subir foto ──────────────────────────────── -->
-  @if (uploadModalOpen) {
-    <div class="modal-backdrop" (click)="closeUploadModal()"></div>
-    <div class="modal" (click)="$event.stopPropagation()">
-      <h3>Cambiar foto de perfil</h3>
-      <p>Sube una imagen cuadrada o usa el zoom para ajustarla.</p>
-      <input type="file" accept="image/*" (change)="onFileSelected($event)" />
-      @if (previewUrl()) {
-        <div class="preview-wrap"
-          (wheel)="onWheel($event)"
-          (touchstart)="onTouchStart($event)"
-          (touchmove)="onTouchMove($event)"
-          (touchend)="onTouchEnd()">
-          <img [src]="previewUrl()!" alt="Vista previa" [style.transform]="'scale(' + zoom() + ')'" />
-        </div>
-        <small class="zoom-hint">Rueda del ratón o pellizco para hacer zoom</small>
-      }
-      @if (uploadError()) { <p class="form-error">{{ uploadError() }}</p> }
-      <div class="modal-actions">
-        <button type="button" (click)="closeUploadModal()" [disabled]="uploading()">Cancelar</button>
-        <button type="button" class="primary" (click)="confirmUpload()" [disabled]="!previewUrl() || uploading()">
-          {{ uploading() ? 'Subiendo…' : 'Guardar foto' }}
-        </button>
-      </div>
-    </div>
-  }
 
   <!-- ── Modal: historial de ejercicio ────────────────── -->
   @if (chartModalEx) {
@@ -234,14 +181,14 @@
       <div class="chart-modal-meta">
         <span class="progress-weight">{{ chartModalEx.current_max | number:'1.1-1' }} kg</span>
         <div class="chart-modal-deltas">
-          <div class="progress-delta-line">
+          <span class="progress-delta-line">
             <span class="progress-delta-tag">mín</span>
             <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_min_pct)">{{ progressPctLabel(chartModalEx.change_vs_min_pct) }}</span>
-          </div>
-          <div class="progress-delta-line">
-            <span class="progress-delta-tag">sem</span>
+          </span>
+          <span class="progress-delta-line">
+            <span class="progress-delta-tag">vs último</span>
             <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_prev_week_pct)">{{ progressPctLabel(chartModalEx.change_vs_prev_week_pct) }}</span>
-          </div>
+          </span>
         </div>
       </div>
       <div class="ex-charts">
@@ -275,25 +222,6 @@
             <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
           }
         </svg>
-      </div>
-    </div>
-  }
-
-  <!-- ── Modal: editar nombre ───────────────────────────── -->
-  @if (nameModalOpen) {
-    <div class="modal-backdrop" (click)="closeNameModal()"></div>
-    <div class="modal" (click)="$event.stopPropagation()">
-      <h3>Editar nombre</h3>
-      <label>
-        Nombre completo
-        <input [(ngModel)]="nameInput" placeholder="Tu nombre" (keyup.enter)="saveName()" autocomplete="name" />
-      </label>
-      @if (nameError()) { <p class="form-error">{{ nameError() }}</p> }
-      <div class="modal-actions">
-        <button type="button" (click)="closeNameModal()" [disabled]="nameSaving()">Cancelar</button>
-        <button type="button" class="primary" (click)="saveName()" [disabled]="!nameInput.trim() || nameSaving()">
-          {{ nameSaving() ? 'Guardando…' : 'Guardar' }}
-        </button>
       </div>
     </div>
   }

@@ -255,6 +255,120 @@
   border-color: #bbf7d0;
 }
 
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 200;
+}
+
+.modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 210;
+  background: #fff;
+  border-radius: 14px;
+  padding: 1.2rem 1.2rem 1rem;
+  width: min(360px, 92vw);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.modal h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.modal p {
+  margin: 0;
+  font-size: 0.82rem;
+  color: #6b7280;
+}
+
+.modal label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: #374151;
+  font-weight: 500;
+}
+
+.modal input[type='text'],
+.modal input[type='file'] {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.88rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.preview-wrap {
+  width: 220px;
+  height: 140px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+  cursor: zoom-in;
+}
+
+.preview-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform-origin: center;
+  transition: transform 0.1s ease;
+}
+
+.preview-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at center,
+    transparent 0,
+    transparent 40%,
+    rgba(0, 0, 0, 0.55) 43%,
+    rgba(0, 0, 0, 0.7) 100%
+  );
+}
+
+.zoom-hint { font-size: 0.74rem; color: #9ca3af; }
+.form-error { margin: 0; font-size: 0.8rem; color: #dc2626; }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.modal-actions button {
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #fff;
+  padding: 0.45rem 0.8rem;
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+
+.modal-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.modal-actions button.primary {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.modal-actions button.primary:hover:not(:disabled) { background: #222; }
+
 .bottom-nav {
   position: fixed;
   bottom: 0;

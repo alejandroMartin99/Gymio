@@ -18,6 +18,8 @@
         <div class="profile-menu-overlay" (click)="closeProfileMenu()"></div>
         <div class="profile-menu">
           <p class="profile-menu-name">{{ auth.displayName() || auth.user()?.email }}</p>
+          <button type="button" class="profile-menu-item" (click)="openUploadModal()">Cambiar foto</button>
+          <button type="button" class="profile-menu-item" (click)="openNameModal()">Editar nombre</button>
           <a class="profile-menu-item" routerLink="/profile" (click)="closeProfileMenu()">Mi perfil</a>
           <button type="button" class="profile-menu-item profile-menu-item--danger" (click)="logout()">Cerrar sesión</button>
         </div>
@@ -62,6 +64,50 @@
           <button type="button" class="cancel" (click)="closeWorkoutConfirm()">Cancelar</button>
           <button type="button" class="confirm" (click)="confirmWorkoutAction()">Confirmar</button>
         </div>
+      </div>
+    </div>
+  }
+
+  @if (uploadModalOpen) {
+    <div class="modal-backdrop" (click)="closeUploadModal()"></div>
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Cambiar foto de perfil</h3>
+      <p>Sube una imagen cuadrada o usa el zoom para ajustarla.</p>
+      <input type="file" accept="image/*" (change)="onFileSelected($event)" />
+      @if (previewUrl()) {
+        <div class="preview-wrap"
+          (wheel)="onWheel($event)"
+          (touchstart)="onTouchStart($event)"
+          (touchmove)="onTouchMove($event)"
+          (touchend)="onTouchEnd()">
+          <img [src]="previewUrl()!" alt="Vista previa" [style.transform]="'scale(' + zoom() + ')'" />
+        </div>
+        <small class="zoom-hint">Rueda del ratón o pellizco para hacer zoom</small>
+      }
+      @if (uploadError()) { <p class="form-error">{{ uploadError() }}</p> }
+      <div class="modal-actions">
+        <button type="button" (click)="closeUploadModal()" [disabled]="uploading()">Cancelar</button>
+        <button type="button" class="primary" (click)="confirmUpload()" [disabled]="!previewUrl() || uploading()">
+          {{ uploading() ? 'Subiendo…' : 'Guardar foto' }}
+        </button>
+      </div>
+    </div>
+  }
+
+  @if (nameModalOpen) {
+    <div class="modal-backdrop" (click)="closeNameModal()"></div>
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Editar nombre</h3>
+      <label>
+        Nombre completo
+        <input [(ngModel)]="nameInput" placeholder="Tu nombre" (keyup.enter)="saveName()" autocomplete="name" />
+      </label>
+      @if (nameError()) { <p class="form-error">{{ nameError() }}</p> }
+      <div class="modal-actions">
+        <button type="button" (click)="closeNameModal()" [disabled]="nameSaving()">Cancelar</button>
+        <button type="button" class="primary" (click)="saveName()" [disabled]="!nameInput.trim() || nameSaving()">
+          {{ nameSaving() ? 'Guardando…' : 'Guardar' }}
+        </button>
       </div>
     </div>
   }

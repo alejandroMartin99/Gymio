@@ -364,9 +364,29 @@
 }
 
 .chart-modal-deltas {
-  display: grid;
-  gap: 0.2rem;
-  justify-items: start;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.chart-modal .progress-delta-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.26rem;
+  white-space: nowrap;
+}
+
+.chart-modal .progress-delta-tag {
+  width: auto;
+  text-align: left;
+  font-size: 0.58rem;
+}
+
+.chart-modal .progress-delta {
+  padding: 0.08rem 0.28rem;
+  font-size: 0.64rem;
 }
 
 .progress-name {
@@ -611,14 +631,17 @@
 /* ── Chart modal ────────────────────────────────────────── */
 .chart-modal {
   width: min(480px, 94vw);
-  padding: 1rem 1.1rem 1.2rem;
+  padding: 0.9rem 1rem 1.05rem;
+  border: 1px solid #e5e7eb;
 }
 
 .chart-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .chart-modal-title {
@@ -640,13 +663,18 @@
 }
 
 .chart-modal-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 0.45rem 0.65rem;
-  margin-bottom: 0.8rem;
-  padding-bottom: 0.6rem;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.35rem 0.65rem;
+  margin-bottom: 0.65rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid #f3f4f6;
+}
+
+.chart-modal .progress-weight {
+  font-size: 0.82rem;
+  font-weight: 800;
 }
 
 /* ── Responsive ─────────────────────────────────────────── */
