@@ -172,7 +172,16 @@ interface WorkoutTemplate {
 
       @if (currentWorkout) {
         <div class="builder">
-          <h3>{{ currentWorkout.workout_name }}</h3>
+          <div class="workout-header-row">
+            <h3>{{ currentWorkout.workout_name }}</h3>
+            <span class="workout-progress-count">
+              {{ workoutProgressDone() }}/{{ workoutProgressTotal() }}
+            </span>
+          </div>
+          <div class="workout-progress" [style.--progress]="workoutProgressFraction()" role="progressbar"
+            [attr.aria-valuenow]="workoutProgressDone()" [attr.aria-valuemax]="workoutProgressTotal()">
+            <div class="workout-progress-bar"></div>
+          </div>
 
           <div class="exercise-list">
           @for (exercise of currentWorkout.exercises; track exercise.id; let exIdx = $index) {
@@ -255,10 +264,10 @@ interface WorkoutTemplate {
                   <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
                 </div>
                 <div class="set-grid header">
+                  <span>SERIE</span>
+                  <span>ANTERIOR</span>
                   <span>KG</span>
                   <span>REPS</span>
-                  <span>REPS AYUDA</span>
-                  <span>TIPO</span>
                   <span></span>
                 </div>
                 @for (set of exercise.sets; track set.id; let idx = $index) {
@@ -266,10 +275,11 @@ interface WorkoutTemplate {
                     class="set-grid"
                     [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
                   >
+                    <span class="set-index">{{ idx + 1 }}</span>
+                    <span class="set-prev">{{ formatPreviousSetSnapshot(exercise, idx) }}</span>
                     @if (confirmedSetIdsInSession.has(set.id)) {
                       <span>{{ set.weight ?? '–' }}</span>
                       <span>{{ set.done_reps ?? '–' }}</span>
-                      <span>{{ set.assisted_reps ?? '–' }}</span>
                     } @else {
                       <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
                         {{ set.weight ?? '–' }}
@@ -277,18 +287,7 @@ interface WorkoutTemplate {
                       <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
                         {{ set.done_reps ?? '–' }}
                       </button>
-                      <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'assistReps')">
-                        {{ set.assisted_reps ?? '–' }}
-                      </button>
                     }
-                    <span
-                      class="set-type-pill"
-                      [class.drop]="set.set_type === 'dropset'"
-                      [class.assisted]="(set.assisted_reps ?? 0) > 0"
-                      [title]="setTypeText(set.set_type)"
-                    >
-                      {{ setTypeText(set.set_type) }}
-                    </span>
                     @if (confirmedSetIdsInSession.has(set.id)) {
                       <button
                         type="button"
@@ -1042,6 +1041,40 @@ interface WorkoutTemplate {
       gap: 0.85rem;
     }
 
+    .workout-header-row {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.6rem;
+    }
+
+    .workout-progress-count {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #475569;
+      letter-spacing: 0.02em;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .workout-progress {
+      --progress: 0;
+      width: 100%;
+      height: 6px;
+      border-radius: 999px;
+      background: #eef2f6;
+      overflow: hidden;
+      position: relative;
+      margin-top: -0.4rem;
+    }
+
+    .workout-progress-bar {
+      width: calc(var(--progress) * 100%);
+      height: 100%;
+      background: linear-gradient(90deg, #34d399 0%, #10b981 100%);
+      border-radius: 999px;
+      transition: width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
     .exercise-list {
       display: grid;
       gap: 0.7rem;
@@ -1238,22 +1271,22 @@ interface WorkoutTemplate {
 
     .set-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 66px 28px;
-      gap: 0.22rem;
+      grid-template-columns: 36px minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr) 32px;
+      gap: 0.3rem;
       align-items: center;
-      font-size: 0.84rem;
+      font-size: 0.86rem;
       font-weight: 600;
       color: #1f2937;
       font-variant-numeric: tabular-nums;
       background: transparent;
       border: 0;
       border-radius: 0;
-      padding: 0.36rem 0.5rem;
+      padding: 0.4rem 0.5rem;
       transition: background 0.18s ease;
     }
 
     /* Confirmadas: bloque verde, full-width (extiende hasta los bordes de la tarjeta),
-       sin esquinas redondeadas y sin gap entre confirmadas consecutivas. */
+       sin esquinas redondeadas y SIN gap entre confirmadas consecutivas. */
     .set-grid.confirmed {
       background: #d1fae5;
       color: #065f46;
@@ -1262,11 +1295,39 @@ interface WorkoutTemplate {
       margin-right: -0.75rem;
       padding-left: 1.25rem;
       padding-right: 1.25rem;
+      box-shadow: 0 -1px 0 0 #d1fae5;
     }
 
-    /* Confirmadas consecutivas: sin separación entre ellas. */
+    /* Cancela el row-gap del parent grid entre dos confirmadas consecutivas
+       para que se vean como un único bloque sin línea fina. */
     .set-grid.confirmed + .set-grid.confirmed {
-      margin-top: -0.45rem;
+      margin-top: calc(-0.5rem - 1px);
+    }
+
+    /* Numeración de la serie. */
+    .set-index {
+      font-weight: 800;
+      color: #94a3b8;
+      font-size: 0.78rem;
+    }
+
+    .set-grid.confirmed .set-index {
+      color: #047857;
+    }
+
+    /* Snapshot del entreno anterior (formato 30kg×8). */
+    .set-prev {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 0.74rem;
+      letter-spacing: 0.01em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .set-grid.confirmed .set-prev {
+      color: #059669;
     }
 
     .set-grid span {
@@ -2937,13 +2998,23 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   async onNumericPadNext(): Promise<void> {
-    // Modo edición de celda de una serie existente: guardamos sólo ese campo y cerramos.
+    // Modo edición de celda existente con encadenado KG → Reps → confirma.
     if (this.numericPadSetId) {
+      const exId = this.numericPadExerciseId;
+      const setId = this.numericPadSetId;
+      const field = this.numericPadField;
       await this.commitNumericPadValueToSet();
+      if (field === 'weight') {
+        // Pasamos a Reps de la misma serie (con prefill desde la propia serie o anterior).
+        this.openSetCellPad(exId, setId, 'reps');
+        return;
+      }
+      // Tras Reps (o cualquier otro), auto-confirmamos la serie y cerramos.
       this.hideNumericPad();
+      this.confirmSet(exId, setId);
       return;
     }
-    // Modo legacy de creación encadenada (no se usa con UI nueva, pero mantenemos por seguridad).
+    // Modo legacy de creación encadenada (no usado con la UI nueva pero queda por seguridad).
     this.commitNumericPadValue();
     if (this.numericPadField === 'weight') {
       this.openNumericPad(this.numericPadExerciseId, 'reps');
@@ -2977,13 +3048,48 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     else if (this.numericPadField === 'reps') set.done_reps = parsed != null ? Math.round(parsed) : null;
     else if (this.numericPadField === 'assistReps') set.assisted_reps = parsed != null ? Math.round(parsed) : null;
 
-    // PATCH backend (sólo weight, done_reps, comment soportados; assisted_reps quedará local hasta extender la API).
     if (this.numericPadField === 'weight' || this.numericPadField === 'reps') {
       const payload: { weight?: number | null; done_reps?: number | null } = {};
       if (this.numericPadField === 'weight') payload.weight = parsed;
       if (this.numericPadField === 'reps') payload.done_reps = parsed != null ? Math.round(parsed) : null;
       await this.workoutRecordService.updateSet(this.currentWorkout.id, exId, setId, payload);
     }
+  }
+
+  /** Total de series del workout (incluye pendientes). */
+  workoutProgressTotal(): number {
+    const list = this.currentWorkout?.exercises ?? [];
+    return list.reduce((sum, ex) => sum + (ex.sets?.length ?? 0), 0);
+  }
+
+  /** Series confirmadas en sesión que pertenecen al workout actual. */
+  workoutProgressDone(): number {
+    const list = this.currentWorkout?.exercises ?? [];
+    let done = 0;
+    for (const ex of list) {
+      for (const s of ex.sets ?? []) {
+        if (this.confirmedSetIdsInSession.has(s.id)) done += 1;
+      }
+    }
+    return done;
+  }
+
+  /** Fracción 0..1 para el progress bar. */
+  workoutProgressFraction(): number {
+    const total = this.workoutProgressTotal();
+    if (total === 0) return 0;
+    return Math.max(0, Math.min(1, this.workoutProgressDone() / total));
+  }
+
+  /** Devuelve el snapshot de la serie anterior (idx) en formato "30kg×8" o "—" si no hay. */
+  formatPreviousSetSnapshot(exercise: WorkoutExerciseRecord, idx: number): string {
+    const prev = exercise.previous_sets ?? [];
+    const target = prev[idx];
+    if (!target) return '—';
+    const w = target.weight;
+    const r = target.done_reps;
+    if (w == null || r == null) return '—';
+    return `${w}kg × ${r}`;
   }
 
   /**
@@ -3020,6 +3126,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   numericPadNextLabel(): string {
+    // En edición de celda de una serie: tras Reps, el botón confirma la serie.
+    if (this.numericPadSetId) {
+      return this.numericPadField === 'reps' ? 'Confirmar' : 'Next';
+    }
     return this.numericPadField === 'assistReps' ? 'Confirmar' : 'Next';
   }
 
@@ -3642,6 +3752,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.selectedExerciseId = newEx.id;
     this.setInputs[newEx.id] = this.setInputs[newEx.id] ?? { setKind: 'normal' };
     void this.refreshWorkoutExerciseMedia();
+    // Si el ejercicio tiene marcas previas, prellenamos N series pendientes
+    // con esos valores para que el usuario sólo confirme.
+    void this.prefillPendingSetsFromPrevious(newEx);
     void this.workoutRecordService.getWorkoutDetailQuiet(this.currentWorkout.id).then((detail) => {
       if (!detail || !this.currentWorkout) {
         return;
@@ -3651,10 +3764,35 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       if (fresh && target) {
         target.previous_sets = fresh.previous_sets ?? [];
         target.history_points = fresh.history_points ?? [];
+        // Reintentar prefill con previous_sets actualizados (por si el primer fetch los traía vacíos).
+        void this.prefillPendingSetsFromPrevious(target);
       }
     });
     // Close picker after selecting so user can edit the added exercise immediately.
     this.showExerciseListModal = false;
+  }
+
+  /**
+   * Si el ejercicio aún no tiene series y existen previous_sets, crea series
+   * pendientes con los mismos valores. Así el usuario sólo tiene que confirmar
+   * para repetir el último entreno (o editar antes de confirmar).
+   */
+  private async prefillPendingSetsFromPrevious(exercise: WorkoutExerciseRecord): Promise<void> {
+    if (!this.currentWorkout) return;
+    if ((exercise.sets?.length ?? 0) > 0) return;
+    const prev = exercise.previous_sets ?? [];
+    if (prev.length === 0) return;
+    for (const p of prev) {
+      const created = await this.workoutRecordService.addSet(this.currentWorkout.id, exercise.id, {
+        set_type: 'normal',
+        weight: p.weight ?? undefined,
+        done_reps: p.done_reps ?? undefined,
+      });
+      if (created) {
+        exercise.sets = [...exercise.sets, created];
+      }
+    }
+    exercise.sets.sort((a, b) => a.position - b.position);
   }
 
   catalogThumb(item: ExerciseCatalogItem): string {
