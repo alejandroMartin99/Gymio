@@ -191,6 +191,7 @@ export class WorkoutRecordService {
       notes?: string;
       external_exercise_id?: string;
       exercise_detail?: Record<string, unknown>;
+      rest_seconds?: number;
     }
   ): Promise<WorkoutExerciseRecord | null> {
     this.error.set(null);
@@ -206,6 +207,52 @@ export class WorkoutRecordService {
     } catch {
       this.error.set('No se pudo agregar el ejercicio.');
       return null;
+    }
+  }
+
+  /**
+   * Reordena los ejercicios de un workout. Optimistic UI desde el llamador:
+   * cambia el array localmente antes y nosotros confirmamos con el backend.
+   */
+  async reorderExercises(workoutId: string, exerciseIds: string[]): Promise<boolean> {
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.patch<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/order`,
+          { exercise_ids: exerciseIds },
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudo reordenar los ejercicios.');
+      return false;
+    }
+  }
+
+  /**
+   * Actualiza el tiempo de descanso por ejercicio (rest_seconds). Reusa el
+   * mismo PATCH que las notas para no añadir endpoints.
+   */
+  async updateExerciseRest(
+    workoutId: string,
+    exerciseId: string,
+    restSeconds: number
+  ): Promise<boolean> {
+    this.error.set(null);
+    try {
+      await firstValueFrom(
+        this.http.patch<ApiResponse<unknown>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/${exerciseId}`,
+          { rest_seconds: restSeconds },
+          { headers: await this.authHeaders() }
+        )
+      );
+      return true;
+    } catch {
+      this.error.set('No se pudo actualizar el tiempo de descanso.');
+      return false;
     }
   }
 

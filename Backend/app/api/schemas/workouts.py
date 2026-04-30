@@ -48,6 +48,7 @@ class AddExerciseRequest(BaseModel):
     notes: str | None = None
     external_exercise_id: str | None = None
     exercise_detail: dict | None = None
+    rest_seconds: int | None = None
 
 
 class AddSetRequest(BaseModel):
@@ -68,7 +69,16 @@ class UpdateSetRequest(BaseModel):
 
 
 class UpdateExerciseNotesRequest(BaseModel):
+    """Permite modificar notas y/o tiempo de descanso del ejercicio."""
+
     notes: str | None = None
+    rest_seconds: int | None = None
+
+
+class ReorderExercisesRequest(BaseModel):
+    """Lista ordenada de IDs de workout_exercises tras un drag & drop en la sesión."""
+
+    exercise_ids: list[str]
 
 
 class UpdateWorkoutRecordRequest(BaseModel):

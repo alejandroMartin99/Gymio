@@ -35,6 +35,8 @@ export interface WorkoutExerciseRecord {
   muscle_group?: string | null;
   notes?: string | null;
   position: number;
+  /** Descanso configurado para este ejercicio en segundos. null => default 120s. */
+  rest_seconds?: number | null;
   sets: ExerciseSetRecord[];
   previous_sets?: ExerciseSetRecord[];
   history_points?: ExerciseHistoryPoint[];

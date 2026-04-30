@@ -1,0 +1,623 @@
+<section class="workout-start">
+  @if (showRoutineStartOverlay) {
+    <div class="routine-start-overlay" role="alertdialog" aria-busy="true" aria-live="polite" aria-label="Iniciando rutina">
+      <div class="routine-start-card">
+        <div class="routine-loader-stage" aria-hidden="true">
+          <img class="routine-loader-gif" [src]="currentRoutineLoaderGif()" alt="" />
+        </div>
+        <p class="routine-start-title">Iniciando rutina</p>
+        <p class="routine-start-caption">Preparando ejercicios…</p>
+      </div>
+    </div>
+  }
+
+  @if (!currentWorkout) {
+    <div class="hero">
+      <h2>New Workout</h2>
+      <p>Piensa menos. Entrena mas.</p>
+    </div>
+  }
+
+  @if (!currentWorkout) {
+    <div class="empty">
+      @if (workoutRecordService.loading()) {
+        <div class="loading-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <small>Cargando rutinas...</small>
+        </div>
+      } @else {
+        <div class="action-row">
+          <button type="button" (click)="openReplicateModal()" [disabled]="replicateModalRecords().length === 0">
+            Repetir rutina
+          </button>
+          <button type="button" class="secondary" (click)="openNewSessionModal()">
+            Nueva rutina
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (!workoutRecordService.loading()) {
+      <div class="templates-zone">
+        <div class="templates-head">
+          <h3>Workout Templates</h3>
+          <small>Rutinas completas y listas para empezar.</small>
+        </div>
+
+        <div class="template-filter-group">
+          <span class="filter-label">Días / semana</span>
+          <div class="template-filter-row">
+            @for (f of templateDaysFilters; track f.key) {
+              <button
+                type="button"
+                class="template-chip"
+                [class.active]="selectedTemplateDaysFilter === f.key"
+                (click)="selectedTemplateDaysFilter = f.key"
+              >{{ f.label }}</button>
+            }
+          </div>
+        </div>
+        <div class="template-filter-group">
+          <span class="filter-label">Equipamiento</span>
+          <div class="template-filter-row">
+            @for (f of templateEquipmentFilters; track f.key) {
+              <button
+                type="button"
+                class="template-chip"
+                [class.active]="selectedTemplateEquipmentFilter === f.key"
+                (click)="selectedTemplateEquipmentFilter = f.key"
+              >{{ f.label }}</button>
+            }
+          </div>
+        </div>
+
+        <div class="template-grid">
+          @for (tpl of filteredTemplates(); track tpl.id) {
+            <article class="template-card">
+              <div class="template-content">
+                <strong>{{ tpl.title }}</strong>
+                <small>{{ tpl.subtitle }}</small>
+                <div class="template-badges">
+                  <span>{{ templateDaysLabel(tpl.daysFilter) }}</span>
+                  <span>{{ templateEquipmentLabel(tpl.equipment) }}</span>
+                </div>
+                <div class="template-gif-strip">
+                  @for (ex of tpl.exercises; track $index) {
+                    @if (ex.exerciseId) {
+                      <img [src]="templateGifUrl(ex.exerciseId)" alt="" />
+                    } @else {
+                      <div class="gif-placeholder">{{ ex.muscle_group?.[0] ?? '·' }}</div>
+                    }
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="template-cta"
+                  [disabled]="isCreatingTemplate() || workoutRecordService.loading()"
+                  (click)="startWorkoutFromTemplate(tpl)"
+                >
+                  @if (activeTemplateId() === tpl.id) {
+                    Cargando rutina...
+                  } @else {
+                    Cargar rutina
+                  }
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  @if (currentWorkout) {
+    <div class="builder">
+      <h3>{{ currentWorkout.workout_name }}</h3>
+
+      <div class="exercise-list">
+        @for (exercise of currentWorkout.exercises; track exercise.id; let exIdx = $index) {
+          <div
+            class="exercise-card"
+            [class.selected]="selectedExerciseId === exercise.id"
+            [class.completed]="completedExerciseIds.has(exercise.id)"
+            [class.needs-weight-up]="exerciseShouldRaiseWeight(exercise)"
+          >
+            <div class="exercise-head" (click)="toggleExercise(exercise.id)">
+              <div class="exercise-order-controls" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="order-btn"
+                  [disabled]="exIdx === 0"
+                  (click)="moveExercise(exIdx, exIdx - 1)"
+                  aria-label="Subir ejercicio"
+                  title="Subir"
+                >
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                    <path d="M2.5 7.5l3.5-4 3.5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="order-btn"
+                  [disabled]="exIdx === currentWorkout.exercises.length - 1"
+                  (click)="moveExercise(exIdx, exIdx + 1)"
+                  aria-label="Bajar ejercicio"
+                  title="Bajar"
+                >
+                  <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                    <path d="M2.5 4.5l3.5 4 3.5-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <strong class="exercise-name-block">
+                <span class="exercise-name-row">
+                  <span class="exercise-primary-name">{{ displayExercisePrimaryName(exercise) }}</span>
+                  @if (exerciseShouldRaiseWeight(exercise)) {
+                    <span class="weight-up-chip" title="Llevas dos series con el mismo peso y reps. Sube el peso.">
+                      <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+                        <path d="M5 8V2M2.5 4.5L5 2l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                      Sube peso
+                    </span>
+                  }
+                </span>
+                @if (displayExerciseSecondaryName(exercise); as enName) {
+                  <small>{{ enName }}</small>
+                }
+              </strong>
+              <div class="exercise-head-actions">
+                @if (exerciseDbDetail(exercise)) {
+                  <button
+                    type="button"
+                    class="info-icon-btn"
+                    (click)="$event.stopPropagation(); openExerciseInfoModal(exercise)"
+                    aria-label="Ver informacion del ejercicio"
+                  >
+                    <img src="/icons/info-circle.svg" alt="" />
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="history-icon-btn"
+                  (click)="$event.stopPropagation(); openHistoryModal(exercise)"
+                  aria-label="Ver historial"
+                >
+                  <img src="/icons/chart-line.svg" alt="" />
+                </button>
+                <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
+                  Eliminar
+                </button>
+              </div>
+            </div>
+            @if (selectedExerciseId === exercise.id) {
+              <small>{{ exercise.muscle_group || 'General' }}</small>
+              <div class="exercise-hero">
+                <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
+              </div>
+              <div class="set-grid header">
+                <span>KG</span>
+                <span>REPS</span>
+                <span>REPS AYUDA</span>
+                <span>TIPO</span>
+                <span></span>
+              </div>
+              @for (set of exercise.sets; track set.id; let idx = $index) {
+                <div
+                  class="set-grid"
+                  [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
+                >
+                  @if (confirmedSetIdsInSession.has(set.id)) {
+                    <span>{{ set.weight ?? '–' }}</span>
+                    <span>{{ set.done_reps ?? '–' }}</span>
+                    <span>{{ set.assisted_reps ?? '–' }}</span>
+                  } @else {
+                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
+                      {{ set.weight ?? '–' }}
+                    </button>
+                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
+                      {{ set.done_reps ?? '–' }}
+                    </button>
+                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'assistReps')">
+                      {{ set.assisted_reps ?? '–' }}
+                    </button>
+                  }
+                  <span
+                    class="set-type-pill"
+                    [class.drop]="set.set_type === 'dropset'"
+                    [class.assisted]="(set.assisted_reps ?? 0) > 0"
+                    [title]="setTypeText(set.set_type)"
+                  >
+                    {{ setTypeText(set.set_type) }}
+                  </span>
+                  @if (confirmedSetIdsInSession.has(set.id)) {
+                    <button
+                      type="button"
+                      class="delete-set-btn"
+                      (click)="removeSet(exercise.id, set.id)"
+                      aria-label="Eliminar serie"
+                      title="Eliminar"
+                    >×</button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="set-tick-btn"
+                      (click)="confirmSet(exercise.id, set.id)"
+                      aria-label="Confirmar serie"
+                      title="Confirmar"
+                    >
+                      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="3.5 8.5 7 12 12.5 4.5"/>
+                      </svg>
+                    </button>
+                  }
+                </div>
+                @if (set.comment) {
+                  <small class="set-comment">{{ set.comment }}</small>
+                }
+              }
+
+              <button
+                type="button"
+                class="add-set-btn"
+                (click)="addEmptySet(exercise.id)"
+                aria-label="Añadir nueva serie"
+                title="Añadir serie"
+              >
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                  <line x1="8" y1="3" x2="8" y2="13"/>
+                  <line x1="3" y1="8" x2="13" y2="8"/>
+                </svg>
+                <span>Añadir serie</span>
+              </button>
+              <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
+              <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
+                Terminar ejercicio
+              </button>
+            }
+          </div>
+        }
+      </div>
+      <button
+        type="button"
+        class="link-btn add-exercise add-exercise-icon"
+        (click)="openExerciseGroupModal()"
+        aria-label="Agregar ejercicio"
+        title="Agregar ejercicio"
+      >
+        <img src="/icons/plus-circle.svg" alt="" />
+      </button>
+    </div>
+  }
+
+  @if (showReplicateModal) {
+    <div class="modal-backdrop" (click)="closeReplicateModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Selecciona entrenamiento</h3>
+        <p>Elige uno para cargar nombre, ejercicios y series.</p>
+
+        <div class="history-list">
+          @for (record of replicateModalRecords(); track record.id) {
+            <button
+              type="button"
+              [class.selected-option]="selectedReplicateWorkoutId === record.id"
+              (click)="selectReplicateWorkout(record.id)"
+            >
+              {{ record.workout_name }}
+            </button>
+          }
+        </div>
+
+        <button
+          type="button"
+          class="primary"
+          [disabled]="!selectedReplicateWorkoutId || !replicateSelectionConfirmed || workoutRecordService.loading()"
+          (click)="confirmReplicateWorkout()"
+        >
+          Confirmar repetir rutina
+        </button>
+
+        <button type="button" class="close" (click)="closeReplicateModal()">Cerrar</button>
+      </div>
+    </div>
+  }
+
+  @if (showNewSessionModal) {
+    <div class="modal-backdrop" (click)="closeNewSessionModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Define tu entrenamiento</h3>
+        <p>Nombre y tipo de rutina para arrancar.</p>
+
+        <div class="builder in-modal">
+          <label>
+            Nombre del entrenamiento
+            <input [(ngModel)]="workoutName" placeholder="Ej: Push day pesado" />
+          </label>
+
+          <button type="button" class="primary" (click)="startWorkout()" [disabled]="!workoutName.trim() || workoutRecordService.loading()">
+            + Iniciar entrenamiento
+          </button>
+
+          @if (workoutRecordService.error(); as error) {
+            <small class="note error">{{ error }}</small>
+          }
+        </div>
+
+        <button type="button" class="close" (click)="closeNewSessionModal()">Cerrar</button>
+      </div>
+    </div>
+  }
+
+  @if (showExerciseListModal) {
+    <div class="modal-backdrop" (click)="closeExerciseListModal()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Agregar ejercicio</h3>
+
+        <div class="group-slider">
+          @for (group of muscleGroupSlides; track group.key) {
+            <button
+              type="button"
+              class="group-slide"
+              [class.active]="activeMuscleGroup === group.key"
+              (click)="selectMuscleGroupSlide(group.key)"
+            >
+              <img [src]="group.image" [alt]="group.label" />
+              <span>{{ group.label }}</span>
+            </button>
+          }
+        </div>
+
+        <div class="catalog-search-row">
+          <input
+            type="search"
+            [ngModel]="catalogSearchQuery"
+            (ngModelChange)="onCatalogSearchInputChange($event)"
+            placeholder="Buscar por nombre..."
+            (keydown.enter)="runCatalogSearch()"
+          />
+          <button type="button" class="catalog-search-btn" (click)="runCatalogSearch()">Buscar</button>
+        </div>
+
+        <div class="equipment-slider">
+          @for (f of equipmentFilters; track f.key) {
+            <button
+              type="button"
+              class="equipment-chip"
+              [class.active]="selectedEquipmentFilter === f.key"
+              (click)="setEquipmentFilter(f.key)"
+            >
+              {{ f.label }}
+            </button>
+          }
+        </div>
+
+        @if (selectedCatalogThumbs().length > 0) {
+          <div class="selected-thumb-block">
+            <small>Seleccionados</small>
+            <div class="selected-thumb-list">
+              @for (thumb of selectedCatalogThumbs(); track thumb) {
+                <img [src]="thumb" alt="" />
+              }
+            </div>
+          </div>
+        }
+
+        @if (exerciseCatalogService.loading()) {
+          <div class="loading-state">
+            <span class="spinner" aria-hidden="true"></span>
+            <small>Cargando ejercicios...</small>
+          </div>
+        }
+
+        <div class="history-list exercise-catalog-scroll">
+          @for (exercise of filteredCatalogItems(); track exercise.id) {
+            <button
+              type="button"
+              class="exercise-option"
+              (click)="pickCatalogExercise(exercise)"
+            >
+              <span class="option-thumb-wrap">
+                <img [src]="catalogThumb(exercise)" alt="" class="option-thumb" />
+              </span>
+              <span class="option-text">
+                <span class="option-name">
+                  <span>{{ displayCatalogPrimaryName(exercise) }}</span>
+                  @if (displayCatalogSecondaryName(exercise); as enName) {
+                    <small>{{ enName }}</small>
+                  }
+                </span>
+              </span>
+            </button>
+          }
+        </div>
+        @if (filteredCatalogItems().length === 0 && !exerciseCatalogService.loading()) {
+          <small class="note">No hay ejercicios para este grupo. Prueba con otro.</small>
+        }
+
+        <button type="button" class="close close-danger" (click)="closeExerciseListModal()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (showWorkoutSummaryModal) {
+    <div class="modal-backdrop" (click)="closeWorkoutSummary()">
+      <div class="modal" (click)="$event.stopPropagation()">
+        <h3>Resumen del entrenamiento</h3>
+        <p>{{ summaryWorkoutName }}</p>
+        <small class="note">Tiempo: {{ summaryElapsedLabel }}</small>
+        <small class="note">Ejercicios: {{ summaryExercisesCount }} · Series: {{ summarySetsCount }}</small>
+        <div class="summary-actions">
+          <button type="button" class="close close-danger" (click)="closeWorkoutSummary()">Cancelar</button>
+          <button type="button" class="primary" (click)="closeWorkoutSummary()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (showHistoryModal) {
+    <div class="modal-backdrop" (click)="closeHistoryModal()">
+      <div class="modal chart-modal" (click)="$event.stopPropagation()">
+        <div class="chart-modal-header">
+          <span class="chart-modal-title">Historial - {{ historyExerciseTitle }}</span>
+          <button type="button" class="chart-modal-close" (click)="closeHistoryModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+        <p class="history-chart-sub">Máximos por entrenamiento (peso y repeticiones).</p>
+        @if (historyPoints.length > 0) {
+          <div class="ex-charts">
+            <div class="ex-chart-label">Peso máximo (kg)</div>
+            <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+              @for (g of historyWChart().grid; track $index) {
+                <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                  stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+                <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+              }
+              @for (xl of historyWChart().xLabels; track $index) {
+                <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+              }
+              <path [attr.d]="historyWChart().path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              @for (dot of historyWChart().dots; track $index) {
+                <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+              }
+            </svg>
+            <div class="ex-chart-label">Reps en máximo</div>
+            <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+              @for (g of historyRChart().grid; track $index) {
+                <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                  stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+                <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+              }
+              @for (xl of historyRChart().xLabels; track $index) {
+                <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+              }
+              <path [attr.d]="historyRChart().path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+              @for (dot of historyRChart().dots; track $index) {
+                <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
+              }
+            </svg>
+          </div>
+        } @else {
+          <small class="note">No hay datos históricos para este ejercicio todavía.</small>
+        }
+        <button type="button" class="close" (click)="closeHistoryModal()">Cerrar</button>
+      </div>
+    </div>
+  }
+
+  @if (showExerciseInfoModal && selectedExerciseInfoDetail(); as d) {
+    <div class="modal-backdrop" (click)="closeExerciseInfoModal()">
+      <div class="modal modal-compact" (click)="$event.stopPropagation()">
+        <h3>{{ exerciseInfoName }}</h3>
+        <p>Informacion del ejercicio</p>
+        <div class="exercise-db-info">
+          <ul class="exercise-db-meta">
+            @if (d.bodyPart) {
+              <li><strong>Zona</strong> {{ dbBodyPart(d.bodyPart) }}</li>
+            }
+            <li><strong>Enfoque</strong> {{ dbTarget(d.target) }}</li>
+            <li><strong>Equipo</strong> {{ dbEquipment(d.equipment) }}</li>
+            @if (d.difficulty) {
+              <li><strong>Nivel</strong> {{ dbDifficulty(d.difficulty) }}</li>
+            }
+            @if (d.category) {
+              <li><strong>Tipo</strong> {{ dbCategory(d.category) }}</li>
+            }
+            @if (d.secondaryMuscles.length) {
+              <li><strong>Secundarios</strong> {{ dbSecondaryMuscles(d.secondaryMuscles) }}</li>
+            }
+          </ul>
+          @if (d.description) {
+            <p class="exercise-db-desc">{{ d.description }}</p>
+          }
+          @if (d.instructions.length) {
+            <ol class="exercise-db-steps">
+              @for (step of d.instructions; track $index) {
+                <li>{{ step }}</li>
+              }
+            </ol>
+          }
+        </div>
+        <button type="button" class="close" (click)="closeExerciseInfoModal()">Cerrar</button>
+      </div>
+    </div>
+  }
+
+  @if (numericPadOpen) {
+    <div class="numeric-pad-backdrop" (click)="hideNumericPad()"></div>
+    <div class="numeric-pad-sheet" (click)="$event.stopPropagation()">
+      <div class="numeric-pad-top">
+        <strong>{{ numericPadFieldLabel() }}</strong>
+        <span>{{ numericPadValue || '0' }}</span>
+      </div>
+      <div class="numeric-pad-grid">
+        @for (k of numericPadKeys; track k) {
+          <button type="button" (click)="onNumericPadKey(k)">{{ k }}</button>
+        }
+      </div>
+      <div class="numeric-pad-actions">
+        <button type="button" class="ghost" (click)="hideNumericPad()">Ocultar teclado</button>
+        <button type="button" class="ghost" (click)="onNumericPadBackspace()">Borrar</button>
+        <button type="button" class="primary" (click)="onNumericPadNext()">{{ numericPadNextLabel() }}</button>
+      </div>
+    </div>
+  }
+
+  @if (restTimerOpen) {
+    <div class="rest-timer-bar" role="timer" aria-live="polite">
+      <div class="rest-timer-bar-inner">
+        <small class="rest-timer-label">
+          Descanso{{ restTimerPaused ? ' · pausado' : '' }}
+        </small>
+        <strong class="rest-timer-time">{{ restTimerLabel() }}</strong>
+        <div
+          class="rest-timer-progress"
+          role="presentation"
+          [style.--rest-progress]="restTimerProgress()"
+        ></div>
+        <div class="rest-timer-actions">
+          <button type="button" (click)="toggleRestPause()">
+            {{ restTimerPaused ? 'Reanudar' : 'Pausa' }}
+          </button>
+          <button type="button" (click)="resetRestTimer()">Reset</button>
+          <button type="button" (click)="openRestTimeEditor()">Tiempo</button>
+          <button type="button" class="skip" (click)="skipRestTimer()">Skip</button>
+        </div>
+      </div>
+    </div>
+  }
+
+  @if (restTimeEditorOpen) {
+    <div class="modal-backdrop" (click)="closeRestTimeEditor()">
+      <div class="modal modal-compact" (click)="$event.stopPropagation()">
+        <h3>Tiempo de descanso</h3>
+        <p>{{ restTimeEditorExerciseName }}</p>
+        <div class="rest-time-presets">
+          @for (preset of restTimePresets; track preset) {
+            <button
+              type="button"
+              class="rest-time-preset"
+              [class.active]="restTimeEditorValue === preset"
+              (click)="setRestTimeEditorValue(preset)"
+            >{{ formatRestPreset(preset) }}</button>
+          }
+        </div>
+        <label>
+          Personalizado (segundos)
+          <input
+            type="number"
+            min="0"
+            max="900"
+            step="5"
+            [(ngModel)]="restTimeEditorValue"
+          />
+        </label>
+        <div class="summary-actions">
+          <button type="button" class="close close-danger" (click)="closeRestTimeEditor()">Cancelar</button>
+          <button type="button" class="primary" (click)="saveRestTimeEditor()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  }
+</section>

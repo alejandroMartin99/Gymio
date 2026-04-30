@@ -174,15 +174,53 @@ interface WorkoutTemplate {
         <div class="builder">
           <h3>{{ currentWorkout.workout_name }}</h3>
 
-          @for (exercise of currentWorkout.exercises; track exercise.id) {
+          <div class="exercise-list">
+          @for (exercise of currentWorkout.exercises; track exercise.id; let exIdx = $index) {
             <div
               class="exercise-card"
               [class.selected]="selectedExerciseId === exercise.id"
               [class.completed]="completedExerciseIds.has(exercise.id)"
+              [class.needs-weight-up]="exerciseShouldRaiseWeight(exercise)"
             >
               <div class="exercise-head" (click)="toggleExercise(exercise.id)">
+                <div class="exercise-order-controls" (click)="$event.stopPropagation()">
+                  <button
+                    type="button"
+                    class="order-btn"
+                    [disabled]="exIdx === 0"
+                    (click)="moveExercise(exIdx, exIdx - 1)"
+                    aria-label="Subir ejercicio"
+                    title="Subir"
+                  >
+                    <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                      <path d="M2.5 7.5l3.5-4 3.5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="order-btn"
+                    [disabled]="exIdx === currentWorkout.exercises.length - 1"
+                    (click)="moveExercise(exIdx, exIdx + 1)"
+                    aria-label="Bajar ejercicio"
+                    title="Bajar"
+                  >
+                    <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                      <path d="M2.5 4.5l3.5 4 3.5-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </button>
+                </div>
                 <strong class="exercise-name-block">
-                  <span>{{ displayExercisePrimaryName(exercise) }}</span>
+                  <span class="exercise-name-row">
+                    <span class="exercise-primary-name">{{ displayExercisePrimaryName(exercise) }}</span>
+                    @if (exerciseShouldRaiseWeight(exercise)) {
+                      <span class="weight-up-chip" title="Llevas dos series con el mismo peso y reps. Sube el peso.">
+                        <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+                          <path d="M5 8V2M2.5 4.5L5 2l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Sube peso
+                      </span>
+                    }
+                  </span>
                   @if (displayExerciseSecondaryName(exercise); as enName) {
                     <small>{{ enName }}</small>
                   }
@@ -224,10 +262,25 @@ interface WorkoutTemplate {
                   <span></span>
                 </div>
                 @for (set of exercise.sets; track set.id; let idx = $index) {
-                  <div class="set-grid confirmed">
-                    <span>{{ set.weight || '-' }}</span>
-                    <span>{{ set.done_reps || '-' }}</span>
-                    <span>{{ set.assisted_reps || '-' }}</span>
+                  <div
+                    class="set-grid"
+                    [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
+                  >
+                    @if (confirmedSetIdsInSession.has(set.id)) {
+                      <span>{{ set.weight ?? '–' }}</span>
+                      <span>{{ set.done_reps ?? '–' }}</span>
+                      <span>{{ set.assisted_reps ?? '–' }}</span>
+                    } @else {
+                      <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
+                        {{ set.weight ?? '–' }}
+                      </button>
+                      <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
+                        {{ set.done_reps ?? '–' }}
+                      </button>
+                      <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'assistReps')">
+                        {{ set.assisted_reps ?? '–' }}
+                      </button>
+                    }
                     <span
                       class="set-type-pill"
                       [class.drop]="set.set_type === 'dropset'"
@@ -236,60 +289,46 @@ interface WorkoutTemplate {
                     >
                       {{ setTypeText(set.set_type) }}
                     </span>
-                    <button type="button" class="delete-set-btn" (click)="removeSet(exercise.id, set.id)">x</button>
+                    @if (confirmedSetIdsInSession.has(set.id)) {
+                      <button
+                        type="button"
+                        class="delete-set-btn"
+                        (click)="removeSet(exercise.id, set.id)"
+                        aria-label="Eliminar serie"
+                        title="Eliminar"
+                      >×</button>
+                    } @else {
+                      <button
+                        type="button"
+                        class="set-tick-btn"
+                        (click)="confirmSet(exercise.id, set.id)"
+                        aria-label="Confirmar serie"
+                        title="Confirmar"
+                      >
+                        <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <polyline points="3.5 8.5 7 12 12.5 4.5"/>
+                        </svg>
+                      </button>
+                    }
                   </div>
                   @if (set.comment) {
                     <small class="set-comment">{{ set.comment }}</small>
                   }
                 }
 
-                <div class="set-form">
-                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'weight')">
-                    {{ setInputValueLabel(exercise.id, 'weight', previousMaxWeight(exercise)) }}
-                  </button>
-                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'reps')">
-                    {{ setInputValueLabel(exercise.id, 'reps', previousMaxReps(exercise)) }}
-                  </button>
-                  <button type="button" class="set-input-btn" (click)="openNumericPad(exercise.id, 'assistReps')">
-                    {{ setInputValueLabel(exercise.id, 'assistReps', '') }}
-                  </button>
-                  <select [(ngModel)]="setInputs[exercise.id].setKind">
-                    <option value="normal">Normal</option>
-                    <option value="dropset">Drop set</option>
-                  </select>
-                  <button
-                    type="button"
-                    class="check"
-                    [class.saving]="setSubmitStateByExercise[exercise.id] === 'saving'"
-                    [class.confirmed]="setSubmitStateByExercise[exercise.id] === 'confirmed'"
-                    (click)="addSet(exercise.id)"
-                  >
-                    @if (setSubmitStateByExercise[exercise.id] === 'saving') {
-                      …
-                    } @else if (setSubmitStateByExercise[exercise.id] === 'confirmed') {
-                      ✔
-                    } @else {
-                      ✓
-                    }
-                  </button>
-                </div>
-                @if (setInputs[exercise.id].setKind === 'dropset') {
-                  <div class="set-extra-row">
-                    <div class="drop-set-grid">
-                      <input
-                        type="text"
-                        [(ngModel)]="setInputs[exercise.id].dropWeights"
-                        placeholder="🏋️ 40>35>30"
-                      />
-                      <input
-                        type="text"
-                        [(ngModel)]="setInputs[exercise.id].dropReps"
-                        placeholder="🔁 10>8>6"
-                        inputmode="numeric"
-                      />
-                    </div>
-                  </div>
-                }
+                <button
+                  type="button"
+                  class="add-set-btn"
+                  (click)="addEmptySet(exercise.id)"
+                  aria-label="Añadir nueva serie"
+                  title="Añadir serie"
+                >
+                  <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                    <line x1="8" y1="3" x2="8" y2="13"/>
+                    <line x1="3" y1="8" x2="13" y2="8"/>
+                  </svg>
+                  <span>Añadir serie</span>
+                </button>
                 <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
                 <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
                   Terminar ejercicio
@@ -297,6 +336,7 @@ interface WorkoutTemplate {
               }
             </div>
           }
+          </div>
           <button
             type="button"
             class="link-btn add-exercise add-exercise-icon"
@@ -585,14 +625,58 @@ interface WorkoutTemplate {
       }
 
       @if (restTimerOpen) {
-        <div class="rest-timer-backdrop" (click)="skipRestTimer()"></div>
-        <div class="rest-timer-modal" (click)="$event.stopPropagation()">
-          <small>Descanso entre series</small>
-          <strong>{{ restTimerLabel() }}</strong>
-          <div class="rest-timer-actions">
-            <button type="button" (click)="toggleRestPause()">{{ restTimerPaused ? 'Reanudar' : 'Pause' }}</button>
-            <button type="button" (click)="resetRestTimer()">Reset</button>
-            <button type="button" class="skip" (click)="skipRestTimer()">Skip</button>
+        <div class="rest-timer-bar" role="timer" aria-live="polite">
+          <div class="rest-timer-bar-inner">
+            <small class="rest-timer-label">
+              Descanso{{ restTimerPaused ? ' · pausado' : '' }}
+            </small>
+            <strong class="rest-timer-time">{{ restTimerLabel() }}</strong>
+            <div
+              class="rest-timer-progress"
+              role="presentation"
+              [style.--rest-progress]="restTimerProgress()"
+            ></div>
+            <div class="rest-timer-actions">
+              <button type="button" (click)="toggleRestPause()">
+                {{ restTimerPaused ? 'Reanudar' : 'Pausa' }}
+              </button>
+              <button type="button" (click)="resetRestTimer()">Reset</button>
+              <button type="button" (click)="openRestTimeEditor()">Tiempo</button>
+              <button type="button" class="skip" (click)="skipRestTimer()">Skip</button>
+            </div>
+          </div>
+        </div>
+      }
+
+      @if (restTimeEditorOpen) {
+        <div class="modal-backdrop" (click)="closeRestTimeEditor()">
+          <div class="modal modal-compact" (click)="$event.stopPropagation()">
+            <h3>Tiempo de descanso</h3>
+            <p>{{ restTimeEditorExerciseName }}</p>
+            <div class="rest-time-presets">
+              @for (preset of restTimePresets; track preset) {
+                <button
+                  type="button"
+                  class="rest-time-preset"
+                  [class.active]="restTimeEditorValue === preset"
+                  (click)="setRestTimeEditorValue(preset)"
+                >{{ formatRestPreset(preset) }}</button>
+              }
+            </div>
+            <label>
+              Personalizado (segundos)
+              <input
+                type="number"
+                min="0"
+                max="900"
+                step="5"
+                [(ngModel)]="restTimeEditorValue"
+              />
+            </label>
+            <div class="summary-actions">
+              <button type="button" class="close close-danger" (click)="closeRestTimeEditor()">Cancelar</button>
+              <button type="button" class="primary" (click)="saveRestTimeEditor()">Guardar</button>
+            </div>
           </div>
         </div>
       }
@@ -958,6 +1042,11 @@ interface WorkoutTemplate {
       gap: 0.85rem;
     }
 
+    .exercise-list {
+      display: grid;
+      gap: 0.7rem;
+    }
+
     .in-modal {
       border: 0;
       border-radius: 0;
@@ -1010,21 +1099,29 @@ interface WorkoutTemplate {
     }
 
     .exercise-card {
-      border: 1px solid #ececec;
-      border-radius: 10px;
-      padding: 0.7rem;
+      position: relative;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 0.7rem 0.75rem;
       display: grid;
-      gap: 0.45rem;
+      gap: 0.5rem;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02), 0 6px 14px rgba(15, 23, 42, 0.04);
+      transition: box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease;
+    }
+
+    .exercise-card.selected {
+      border-color: #cbd5e1;
+      box-shadow: 0 2px 0 rgba(15, 23, 42, 0.02), 0 12px 26px rgba(15, 23, 42, 0.08);
     }
 
     .exercise-card.completed {
-      border-color: #22c55e;
-      box-shadow: inset 0 0 0 1px #bbf7d0;
+      border-color: #bbf7d0;
+      box-shadow: inset 3px 0 0 0 #22c55e, 0 6px 14px rgba(15, 23, 42, 0.04);
     }
 
-
     .exercise-card small {
-      color: #666;
+      color: #6b7280;
     }
 
     .exercise-hero {
@@ -1046,35 +1143,47 @@ interface WorkoutTemplate {
       align-items: center;
       justify-content: space-between;
       cursor: pointer;
-      gap: 0.45rem;
+      gap: 0.5rem;
+      user-select: none;
     }
 
     .exercise-name-block {
+      flex: 1;
       display: grid;
-      gap: 0.08rem;
+      gap: 0.1rem;
       min-width: 0;
+      font-weight: 700;
+      font-size: 0.92rem;
+      color: #0f172a;
+      letter-spacing: -0.01em;
     }
 
-    .exercise-name-block > span {
-      line-height: 1.15;
+    .exercise-name-block > .exercise-name-row {
+      line-height: 1.2;
     }
 
     .exercise-name-block small {
-      color: #6b7280;
-      font-size: 0.72rem;
+      color: #94a3b8;
+      font-size: 0.68rem;
       font-weight: 500;
-      line-height: 1.05;
+      line-height: 1.1;
+      letter-spacing: 0.01em;
     }
 
     .remove-btn {
       border: 0;
       background: transparent;
       color: #ef4444;
-      font-size: 0.75rem;
-      font-weight: 700;
+      font-size: 0.7rem;
+      font-weight: 600;
       cursor: pointer;
-      padding: 0;
+      padding: 0.15rem 0.35rem;
+      border-radius: 6px;
+      letter-spacing: 0.01em;
+      transition: background 0.12s ease;
     }
+
+    .remove-btn:hover { background: #fef2f2; }
 
     .exercise-head-actions {
       display: flex;
@@ -1132,15 +1241,32 @@ interface WorkoutTemplate {
       grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 66px 28px;
       gap: 0.22rem;
       align-items: center;
-      font-size: 0.78rem;
-      color: #4b5563;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #1f2937;
+      font-variant-numeric: tabular-nums;
+      background: transparent;
+      border: 0;
+      border-radius: 0;
+      padding: 0.36rem 0.5rem;
+      transition: background 0.18s ease;
     }
 
+    /* Confirmadas: bloque verde, full-width (extiende hasta los bordes de la tarjeta),
+       sin esquinas redondeadas y sin gap entre confirmadas consecutivas. */
     .set-grid.confirmed {
-      background: #ecfdf5;
-      border: 1px solid #a7f3d0;
-      border-radius: 8px;
-      padding: 0.22rem 0.28rem;
+      background: #d1fae5;
+      color: #065f46;
+      border-radius: 0;
+      margin-left: -0.75rem;
+      margin-right: -0.75rem;
+      padding-left: 1.25rem;
+      padding-right: 1.25rem;
+    }
+
+    /* Confirmadas consecutivas: sin separación entre ellas. */
+    .set-grid.confirmed + .set-grid.confirmed {
+      margin-top: -0.45rem;
     }
 
     .set-grid span {
@@ -1152,47 +1278,140 @@ interface WorkoutTemplate {
     }
 
     .set-grid.header {
-      color: #9ca3af;
+      color: #94a3b8;
       font-weight: 700;
-      font-size: 0.64rem;
-      letter-spacing: 0.03em;
-      margin-top: 0.2rem;
+      font-size: 0.6rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0.4rem 0 0.05rem;
       text-align: center;
     }
 
     .set-form {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 84px 30px;
-      gap: 0.22rem;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 84px 38px;
+      gap: 0.28rem;
       align-items: center;
+      margin-top: 0.1rem;
     }
 
     .set-form input,
     .set-form select {
-      height: 30px;
-      padding: 0.18rem 0.28rem;
-      border-radius: 6px;
+      height: 34px;
+      padding: 0.18rem 0.32rem;
+      border-radius: 8px;
       border: 1px solid #e5e7eb;
-      font-size: 16px;
+      font-size: 15px;
+      font-weight: 600;
       text-align: center;
       text-align-last: center;
-      background: #fff;
+      background: #ffffff;
       min-width: 0;
+      color: #0f172a;
+      font-variant-numeric: tabular-nums;
+      transition: border-color 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .set-form input:focus,
+    .set-form select:focus {
+      outline: none;
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
     }
 
     .set-input-btn {
-      height: 30px;
-      border-radius: 6px;
+      height: 34px;
+      border-radius: 8px;
       border: 1px solid #e5e7eb;
-      background: #fff;
+      background: #ffffff;
       font: inherit;
-      font-size: 16px;
-      color: #111827;
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
       text-align: center;
-      padding: 0.18rem 0.28rem;
+      padding: 0.18rem 0.32rem;
       min-width: 0;
       cursor: pointer;
+      font-variant-numeric: tabular-nums;
+      transition: border-color 0.12s ease, background 0.12s ease;
     }
+
+    .set-input-btn:hover { border-color: #cbd5e1; background: #f8fafc; }
+
+    /* Celda tappable dentro de una serie pendiente. */
+    .set-cell-btn {
+      border: 0;
+      background: transparent;
+      font: inherit;
+      color: inherit;
+      font-weight: 600;
+      font-size: 0.92rem;
+      font-variant-numeric: tabular-nums;
+      cursor: pointer;
+      padding: 0.18rem 0.2rem;
+      border-radius: 6px;
+      text-align: center;
+      transition: background 0.14s ease, color 0.14s ease;
+    }
+
+    .set-cell-btn:hover {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    /* Tick minimalista en cada fila pendiente. */
+    .set-tick-btn {
+      width: 24px;
+      height: 24px;
+      display: inline-grid;
+      place-items: center;
+      border: 1.5px solid #cbd5e1;
+      background: transparent;
+      border-radius: 999px;
+      color: #64748b;
+      cursor: pointer;
+      padding: 0;
+      justify-self: center;
+      transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+    }
+
+    .set-tick-btn:hover {
+      border-color: #10b981;
+      color: #059669;
+      background: #ecfdf5;
+    }
+
+    .set-tick-btn:active { transform: scale(0.92); }
+    .set-tick-btn svg { display: block; }
+
+    /* Botón + para añadir nueva serie (indentado, discreto). */
+    .add-set-btn {
+      align-self: start;
+      margin: 0.15rem 0 0 0.5rem;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      border: 1px dashed #cbd5e1;
+      background: transparent;
+      color: #475569;
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem 0.35rem 0.6rem;
+      font: inherit;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: border-color 0.14s ease, color 0.14s ease, background 0.14s ease;
+    }
+
+    .add-set-btn:hover {
+      border-color: #94a3b8;
+      color: #0f172a;
+      background: #f8fafc;
+    }
+
+    .add-set-btn svg { color: #64748b; }
+    .add-set-btn:hover svg { color: #0f172a; }
 
     .set-form input::placeholder {
       color: #9ca3af;
@@ -1200,12 +1419,25 @@ interface WorkoutTemplate {
     }
 
     .set-note-input {
-      margin-top: 0.2rem;
+      margin-top: 0.25rem;
       border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      padding: 0.4rem 0.5rem;
-      font-size: 16px;
-      background: #fff;
+      border-radius: 9px;
+      padding: 0.5rem 0.6rem;
+      font-size: 0.85rem;
+      background: #fafafa;
+      color: #0f172a;
+      transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .set-note-input::placeholder {
+      color: #9ca3af;
+    }
+
+    .set-note-input:focus {
+      outline: none;
+      background: #ffffff;
+      border-color: #94a3b8;
+      box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.16);
     }
 
     .set-extra-row {
@@ -1345,88 +1577,311 @@ interface WorkoutTemplate {
       color: #fff;
     }
 
-    .rest-timer-backdrop {
+    /* ── Rest timer bar (centrado, premium, glass) ──────────────────── */
+    .rest-timer-bar {
       position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.38);
-      z-index: 130;
+      left: 0;
+      right: 0;
+      bottom: calc(var(--nav-height, 60px) + var(--safe-area-bottom, 0px) + 0.4rem);
+      z-index: 95;
+      padding: 0 0.7rem;
+      pointer-events: none;
+      animation: rest-timer-slide-up 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
 
-    .rest-timer-modal {
-      position: fixed;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: min(360px, 92vw);
-      border-radius: 18px;
-      border: 1px solid #d1fae5;
-      background: #ffffff;
-      padding: 1rem 1rem 0.9rem;
-      z-index: 131;
+    @keyframes rest-timer-slide-up {
+      from { transform: translateY(120%); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+
+    .rest-timer-bar-inner {
+      pointer-events: auto;
+      max-width: 360px;
+      margin: 0 auto;
       display: grid;
-      gap: 0.55rem;
-      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+      gap: 0.4rem;
+      padding: 0.7rem 0.9rem 0.65rem;
+      border-radius: 18px;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      box-shadow:
+        0 18px 36px rgba(15, 23, 42, 0.14),
+        0 1px 0 rgba(255, 255, 255, 0.6) inset;
       text-align: center;
+      position: relative;
+      overflow: hidden;
     }
 
-    .rest-timer-modal small {
+    .rest-timer-label {
       color: #6b7280;
-      font-size: 0.8rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
     }
 
-    .rest-timer-modal strong {
-      font-size: 2rem;
+    .rest-timer-time {
+      font-size: 1.95rem;
       line-height: 1;
       color: #065f46;
       letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      font-weight: 800;
+    }
+
+    /* Barra de progreso fina y discreta. */
+    .rest-timer-progress {
+      --rest-progress: 1;
+      height: 3px;
+      width: 100%;
+      border-radius: 999px;
+      background: #e5f9f0;
+      overflow: hidden;
+      margin-top: 0.05rem;
+      position: relative;
+    }
+
+    .rest-timer-progress::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      width: calc(var(--rest-progress) * 100%);
+      background: linear-gradient(90deg, #34d399, #10b981);
+      border-radius: 999px;
+      transition: width 0.4s linear;
     }
 
     .rest-timer-actions {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 0.4rem;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.35rem;
+      margin-top: 0.18rem;
     }
 
     .rest-timer-actions button {
       border: 1px solid #e5e7eb;
       border-radius: 10px;
-      background: #fff;
-      color: #334155;
+      background: #ffffff;
+      color: #475569;
       font: inherit;
-      font-size: 0.78rem;
+      font-size: 0.7rem;
       font-weight: 700;
-      height: 36px;
+      height: 32px;
+      cursor: pointer;
+      letter-spacing: 0.01em;
+      padding: 0 0.3rem;
+      transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+    }
+
+    .rest-timer-actions button:hover {
+      background: #f8fafc;
+      color: #0f172a;
+      border-color: #cbd5e1;
+    }
+
+    .rest-timer-actions button:active { transform: scale(0.97); }
+
+    .rest-timer-actions .skip {
+      background: #0f172a;
+      color: #ffffff;
+      border-color: #0f172a;
+    }
+
+    .rest-timer-actions .skip:hover {
+      background: #1e293b;
+      color: #ffffff;
+    }
+
+    /* Mobile (≤ 420px): timer compacto. */
+    @media (max-width: 420px) {
+      .rest-timer-bar {
+        padding: 0 0.55rem;
+        bottom: calc(var(--nav-height, 60px) + var(--safe-area-bottom, 0px) + 0.3rem);
+      }
+      .rest-timer-bar-inner {
+        max-width: 100%;
+        padding: 0.6rem 0.7rem 0.55rem;
+        border-radius: 16px;
+      }
+      .rest-timer-time { font-size: 1.7rem; }
+      .rest-timer-actions button {
+        height: 30px;
+        font-size: 0.66rem;
+      }
+    }
+
+    /* Mobile: tarjetas más generosas en padding y gap. */
+    @media (max-width: 420px) {
+      .exercise-list { gap: 0.6rem; }
+      .exercise-card { padding: 0.65rem 0.6rem; }
+      .exercise-name-block { font-size: 0.88rem; }
+      .exercise-head-actions { gap: 0.4rem; }
+      .info-icon-btn,
+      .history-icon-btn {
+        width: 26px;
+        height: 26px;
+      }
+    }
+
+    .rest-time-presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.35rem;
+      margin: 0.2rem 0 0.4rem;
+    }
+
+    .rest-time-preset {
+      border: 1px solid #e5e7eb;
+      background: #f8fafc;
+      border-radius: 10px;
+      padding: 0.5rem 0.4rem;
+      font: inherit;
+      font-weight: 700;
+      color: #334155;
       cursor: pointer;
     }
 
-    .rest-timer-actions .skip {
+    .rest-time-preset.active {
       border-color: #111827;
       background: #111827;
       color: #fff;
     }
 
+    /* Botón Aceptar serie — píldora redonda con gradiente premium. */
     .check {
       border: 0;
-      background: #22c55e;
-      color: #fff;
-      border-radius: 8px;
-      height: 30px;
-      width: 30px;
-      font-weight: 700;
+      background: linear-gradient(180deg, #34d399 0%, #10b981 60%, #059669 100%);
+      color: #ffffff;
+      border-radius: 999px;
+      height: 34px;
+      width: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 0.95rem;
+      line-height: 1;
       cursor: pointer;
       justify-self: center;
+      box-shadow:
+        0 6px 14px rgba(5, 150, 105, 0.28),
+        0 1px 0 rgba(255, 255, 255, 0.25) inset,
+        0 -1px 0 rgba(0, 0, 0, 0.06) inset;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+    }
+
+    .check:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow:
+        0 9px 18px rgba(5, 150, 105, 0.32),
+        0 1px 0 rgba(255, 255, 255, 0.28) inset;
+    }
+
+    .check:active:not(:disabled) {
+      transform: scale(0.96);
+      box-shadow: 0 3px 8px rgba(5, 150, 105, 0.28);
     }
 
     .check.saving {
-      background: #64748b;
+      background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+      box-shadow: 0 4px 10px rgba(100, 116, 139, 0.22);
     }
 
     .check.confirmed {
-      background: #16a34a;
-      box-shadow: 0 0 0 2px #bbf7d0 inset;
+      background: linear-gradient(180deg, #34d399 0%, #047857 100%);
+      box-shadow:
+        0 0 0 3px rgba(16, 185, 129, 0.18),
+        0 6px 14px rgba(5, 150, 105, 0.32);
+      animation: check-pop 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
     }
+
+    @keyframes check-pop {
+      0%   { transform: scale(0.8); }
+      55%  { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+
+    /* Botones ↑↓ ghost para reordenar el ejercicio. */
+    .exercise-order-controls {
+      flex-shrink: 0;
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 1px;
+      margin-right: 0.15rem;
+    }
+
+    .order-btn {
+      width: 20px;
+      height: 16px;
+      display: grid;
+      place-items: center;
+      border: 0;
+      background: transparent;
+      color: #94a3b8;
+      border-radius: 4px;
+      font: inherit;
+      line-height: 0;
+      cursor: pointer;
+      padding: 0;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .order-btn:hover:not(:disabled) {
+      background: #f1f5f9;
+      color: #0f172a;
+    }
+
+    .order-btn:active:not(:disabled) {
+      background: #e2e8f0;
+    }
+
+    .order-btn:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    /* Cabecera con nombre + chip "subir peso" inline. */
+    .exercise-name-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+      line-height: 1.2;
+    }
+
+    .exercise-primary-name {
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .weight-up-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.22rem;
+      padding: 0.08rem 0.45rem 0.1rem 0.4rem;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #92400e;
+      background: #fef3c7;
+      border-radius: 999px;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+
+    .weight-up-chip svg {
+      flex-shrink: 0;
+      stroke-width: 2;
+    }
+
+    /* En vez de teñir el título completo, dejamos un puntito amber discreto. */
+    .exercise-card.needs-weight-up {
+      box-shadow: inset 3px 0 0 0 #f59e0b;
+    }
+
+    /* (Repeat-flag y set-up-hint eliminados a favor del chip a nivel de cabecera.) */
 
     .delete-set-btn {
       border: 0;
@@ -1474,16 +1929,26 @@ interface WorkoutTemplate {
 
     .finish-exercise {
       justify-self: end;
-      border: 1px solid #111;
-      color: #fff;
-      background: #111;
-      border-radius: 8px;
-      padding: 0.35rem 0.65rem;
+      border: 1px solid #0f172a;
+      color: #ffffff;
+      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+      border-radius: 10px;
+      padding: 0.5rem 0.85rem;
       font-family: inherit;
-      font-size: 0.78rem;
+      font-size: 0.74rem;
       font-weight: 700;
+      letter-spacing: 0.02em;
       cursor: pointer;
+      box-shadow: 0 4px 10px rgba(15, 23, 42, 0.15);
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
     }
+
+    .finish-exercise:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 16px rgba(15, 23, 42, 0.18);
+    }
+
+    .finish-exercise:active { transform: translateY(0); }
 
     .modal-backdrop {
       position: fixed;
@@ -1920,14 +2385,30 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   readonly activeTemplateId = signal<string | null>(null);
   numericPadOpen = false;
   numericPadExerciseId = '';
+  /** Si está editando una serie existente, su id; '' si es flujo de creación. */
+  numericPadSetId = '';
   numericPadField: 'weight' | 'reps' | 'assistReps' = 'weight';
   numericPadValue = '';
   readonly numericPadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
   setSubmitStateByExercise: Record<string, 'idle' | 'saving' | 'confirmed'> = {};
+  /** IDs de series que se acaban de confirmar en esta sesión (incluye id local optimista y luego id real). */
+  confirmedSetIdsInSession = new Set<string>();
   restTimerOpen = false;
   restRemainingSec = 120;
   restTimerPaused = false;
+  /** Duración seleccionada para el descanso actual (segundos). */
+  private currentRestDurationSec = 120;
+  /** Ejercicio que disparó el descanso actual (para asociarlo al editor). */
+  private currentRestExerciseId: string | null = null;
+  /** Default global por si el ejercicio no tiene rest_seconds configurado. */
+  private readonly DEFAULT_REST_SECONDS = 120;
   private restTimerInterval: ReturnType<typeof setInterval> | null = null;
+  /* Editor de tiempo de descanso por ejercicio. */
+  restTimeEditorOpen = false;
+  restTimeEditorExerciseId = '';
+  restTimeEditorExerciseName = '';
+  restTimeEditorValue = 120;
+  readonly restTimePresets = [30, 45, 60, 75, 90, 120, 150, 180, 240];
   private isBootstrappingTemplate = false;
   private routineLoaderGifTimer: ReturnType<typeof setInterval> | null = null;
   private routineLoaderGifIndex = signal(0);
@@ -2412,15 +2893,32 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   openNumericPad(exerciseId: string, field: 'weight' | 'reps' | 'assistReps'): void {
     this.setInputs[exerciseId] = this.setInputs[exerciseId] || {};
     this.numericPadExerciseId = exerciseId;
+    this.numericPadSetId = '';
     this.numericPadField = field;
     const current = this.setInputs[exerciseId]?.[field];
     this.numericPadValue = current != null ? String(current) : '';
     this.numericPadOpen = true;
   }
 
+  /** Abre el pad para editar un campo concreto de una serie ya existente. */
+  openSetCellPad(exerciseId: string, setId: string, field: 'weight' | 'reps' | 'assistReps'): void {
+    const exercise = this.currentWorkout?.exercises.find((e) => e.id === exerciseId);
+    const set = exercise?.sets.find((s) => s.id === setId);
+    this.numericPadExerciseId = exerciseId;
+    this.numericPadSetId = setId;
+    this.numericPadField = field;
+    let raw: number | null | undefined;
+    if (set) {
+      raw = field === 'weight' ? set.weight : field === 'reps' ? set.done_reps : set.assisted_reps;
+    }
+    this.numericPadValue = raw != null ? String(raw) : '';
+    this.numericPadOpen = true;
+  }
+
   hideNumericPad(): void {
     this.numericPadOpen = false;
     this.numericPadExerciseId = '';
+    this.numericPadSetId = '';
     this.numericPadValue = '';
   }
 
@@ -2439,6 +2937,13 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   async onNumericPadNext(): Promise<void> {
+    // Modo edición de celda de una serie existente: guardamos sólo ese campo y cerramos.
+    if (this.numericPadSetId) {
+      await this.commitNumericPadValueToSet();
+      this.hideNumericPad();
+      return;
+    }
+    // Modo legacy de creación encadenada (no se usa con UI nueva, pero mantenemos por seguridad).
     this.commitNumericPadValue();
     if (this.numericPadField === 'weight') {
       this.openNumericPad(this.numericPadExerciseId, 'reps');
@@ -2452,6 +2957,59 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.hideNumericPad();
     if (exId) {
       await this.addSet(exId);
+    }
+  }
+
+  /** Guarda el valor del numeric pad sobre el campo de una serie existente, en local + backend. */
+  private async commitNumericPadValueToSet(): Promise<void> {
+    const exId = this.numericPadExerciseId;
+    const setId = this.numericPadSetId;
+    if (!exId || !setId || !this.currentWorkout) return;
+    const exercise = this.currentWorkout.exercises.find((e) => e.id === exId);
+    const set = exercise?.sets.find((s) => s.id === setId);
+    if (!exercise || !set) return;
+
+    const raw = this.numericPadValue.trim().replace(',', '.');
+    const parsed = raw === '' ? null : Number(raw);
+    if (parsed != null && Number.isNaN(parsed)) return;
+
+    if (this.numericPadField === 'weight') set.weight = parsed;
+    else if (this.numericPadField === 'reps') set.done_reps = parsed != null ? Math.round(parsed) : null;
+    else if (this.numericPadField === 'assistReps') set.assisted_reps = parsed != null ? Math.round(parsed) : null;
+
+    // PATCH backend (sólo weight, done_reps, comment soportados; assisted_reps quedará local hasta extender la API).
+    if (this.numericPadField === 'weight' || this.numericPadField === 'reps') {
+      const payload: { weight?: number | null; done_reps?: number | null } = {};
+      if (this.numericPadField === 'weight') payload.weight = parsed;
+      if (this.numericPadField === 'reps') payload.done_reps = parsed != null ? Math.round(parsed) : null;
+      await this.workoutRecordService.updateSet(this.currentWorkout.id, exId, setId, payload);
+    }
+  }
+
+  /**
+   * Inserta una nueva serie con valores prellenados (de la última serie del ejercicio,
+   * o del máximo histórico si no hay todavía sets en este workout). El usuario puede
+   * editar las celdas y luego confirmar con el tick.
+   */
+  async addEmptySet(exerciseId: string): Promise<void> {
+    if (!this.currentWorkout) return;
+    const exercise = this.currentWorkout.exercises.find((e) => e.id === exerciseId);
+    if (!exercise) return;
+    const lastSet = exercise.sets.length > 0 ? exercise.sets[exercise.sets.length - 1] : null;
+    const fallbackWeight = Number(this.previousMaxWeight(exercise)) || 0;
+    const fallbackReps = Number(this.previousMaxReps(exercise)) || 0;
+    const weight = lastSet?.weight ?? (fallbackWeight > 0 ? fallbackWeight : null);
+    const reps = lastSet?.done_reps ?? (fallbackReps > 0 ? fallbackReps : null);
+
+    const serverSet = await this.workoutRecordService.addSet(this.currentWorkout.id, exerciseId, {
+      set_type: 'normal',
+      weight: weight ?? undefined,
+      done_reps: reps ?? undefined,
+    });
+    if (serverSet) {
+      exercise.sets = [...exercise.sets, serverSet];
+      exercise.sets.sort((a, b) => a.position - b.position);
+      exercise.notes = this.buildExerciseNotes(exercise);
     }
   }
 
@@ -2488,11 +3046,17 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.setInputs[exId][this.numericPadField] = parsed;
   }
 
-  private startRestTimer(): void {
-    this.restTimerOpen = true;
-    this.restTimerPaused = false;
-    this.restRemainingSec = 120;
+  private startRestTimer(exerciseId?: string): void {
+    // Cancela cualquier timer activo: si registras una nueva serie antes de
+    // que termine el descanso, reiniciamos limpio.
     this.stopRestTimerInterval();
+    const exercise = this.currentWorkout?.exercises.find((e) => e.id === exerciseId) ?? null;
+    const seconds = this.resolveRestSeconds(exercise);
+    this.currentRestDurationSec = seconds;
+    this.currentRestExerciseId = exerciseId ?? null;
+    this.restRemainingSec = seconds;
+    this.restTimerPaused = false;
+    this.restTimerOpen = true;
     this.restTimerInterval = setInterval(() => {
       if (this.restTimerPaused) return;
       this.restRemainingSec = Math.max(0, this.restRemainingSec - 1);
@@ -2502,18 +3066,27 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }, 1000);
   }
 
+  private resolveRestSeconds(exercise: WorkoutExerciseRecord | null): number {
+    const explicit = exercise?.rest_seconds;
+    if (typeof explicit === 'number' && explicit > 0) {
+      return Math.min(3600, Math.floor(explicit));
+    }
+    return this.DEFAULT_REST_SECONDS;
+  }
+
   toggleRestPause(): void {
     this.restTimerPaused = !this.restTimerPaused;
   }
 
   resetRestTimer(): void {
-    this.restRemainingSec = 120;
+    this.restRemainingSec = this.currentRestDurationSec;
     this.restTimerPaused = false;
   }
 
   skipRestTimer(): void {
     this.restTimerOpen = false;
     this.stopRestTimerInterval();
+    this.currentRestExerciseId = null;
   }
 
   restTimerLabel(): string {
@@ -2522,10 +3095,153 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     return `${m}:${s}`;
   }
 
+  /** Fracción 0..1 de progreso restante para el anillo del timer. */
+  restTimerProgress(): number {
+    if (this.currentRestDurationSec <= 0) return 0;
+    const ratio = this.restRemainingSec / this.currentRestDurationSec;
+    return Math.max(0, Math.min(1, ratio));
+  }
+
+  /** Nombre del ejercicio asociado al timer activo (para mostrarlo en la barra). */
+  restTimeEditorRefName(): string {
+    const id = this.currentRestExerciseId;
+    if (!id || !this.currentWorkout) return '';
+    const ex = this.currentWorkout.exercises.find((e) => e.id === id);
+    return ex ? this.displayExercisePrimaryName(ex) : '';
+  }
+
   private stopRestTimerInterval(): void {
     if (!this.restTimerInterval) return;
     clearInterval(this.restTimerInterval);
     this.restTimerInterval = null;
+  }
+
+  /* ── Editor de tiempo de descanso (por ejercicio) ─────────────────── */
+
+  openRestTimeEditor(): void {
+    const exId = this.currentRestExerciseId
+      || this.selectedExerciseId
+      || this.currentWorkout?.exercises[0]?.id
+      || '';
+    if (!exId) return;
+    const exercise = this.currentWorkout?.exercises.find((e) => e.id === exId) ?? null;
+    this.restTimeEditorExerciseId = exId;
+    this.restTimeEditorExerciseName = exercise ? this.displayExercisePrimaryName(exercise) : '';
+    this.restTimeEditorValue = this.resolveRestSeconds(exercise);
+    this.restTimeEditorOpen = true;
+  }
+
+  closeRestTimeEditor(): void {
+    this.restTimeEditorOpen = false;
+    this.restTimeEditorExerciseId = '';
+    this.restTimeEditorExerciseName = '';
+  }
+
+  setRestTimeEditorValue(value: number): void {
+    this.restTimeEditorValue = value;
+  }
+
+  formatRestPreset(seconds: number): string {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return s === 0 ? `${m}m` : `${m}m ${s}s`;
+  }
+
+  async saveRestTimeEditor(): Promise<void> {
+    if (!this.currentWorkout) {
+      this.closeRestTimeEditor();
+      return;
+    }
+    const exId = this.restTimeEditorExerciseId;
+    const value = Math.max(0, Math.min(3600, Math.floor(Number(this.restTimeEditorValue) || 0)));
+    const exercise = this.currentWorkout.exercises.find((e) => e.id === exId);
+    if (!exercise) {
+      this.closeRestTimeEditor();
+      return;
+    }
+    // Optimistic UI: actualiza el modelo local + el timer activo si es el mismo ejercicio.
+    exercise.rest_seconds = value;
+    if (this.currentRestExerciseId === exId && this.restTimerOpen) {
+      this.currentRestDurationSec = value;
+      // Si ya superó el nuevo valor, lo dejamos en 0 para skip; si no, ajustamos al máximo.
+      if (this.restRemainingSec > value) {
+        this.restRemainingSec = value;
+      }
+    }
+    this.closeRestTimeEditor();
+    // Persistimos en el backend.
+    await this.workoutRecordService.updateExerciseRest(this.currentWorkout.id, exId, value);
+  }
+
+  /* ── Reordenar ejercicios (botones ↑↓) ────────────────────────────── */
+
+  async moveExercise(fromIndex: number, toIndex: number): Promise<void> {
+    if (!this.currentWorkout) return;
+    const list = this.currentWorkout.exercises;
+    if (fromIndex < 0 || toIndex < 0 || fromIndex >= list.length || toIndex >= list.length) return;
+    if (fromIndex === toIndex) return;
+    // Swap / move respetando el orden visual.
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, moved);
+    // Reasignamos position localmente para que coincida con lo que se persistirá.
+    list.forEach((ex, idx) => (ex.position = idx + 1));
+    const exerciseIds = list.map((ex) => ex.id);
+    await this.workoutRecordService.reorderExercises(this.currentWorkout.id, exerciseIds);
+  }
+
+  /**
+   * Confirma una serie cargada (pendiente) sin pasar por el backend: la serie
+   * ya existe en BD desde "Repetir rutina" o sesión previa. Solo la marca como
+   * "hecha en esta sesión" para que reciba el sombreado verde y para arrancar
+   * el descanso. El usuario sigue pudiendo borrarla luego con la X.
+   */
+  confirmSet(exerciseId: string, setId: string): void {
+    if (!setId) return;
+    if (this.confirmedSetIdsInSession.has(setId)) return;
+    this.confirmedSetIdsInSession.add(setId);
+    this.startRestTimer(exerciseId);
+  }
+
+  /* ── "Subir peso" — peso igual + reps iguales o superiores ────────── */
+
+  setRepeatsWeight(exercise: WorkoutExerciseRecord, idx: number): boolean {
+    if (idx <= 0) return false;
+    const current = exercise.sets[idx];
+    const prev = exercise.sets[idx - 1];
+    if (!current || !prev) return false;
+    if (current.weight == null || prev.weight == null) return false;
+    if (current.weight !== prev.weight) return false;
+    if (current.done_reps == null || prev.done_reps == null) return false;
+    // Reps iguales o superiores: el usuario sigue con el mismo peso pero ya iguala
+    // o supera al de la serie previa, así que toca subir peso.
+    return current.done_reps >= prev.done_reps;
+  }
+
+  /**
+   * Marca "Sube peso" si:
+   *  1. El usuario ya confirmó en esta sesión una serie que iguala (peso) y empata
+   *     o mejora reps respecto a la anterior, o
+   *  2. Las marcas previas (último entreno) ya muestran ese patrón → te avisa nada
+   *     más cargar el ejercicio para que subas la carga directamente.
+   */
+  exerciseShouldRaiseWeight(exercise: WorkoutExerciseRecord): boolean {
+    const sets = exercise.sets ?? [];
+    for (let i = 1; i < sets.length; i += 1) {
+      const current = sets[i];
+      if (!this.confirmedSetIdsInSession.has(current.id)) continue;
+      if (this.setRepeatsWeight(exercise, i)) return true;
+    }
+    const prev = exercise.previous_sets ?? [];
+    for (let i = 1; i < prev.length; i += 1) {
+      const a = prev[i - 1];
+      const b = prev[i];
+      if (!a || !b) continue;
+      if (a.weight == null || b.weight == null || a.weight !== b.weight) continue;
+      if (a.done_reps == null || b.done_reps == null) continue;
+      if (b.done_reps >= a.done_reps) return true;
+    }
+    return false;
   }
 
 
@@ -2576,6 +3292,14 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     exercise.notes = this.buildExerciseNotes(exercise);
     this.setInputs[exerciseId] = { setKind: 'normal' };
 
+    // Marcamos esta serie como "confirmada en sesión" para que reciba el sombreado verde
+    // (y eventualmente el accent amber si repite). Las series cargadas por defecto no lo reciben.
+    this.confirmedSetIdsInSession.add(localId);
+
+    // Lanza el timer YA — sin esperar la respuesta del backend.
+    // Si el descanso está corriendo de una serie anterior, se reinicia limpio.
+    this.startRestTimer(exerciseId);
+
     const serverSet = await this.workoutRecordService.addSet(workoutId, exerciseId, {
       set_type: payload.set_type,
       done_reps: payload.done_reps,
@@ -2592,11 +3316,15 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
         (s) => s.local_id !== localId
       );
+      this.confirmedSetIdsInSession.delete(localId);
       return;
     }
     this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
       (set) => set.local_id !== localId
     );
+    // Promovemos el id en el Set ANTES de mutar exercise.sets para evitar flicker.
+    this.confirmedSetIdsInSession.add(serverSet.id);
+    this.confirmedSetIdsInSession.delete(localId);
     if (exercise) {
       exercise.sets = exercise.sets.map((s) => (s.id === localId ? serverSet : s));
       exercise.sets.sort((a, b) => a.position - b.position);
@@ -2608,7 +3336,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         this.setSubmitStateByExercise[exerciseId] = 'idle';
       }
     }, 900);
-    this.startRestTimer();
+    // El timer ya se lanzó al inicio de addSet (UI optimista). No relanzar aquí.
   }
 
   private resolveSetNumberInput(rawValue: number | undefined, fallbackLabel: string): number | null {
@@ -2628,6 +3356,12 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       return;
     }
     const exerciseIds = new Set(detail.exercises.map((e) => e.id));
+
+    // Series cargadas desde el server NO deben tener el resaltado verde/amber.
+    // Solo se aplica a las que el usuario confirma con el check en la sesión actual.
+    if (this.draftRestoredForWorkoutId !== workoutId) {
+      this.confirmedSetIdsInSession = new Set();
+    }
 
     if (this.draftRestoredForWorkoutId !== workoutId) {
       const draft = this.sessionDraft.load(workoutId);
