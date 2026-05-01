@@ -2825,6 +2825,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         pendingSetsByExercise: JSON.parse(JSON.stringify(this.pendingSetsByExercise)),
         setInputs: JSON.parse(JSON.stringify(this.setInputs)),
         completedExerciseIds: [...this.completedExerciseIds],
+        confirmedSetIds: [...this.confirmedSetIdsInSession],
         selectedExerciseId: this.selectedExerciseId
       };
       this.sessionDraft.save(activeId, payload);
@@ -3003,7 +3004,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       const exId = this.numericPadExerciseId;
       const setId = this.numericPadSetId;
       const field = this.numericPadField;
-      await this.commitNumericPadValueToSet();
+      this.commitNumericPadValueToSet();
       if (field === 'weight') {
         // Pasamos a Reps de la misma serie (con prefill desde la propia serie o anterior).
         this.openSetCellPad(exId, setId, 'reps');
@@ -3011,7 +3012,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       }
       // Tras Reps (o cualquier otro), auto-confirmamos la serie y cerramos.
       this.hideNumericPad();
-      this.confirmSet(exId, setId);
+      await this.confirmSet(exId, setId);
       return;
     }
     // Modo legacy de creación encadenada (no usado con la UI nueva pero queda por seguridad).
@@ -3031,8 +3032,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
   }
 
-  /** Guarda el valor del numeric pad sobre el campo de una serie existente, en local + backend. */
-  private async commitNumericPadValueToSet(): Promise<void> {
+  /** Actualiza el valor del numeric pad sobre el campo de una serie existente, solo en local.
+   *  El guardado real al backend ocurre en confirmSet() cuando el usuario pulsa el tick. */
+  private commitNumericPadValueToSet(): void {
     const exId = this.numericPadExerciseId;
     const setId = this.numericPadSetId;
     if (!exId || !setId || !this.currentWorkout) return;
@@ -3047,13 +3049,6 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (this.numericPadField === 'weight') set.weight = parsed;
     else if (this.numericPadField === 'reps') set.done_reps = parsed != null ? Math.round(parsed) : null;
     else if (this.numericPadField === 'assistReps') set.assisted_reps = parsed != null ? Math.round(parsed) : null;
-
-    if (this.numericPadField === 'weight' || this.numericPadField === 'reps') {
-      const payload: { weight?: number | null; done_reps?: number | null } = {};
-      if (this.numericPadField === 'weight') payload.weight = parsed;
-      if (this.numericPadField === 'reps') payload.done_reps = parsed != null ? Math.round(parsed) : null;
-      await this.workoutRecordService.updateSet(this.currentWorkout.id, exId, setId, payload);
-    }
   }
 
   /** Total de series del workout (incluye pendientes). */
@@ -3301,14 +3296,27 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   /**
-   * Confirma una serie cargada (pendiente) sin pasar por el backend: la serie
-   * ya existe en BD desde "Repetir rutina" o sesión previa. Solo la marca como
-   * "hecha en esta sesión" para que reciba el sombreado verde y para arrancar
-   * el descanso. El usuario sigue pudiendo borrarla luego con la X.
+   * Confirma una serie: guarda weight + done_reps al backend y la marca como
+   * "hecha en esta sesión" (sombreado verde + arranque del descanso).
+   * Es el único punto donde se persiste al backend para series existentes;
+   * commitNumericPadValueToSet() solo actualiza el estado local.
    */
-  confirmSet(exerciseId: string, setId: string): void {
-    if (!setId) return;
+  async confirmSet(exerciseId: string, setId: string): Promise<void> {
+    if (!setId || !this.currentWorkout) return;
     if (this.confirmedSetIdsInSession.has(setId)) return;
+    // Solo llamamos al backend para series reales (no pendientes locales).
+    if (!setId.startsWith('local-')) {
+      const exercise = this.currentWorkout.exercises.find((e) => e.id === exerciseId);
+      const set = exercise?.sets.find((s) => s.id === setId);
+      if (set) {
+        await this.workoutRecordService.updateSet(
+          this.currentWorkout.id,
+          exerciseId,
+          setId,
+          { weight: set.weight ?? null, done_reps: set.done_reps ?? null }
+        );
+      }
+    }
     this.confirmedSetIdsInSession.add(setId);
     this.startRestTimer(exerciseId);
   }
@@ -3482,6 +3490,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
         );
         this.completedExerciseIds = new Set(
           draft.completedExerciseIds.filter((id) => exerciseIds.has(id))
+        );
+        const allSetIds = new Set(detail.exercises.flatMap((e) => e.sets.map((s) => s.id)));
+        this.confirmedSetIdsInSession = new Set(
+          (draft.confirmedSetIds ?? []).filter((id) => allSetIds.has(id))
         );
         const nextInputs: typeof this.setInputs = {};
         for (const exercise of detail.exercises) {

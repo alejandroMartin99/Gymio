@@ -10,6 +10,7 @@ export interface WorkoutSessionDraftPayload {
   >;
   setInputs: Record<string, { reps?: number; weight?: number; comment?: string; mode?: 'unilateral' | 'bilateral' }>;
   completedExerciseIds: string[];
+  confirmedSetIds: string[];
   selectedExerciseId: string;
 }
 
@@ -56,6 +57,7 @@ export class WorkoutSessionDraftService {
         pendingSetsByExercise: parsed.pendingSetsByExercise ?? {},
         setInputs: parsed.setInputs ?? {},
         completedExerciseIds: Array.isArray(parsed.completedExerciseIds) ? parsed.completedExerciseIds : [],
+        confirmedSetIds: Array.isArray(parsed.confirmedSetIds) ? parsed.confirmedSetIds : [],
         selectedExerciseId: typeof parsed.selectedExerciseId === 'string' ? parsed.selectedExerciseId : ''
       };
     } catch {
