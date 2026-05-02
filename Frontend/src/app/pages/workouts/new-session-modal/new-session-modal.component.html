@@ -1,0 +1,25 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Define tu entrenamiento</h3>
+      <p>Nombre y tipo de rutina para arrancar.</p>
+
+      <div class="builder in-modal">
+        <label>
+          Nombre del entrenamiento
+          <input [(ngModel)]="workoutName" (ngModelChange)="onNameChange($event)" placeholder="Ej: Push day pesado" />
+        </label>
+
+        <button type="button" class="primary" (click)="onConfirm()" [disabled]="!workoutName.trim() || isLoading">
+          + Iniciar entrenamiento
+        </button>
+
+        @if (error) {
+          <small class="note error">{{ error }}</small>
+        }
+      </div>
+
+      <button type="button" class="close" (click)="onCancel()">Cerrar</button>
+    </div>
+  </div>
+}

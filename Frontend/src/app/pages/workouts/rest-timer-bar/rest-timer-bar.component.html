@@ -1,0 +1,23 @@
+@if (open) {
+  <div class="rest-timer-bar" role="timer" aria-live="polite">
+    <div class="rest-timer-bar-inner">
+      <small class="rest-timer-label">
+        Descanso{{ paused ? ' · pausado' : '' }}
+      </small>
+      <strong class="rest-timer-time">{{ label }}</strong>
+      <div
+        class="rest-timer-progress"
+        role="presentation"
+        [style.--rest-progress]="progress"
+      ></div>
+      <div class="rest-timer-actions">
+        <button type="button" (click)="onPauseToggle()">
+          {{ paused ? 'Reanudar' : 'Pausa' }}
+        </button>
+        <button type="button" (click)="onReset()">Reset</button>
+        <button type="button" (click)="onOpenEditor()">Tiempo</button>
+        <button type="button" class="skip" (click)="onSkip()">Skip</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,6 +1,315 @@
-<!--
-  Archivo huérfano: el template real sigue inline en workouts.page.ts.
-  Se conserva vacío para no dejar contenido desactualizado. Cuando se haga el
-  refactor a archivos separados, este archivo recibirá el template y el .ts
-  pasará a usar templateUrl/styleUrls.
--->
+<section class="workout-start">
+  <app-workout-start-overlay [show]="showRoutineStartOverlay" [currentGif]="currentRoutineLoaderGif()" />
+
+  @if (!currentWorkout) {
+    <div class="hero">
+      <h2>New Workout</h2>
+      <p>Piensa menos. Entrena mas.</p>
+    </div>
+  }
+
+  @if (!currentWorkout) {
+    <div class="empty">
+      @if (workoutRecordService.loading()) {
+        <div class="loading-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <small>Cargando rutinas...</small>
+        </div>
+      } @else {
+        <div class="action-row">
+          <button type="button" (click)="openReplicateModal()" [disabled]="replicateModalRecords().length === 0">
+            Repetir rutina
+          </button>
+          <button type="button" class="secondary" (click)="openNewSessionModal()">
+            Nueva rutina
+          </button>
+        </div>
+      }
+    </div>
+
+    @if (!workoutRecordService.loading()) {
+      <div class="templates-zone">
+        <div class="templates-head">
+          <h3>Workout Templates</h3>
+          <small>Rutinas completas y listas para empezar.</small>
+        </div>
+
+        <div class="template-filter-group">
+          <span class="filter-label">Días / semana</span>
+          <div class="template-filter-row">
+            @for (f of templateDaysFilters; track f.key) {
+              <button
+                type="button"
+                class="template-chip"
+                [class.active]="selectedTemplateDaysFilter === f.key"
+                (click)="selectedTemplateDaysFilter = f.key"
+              >{{ f.label }}</button>
+            }
+          </div>
+        </div>
+        <div class="template-filter-group">
+          <span class="filter-label">Equipamiento</span>
+          <div class="template-filter-row">
+            @for (f of templateEquipmentFilters; track f.key) {
+              <button
+                type="button"
+                class="template-chip"
+                [class.active]="selectedTemplateEquipmentFilter === f.key"
+                (click)="selectedTemplateEquipmentFilter = f.key"
+              >{{ f.label }}</button>
+            }
+          </div>
+        </div>
+
+        <div class="template-grid">
+          @for (tpl of filteredTemplates(); track tpl.id) {
+            <article class="template-card">
+              <div class="template-content">
+                <strong>{{ tpl.title }}</strong>
+                <small>{{ tpl.subtitle }}</small>
+                <div class="template-badges">
+                  <span>{{ templateDaysLabel(tpl.daysFilter) }}</span>
+                  <span>{{ templateEquipmentLabel(tpl.equipment) }}</span>
+                </div>
+                <div class="template-gif-strip">
+                  @for (ex of tpl.exercises; track $index) {
+                    @if (ex.exerciseId) {
+                      <img [src]="templateGifUrl(ex.exerciseId)" alt="" />
+                    } @else {
+                      <div class="gif-placeholder">{{ ex.muscle_group?.[0] ?? '·' }}</div>
+                    }
+                  }
+                </div>
+                <button
+                  type="button"
+                  class="template-cta"
+                  [disabled]="isCreatingTemplate() || workoutRecordService.loading()"
+                  (click)="startWorkoutFromTemplate(tpl)"
+                >
+                  @if (activeTemplateId() === tpl.id) {
+                    Cargando rutina...
+                  } @else {
+                    Cargar rutina
+                  }
+                </button>
+              </div>
+            </article>
+          }
+        </div>
+      </div>
+    }
+  }
+
+  @if (currentWorkout) {
+    <div class="builder">
+      <div class="workout-header-row">
+        <h3>{{ currentWorkout.workout_name }}</h3>
+        <span class="workout-progress-count">
+          {{ workoutProgressDone() }}/{{ workoutProgressTotal() }}
+        </span>
+      </div>
+      <div class="workout-progress" [style.--progress]="workoutProgressFraction()" role="progressbar"
+        [attr.aria-valuenow]="workoutProgressDone()" [attr.aria-valuemax]="workoutProgressTotal()">
+        <div class="workout-progress-bar"></div>
+      </div>
+
+      <div class="exercise-list">
+      @for (exercise of currentWorkout.exercises; track exercise.id; let exIdx = $index) {
+        <div
+          class="exercise-card"
+          [class.selected]="selectedExerciseId === exercise.id"
+          [class.completed]="completedExerciseIds.has(exercise.id)"
+          [class.needs-weight-up]="exerciseShouldRaiseWeight(exercise)"
+        >
+          <div class="exercise-head" (click)="toggleExercise(exercise.id)">
+            <div class="exercise-order-controls" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="order-btn"
+                [disabled]="exIdx === 0"
+                (click)="moveExercise(exIdx, exIdx - 1)"
+                aria-label="Subir ejercicio"
+                title="Subir"
+              >
+                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                  <path d="M2.5 7.5l3.5-4 3.5 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button
+                type="button"
+                class="order-btn"
+                [disabled]="exIdx === currentWorkout.exercises.length - 1"
+                (click)="moveExercise(exIdx, exIdx + 1)"
+                aria-label="Bajar ejercicio"
+                title="Bajar"
+              >
+                <svg viewBox="0 0 12 12" width="10" height="10" aria-hidden="true">
+                  <path d="M2.5 4.5l3.5 4 3.5-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <strong class="exercise-name-block">
+              <span class="exercise-name-row">
+                <span class="exercise-primary-name">{{ displayExercisePrimaryName(exercise) }}</span>
+                @if (exerciseShouldRaiseWeight(exercise)) {
+                  <span class="weight-up-chip" title="Llevas dos series con el mismo peso y reps. Sube el peso.">
+                    <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
+                      <path d="M5 8V2M2.5 4.5L5 2l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Sube peso
+                  </span>
+                }
+              </span>
+              @if (displayExerciseSecondaryName(exercise); as enName) {
+                <small>{{ enName }}</small>
+              }
+            </strong>
+            <div class="exercise-head-actions">
+              @if (exerciseDbDetail(exercise)) {
+                <button
+                  type="button"
+                  class="info-icon-btn"
+                  (click)="$event.stopPropagation(); openExerciseInfoModal(exercise)"
+                  aria-label="Ver informacion del ejercicio"
+                >
+                  <img src="/icons/info-circle.svg" alt="" />
+                </button>
+              }
+              <button
+                type="button"
+                class="history-icon-btn"
+                (click)="$event.stopPropagation(); openHistoryModal(exercise)"
+                aria-label="Ver historial"
+              >
+                <img src="/icons/chart-line.svg" alt="" />
+              </button>
+              <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
+                Eliminar
+              </button>
+            </div>
+          </div>
+          @if (selectedExerciseId === exercise.id) {
+            <small>{{ exercise.muscle_group || 'General' }}</small>
+            <div class="exercise-hero">
+              <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
+            </div>
+            <div class="set-grid header">
+              <span>SERIE</span>
+              <span>ANTERIOR</span>
+              <span>KG</span>
+              <span>REPS</span>
+              <span></span>
+            </div>
+            @for (set of exercise.sets; track set.id; let idx = $index) {
+              <div
+                class="set-grid"
+                [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
+              >
+                <span class="set-index">{{ idx + 1 }}</span>
+                <span class="set-prev">{{ formatPreviousSetSnapshot(exercise, idx) }}</span>
+                @if (confirmedSetIdsInSession.has(set.id)) {
+                  <span>{{ set.weight ?? '–' }}</span>
+                  <span>{{ set.done_reps ?? '–' }}</span>
+                } @else {
+                  <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
+                    {{ set.weight ?? '–' }}
+                  </button>
+                  <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
+                    {{ set.done_reps ?? '–' }}
+                  </button>
+                }
+                @if (confirmedSetIdsInSession.has(set.id)) {
+                  <button
+                    type="button"
+                    class="delete-set-btn"
+                    (click)="removeSet(exercise.id, set.id)"
+                    aria-label="Eliminar serie"
+                    title="Eliminar"
+                  >×</button>
+                } @else {
+                  <button
+                    type="button"
+                    class="set-tick-btn"
+                    (click)="confirmSet(exercise.id, set.id)"
+                    aria-label="Confirmar serie"
+                    title="Confirmar"
+                  >
+                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <polyline points="3.5 8.5 7 12 12.5 4.5"/>
+                    </svg>
+                  </button>
+                }
+              </div>
+              @if (set.comment) {
+                <small class="set-comment">{{ set.comment }}</small>
+              }
+            }
+
+            <button
+              type="button"
+              class="add-set-btn"
+              (click)="addEmptySet(exercise.id)"
+              aria-label="Añadir nueva serie"
+              title="Añadir serie"
+            >
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                <line x1="8" y1="3" x2="8" y2="13"/>
+                <line x1="3" y1="8" x2="13" y2="8"/>
+              </svg>
+              <span>Añadir serie</span>
+            </button>
+            <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
+            <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
+              Terminar ejercicio
+            </button>
+          }
+        </div>
+      }
+      </div>
+      <button
+        type="button"
+        class="link-btn add-exercise add-exercise-icon"
+        (click)="openExerciseGroupModal()"
+        aria-label="Agregar ejercicio"
+        title="Agregar ejercicio"
+      >
+        <img src="/icons/plus-circle.svg" alt="" />
+      </button>
+    </div>
+  }
+
+  <app-new-session-modal [open]="showNewSessionModal" [workoutName]="workoutName" [error]="workoutRecordService.error()" [isLoading]="workoutRecordService.loading()"
+    (nameChange)="workoutName = $event" (confirm)="startWorkout()" (cancel)="closeNewSessionModal()" />
+
+  <app-replicate-modal [open]="showReplicateModal" [records]="replicateModalRecords()" [selectedId]="selectedReplicateWorkoutId"
+    [confirmed]="replicateSelectionConfirmed" [isLoading]="workoutRecordService.loading()"
+    (workoutSelected)="selectReplicateWorkout($event)" (confirm)="confirmReplicateWorkout()" (cancel)="closeReplicateModal()" />
+
+  <app-exercise-catalog-modal [open]="showExerciseListModal" [selectedMuscleGroup]="selectedMuscleGroup"
+    [selectedEquipmentFilter]="selectedEquipmentFilter" [searchQuery]="catalogSearchQuery"
+    [catalogItems]="filteredCatalogItems()" [selectedThumbs]="selectedCatalogThumbs()" [isLoading]="exerciseCatalogService.loading()"
+    [muscleGroupSlides]="muscleGroupSlides" [equipmentFilters]="equipmentFilters"
+    (muscleGroupSelected)="selectMuscleGroupSlide($event)" (equipmentFilterChange)="setEquipmentFilter($event)"
+    (searchChange)="onCatalogSearchInputChange($event)" (exercisePicked)="pickCatalogExercise($event)" (cancel)="closeExerciseListModal()" />
+
+  <app-workout-summary-modal [open]="showWorkoutSummaryModal" [workoutName]="summaryWorkoutName"
+    [elapsedLabel]="summaryElapsedLabel" [exercisesCount]="summaryExercisesCount" [setsCount]="summarySetsCount"
+    (closed)="closeWorkoutSummary()" />
+
+  <app-history-modal [open]="showHistoryModal" [title]="historyExerciseTitle" [points]="historyPoints" (closed)="closeHistoryModal()" />
+
+  <app-exercise-info-modal [open]="showExerciseInfoModal" [exerciseName]="exerciseInfoName" [detail]="exerciseInfoDetail"
+    (closed)="closeExerciseInfoModal()" />
+
+  <app-numeric-pad-sheet [open]="numericPadOpen" [value]="numericPadValue" [fieldLabel]="numericPadFieldLabel()"
+    [nextLabel]="numericPadNextLabel()" [keys]="numericPadKeys"
+    (keyPressed)="onNumericPadKey($event)" (backspace)="onNumericPadBackspace()" (next)="onNumericPadNext()"
+    (hide)="hideNumericPad()" />
+
+  <app-rest-timer-bar [open]="restTimerOpen" [label]="restTimerLabel()" [paused]="restTimerPaused" [progress]="restTimerProgress()"
+    (pauseToggle)="toggleRestPause()" (reset)="resetRestTimer()" (openEditor)="openRestTimeEditor()" (skip)="skipRestTimer()" />
+
+  <app-rest-time-editor-modal [open]="restTimeEditorOpen" [exerciseName]="restTimeEditorExerciseName"
+    [value]="restTimeEditorValue" [presets]="restTimePresets"
+    (cancel)="closeRestTimeEditor()" (save)="saveRestTimeFromEditor($event)" (presetSelect)="setRestTimeEditorValue($event)" />
+</section>

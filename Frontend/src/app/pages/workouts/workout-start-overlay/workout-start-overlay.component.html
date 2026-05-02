@@ -1,0 +1,11 @@
+@if (show) {
+  <div class="routine-start-overlay" role="alertdialog" aria-busy="true" aria-live="polite" aria-label="Iniciando rutina">
+    <div class="routine-start-card">
+      <div class="routine-loader-stage" aria-hidden="true">
+        <img class="routine-loader-gif" [src]="currentGif" alt="" />
+      </div>
+      <p class="routine-start-title">Iniciando rutina</p>
+      <p class="routine-start-caption">Preparando ejercicios…</p>
+    </div>
+  </div>
+}

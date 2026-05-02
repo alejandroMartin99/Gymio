@@ -1,0 +1,77 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 40;
+  padding: 1rem;
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #ececec;
+  padding: 1rem;
+  display: grid;
+  gap: 0.7rem;
+}
+
+.modal p {
+  margin: 0;
+  color: #666;
+  font-size: 0.85rem;
+}
+
+h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.history-list {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.history-list button {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 10px;
+  padding: 0.6rem 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  font-weight: 600;
+  color: #111;
+}
+
+.selected-option {
+  border-color: #111 !important;
+  background: #f8fafc !important;
+}
+
+.primary {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.8rem 1rem;
+  font-weight: 600;
+  background: #111;
+  color: #fff;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.close {
+  justify-self: end;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+}

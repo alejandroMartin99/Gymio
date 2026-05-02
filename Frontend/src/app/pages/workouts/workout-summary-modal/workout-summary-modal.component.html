@@ -1,0 +1,14 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onClose()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Resumen del entrenamiento</h3>
+      <p>{{ workoutName }}</p>
+      <small class="note">Tiempo: {{ elapsedLabel }}</small>
+      <small class="note">Ejercicios: {{ exercisesCount }} · Series: {{ setsCount }}</small>
+      <div class="summary-actions">
+        <button type="button" class="close close-danger" (click)="onClose()">Cancelar</button>
+        <button type="button" class="primary" (click)="onClose()">Cerrar</button>
+      </div>
+    </div>
+  </div>
+}

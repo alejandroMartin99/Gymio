@@ -1,0 +1,52 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onClose()">
+    <div class="modal chart-modal" (click)="$event.stopPropagation()">
+      <div class="chart-modal-header">
+        <span class="chart-modal-title">Historial - {{ title }}</span>
+        <button type="button" class="chart-modal-close" (click)="onClose()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <p class="history-chart-sub">Máximos por entrenamiento (peso y repeticiones).</p>
+      @if (points.length > 0) {
+        <div class="ex-charts">
+          <div class="ex-chart-label">Peso máximo (kg)</div>
+          <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+            @for (g of historyWChart().grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of historyWChart().xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="historyWChart().path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of historyWChart().dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+            }
+          </svg>
+          <div class="ex-chart-label">Reps en máximo</div>
+          <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
+            @for (g of historyRChart().grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of historyRChart().xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="historyRChart().path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of historyRChart().dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
+            }
+          </svg>
+        </div>
+      } @else {
+        <small class="note">No hay datos históricos para este ejercicio todavía.</small>
+      }
+      <button type="button" class="close" (click)="onClose()">Cerrar</button>
+    </div>
+  </div>
+}

@@ -1,0 +1,32 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal modal-compact" (click)="$event.stopPropagation()">
+      <h3>Tiempo de descanso</h3>
+      <p>{{ exerciseName }}</p>
+      <div class="rest-time-presets">
+        @for (preset of presets; track preset) {
+          <button
+            type="button"
+            class="rest-time-preset"
+            [class.active]="value === preset"
+            (click)="onPresetSelect(preset)"
+          >{{ formatRestPreset(preset) }}</button>
+        }
+      </div>
+      <label>
+        Personalizado (segundos)
+        <input
+          type="number"
+          min="0"
+          max="900"
+          step="5"
+          [(ngModel)]="value"
+        />
+      </label>
+      <div class="summary-actions">
+        <button type="button" class="close close-danger" (click)="onCancel()">Cancelar</button>
+        <button type="button" class="primary" (click)="onSave()">Guardar</button>
+      </div>
+    </div>
+  </div>
+}

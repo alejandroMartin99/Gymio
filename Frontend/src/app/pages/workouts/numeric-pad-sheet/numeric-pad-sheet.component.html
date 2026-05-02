@@ -1,0 +1,19 @@
+@if (open) {
+  <div class="numeric-pad-backdrop" (click)="onHide()"></div>
+  <div class="numeric-pad-sheet" (click)="$event.stopPropagation()">
+    <div class="numeric-pad-top">
+      <strong>{{ fieldLabel }}</strong>
+      <span>{{ value || '0' }}</span>
+    </div>
+    <div class="numeric-pad-grid">
+      @for (k of keys; track k) {
+        <button type="button" (click)="onKeyClick(k)">{{ k }}</button>
+      }
+    </div>
+    <div class="numeric-pad-actions">
+      <button type="button" class="ghost" (click)="onHide()">Ocultar teclado</button>
+      <button type="button" class="ghost" (click)="onBackspace()">Borrar</button>
+      <button type="button" class="primary" (click)="onNext()">{{ nextLabel }}</button>
+    </div>
+  </div>
+}

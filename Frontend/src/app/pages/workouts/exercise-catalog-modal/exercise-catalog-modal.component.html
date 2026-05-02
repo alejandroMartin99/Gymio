@@ -1,0 +1,90 @@
+@if (open) {
+  <div class="modal-backdrop" (click)="onCancel()">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <h3>Agregar ejercicio</h3>
+
+      <div class="group-slider">
+        @for (group of muscleGroupSlides; track group.key) {
+          <button
+            type="button"
+            class="group-slide"
+            [class.active]="selectedMuscleGroup === group.key"
+            (click)="onMuscleGroupSelected(group.key)"
+          >
+            <img [src]="group.image" [alt]="group.label" />
+            <span>{{ group.label }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="catalog-search-row">
+        <input
+          type="search"
+          [ngModel]="searchQuery"
+          (ngModelChange)="onSearchChange($event)"
+          placeholder="Buscar por nombre..."
+          (keydown.enter)="onSearch()"
+        />
+        <button type="button" class="catalog-search-btn" (click)="onSearch()">Buscar</button>
+      </div>
+
+      <div class="equipment-slider">
+        @for (f of equipmentFilters; track f.key) {
+          <button
+            type="button"
+            class="equipment-chip"
+            [class.active]="selectedEquipmentFilter === f.key"
+            (click)="onEquipmentFilterChange(f.key)"
+          >
+            {{ f.label }}
+          </button>
+        }
+      </div>
+
+      @if (selectedThumbs.length > 0) {
+        <div class="selected-thumb-block">
+          <small>Seleccionados</small>
+          <div class="selected-thumb-list">
+            @for (thumb of selectedThumbs; track thumb) {
+              <img [src]="thumb" alt="" />
+            }
+          </div>
+        </div>
+      }
+
+      @if (isLoading) {
+        <div class="loading-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <small>Cargando ejercicios...</small>
+        </div>
+      }
+
+      <div class="history-list exercise-catalog-scroll">
+        @for (exercise of catalogItems; track exercise.id) {
+          <button
+            type="button"
+            class="exercise-option"
+            (click)="onExercisePicked(exercise)"
+          >
+            <span class="option-thumb-wrap">
+              <img [src]="catalogThumb(exercise)" alt="" class="option-thumb" />
+            </span>
+            <span class="option-text">
+              <span class="option-name">
+                <span>{{ displayPrimaryName(exercise) }}</span>
+                @if (displaySecondaryName(exercise); as enName) {
+                  <small>{{ enName }}</small>
+                }
+              </span>
+            </span>
+          </button>
+        }
+      </div>
+      @if (catalogItems.length === 0 && !isLoading) {
+        <small class="note">No hay ejercicios para este grupo. Prueba con otro.</small>
+      }
+
+      <button type="button" class="close close-danger" (click)="onCancel()">Cancelar</button>
+    </div>
+  </div>
+}
