@@ -191,37 +191,54 @@
           </span>
         </div>
       </div>
-      <div class="ex-charts">
-        <div class="ex-chart-label">Peso máximo (kg)</div>
-        <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
-          @for (g of wChart(chartModalEx).grid; track $index) {
-            <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
-              stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
-            <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
-          }
-          @for (xl of wChart(chartModalEx).xLabels; track $index) {
-            <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
-          }
-          <path [attr.d]="wChart(chartModalEx).path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
-          @for (dot of wChart(chartModalEx).dots; track $index) {
-            <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
-          }
-        </svg>
-        <div class="ex-chart-label">Reps en máximo</div>
-        <svg class="history-svg history-svg--lg" viewBox="0 0 300 90" preserveAspectRatio="none">
-          @for (g of rChart(chartModalEx).grid; track $index) {
-            <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
-              stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
-            <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
-          }
-          @for (xl of rChart(chartModalEx).xLabels; track $index) {
-            <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
-          }
-          <path [attr.d]="rChart(chartModalEx).path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
-          @for (dot of rChart(chartModalEx).dots; track $index) {
-            <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
-          }
-        </svg>
+      <!-- ── Tab selector ─────────────────────────────────── -->
+      <div class="ex-charts" [class.mode-weight]="profileChartTab === 'weight'" [class.mode-reps]="profileChartTab === 'reps'">
+        <div class="profile-chart-tabs" role="tablist">
+          <button type="button" role="tab" class="profile-chart-tab" [class.active]="profileChartTab === 'weight'" (click)="setProfileChartTab('weight')" [attr.aria-selected]="profileChartTab === 'weight'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+            Peso (kg)
+          </button>
+          <button type="button" role="tab" class="profile-chart-tab" [class.active]="profileChartTab === 'reps'" (click)="setProfileChartTab('reps')" [attr.aria-selected]="profileChartTab === 'reps'">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+            Reps máx.
+          </button>
+        </div>
+
+        @if (profileChartTab === 'weight') {
+          <div class="ex-chart-label">Peso máximo (kg)</div>
+          <svg class="history-svg history-svg--lg" viewBox="0 0 300 90">
+            @for (g of wChart(chartModalEx).grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of wChart(chartModalEx).xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="wChart(chartModalEx).path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of wChart(chartModalEx).dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+            }
+          </svg>
+        }
+
+        @if (profileChartTab === 'reps') {
+          <div class="ex-chart-label">Reps en máximo</div>
+          <svg class="history-svg history-svg--lg" viewBox="0 0 300 90">
+            @for (g of rChart(chartModalEx).grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of rChart(chartModalEx).xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="rChart(chartModalEx).path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of rChart(chartModalEx).dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
+            }
+          </svg>
+        }
       </div>
     </div>
   }

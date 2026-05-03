@@ -1082,6 +1082,7 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
 
     previous_sets_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
     history_points_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
+    history_sessions_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
 
     if name_keys_needed:
         # 1 query: TODOS los workout_exercises del usuario excluyendo el actual.
@@ -1201,6 +1202,43 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                 pts.sort(key=lambda item: item.get("date", ""))
                 history_points_by_name[key] = pts
 
+            # Construir history_sessions: últimas 5 sesiones con sets individuales.
+            session_buf: dict[str, dict[str, list[dict]]] = {}
+            for s in prev_sets:
+                ex = ex_by_id.get(s.get("workout_exercise_id"))
+                if not ex:
+                    continue
+                key = ex.get("_norm", "")
+                if not key:
+                    continue
+                wid = s.get("workout_id") or ex.get("workout_id")
+                if not wid:
+                    continue
+                session_buf.setdefault(key, {}).setdefault(wid, []).append(s)
+
+            for key, by_workout in session_buf.items():
+                sorted_wids = sorted(
+                    by_workout.keys(),
+                    key=lambda wid: (record_date_by_id.get(wid) or ""),
+                )[-5:]
+                sessions = []
+                for wid in sorted_wids:
+                    date = (record_date_by_id.get(wid) or "")[:10]
+                    sets_raw = sorted(by_workout[wid], key=lambda s: s.get("position", 0))
+                    sessions.append({
+                        "workout_id": wid,
+                        "date": date,
+                        "sets": [
+                            {
+                                "weight": s.get("weight"),
+                                "done_reps": s.get("done_reps"),
+                                "position": s.get("position", 0),
+                            }
+                            for s in sets_raw
+                        ],
+                    })
+                history_sessions_by_name[key] = sessions
+
     enriched_exercises: list[dict] = []
     for exercise in exercise_list:
         name_key = _normalize_name(exercise.get("name", ""))
@@ -1210,6 +1248,7 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                 "sets": sets_by_exercise.get(exercise["id"], []),
                 "previous_sets": previous_sets_by_name.get(name_key, []),
                 "history_points": history_points_by_name.get(name_key, []),
+                "history_sessions": history_sessions_by_name.get(name_key, []),
             }
         )
 

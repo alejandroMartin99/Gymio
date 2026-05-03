@@ -475,8 +475,44 @@
   display: block;
   overflow: hidden;
 
-  &--lg { height: 90px; }
+  &--lg { height: auto; }
 }
+
+/* ── Profile chart tabs ─────────────────────────────────── */
+.profile-chart-tabs {
+  display: flex;
+  gap: 3px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 0.2rem;
+}
+
+.profile-chart-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  padding: 0.36rem 0.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: transparent;
+  color: #9ca3af;
+  transition: all 0.14s ease;
+  line-height: 1;
+
+  &.active {
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.mode-weight .profile-chart-tab.active { color: #6366f1; }
+.mode-reps   .profile-chart-tab.active { color: #10b981; }
 
 /* ── Horizontal bar list ────────────────────────────────── */
 .bar-list     { display: grid; gap: 0.45rem; }

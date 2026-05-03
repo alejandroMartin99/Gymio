@@ -1,7 +1,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(0, 0, 0, 0.32);
   display: grid;
   place-items: center;
   z-index: 40;
@@ -11,12 +11,13 @@
 .modal {
   width: 100%;
   max-width: 460px;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #fff;
   border: 1px solid #ececec;
-  padding: 1rem;
+  padding: 1.1rem;
   display: grid;
-  gap: 0.7rem;
+  gap: 0.85rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
 .chart-modal {
@@ -24,6 +25,7 @@
   max-width: 480px;
 }
 
+/* ── Header ────────────────────────────────────────────── */
 .chart-modal-header {
   display: flex;
   align-items: center;
@@ -47,47 +49,114 @@
   padding: 2px;
   line-height: 0;
   border-radius: 4px;
+  &:hover { color: #374151; }
 }
 
-.chart-modal-close:hover {
-  color: #374151;
-}
-
-.history-chart-sub {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #6b7280;
-}
-
-.ex-charts {
+/* ── Segmented tabs ────────────────────────────────────── */
+.chart-section {
   display: grid;
-  gap: 0.2rem;
-  padding: 0.35rem 0 0.1rem;
-  border-top: 1px solid #f3f4f6;
+  gap: 0.65rem;
 }
 
-.ex-chart-label {
-  font-size: 0.64rem;
+.chart-tabs {
+  display: flex;
+  gap: 3px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.chart-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.38rem 0.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.76rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  background: transparent;
   color: #9ca3af;
-  margin-bottom: -0.1rem;
+  transition: all 0.14s ease;
+  line-height: 1;
+
+  &.active {
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
 }
 
+/* ── Color themes ───────────────────────────────────────── */
+.mode-weight {
+  .chart-tab.active          { color: #6366f1; }
+  .trend-line                { stroke: #6366f1; stroke-dasharray: 5, 2.5; }
+  .range-bar                 { stroke: #c7d2fe; }
+  .dot-max                   { fill: #6366f1; }
+  .dot-rest                  { fill: #fff; stroke: #a5b4fc; stroke-width: 1.5; }
+  .legend-dot--max           { background: #6366f1; }
+  .legend-dot--rest          { border-color: #a5b4fc; }
+}
+
+.mode-reps {
+  .chart-tab.active          { color: #10b981; }
+  .trend-line                { stroke: #10b981; stroke-dasharray: 5, 2.5; }
+  .range-bar                 { stroke: #a7f3d0; }
+  .dot-max                   { fill: #10b981; }
+  .dot-rest                  { fill: #fff; stroke: #6ee7b7; stroke-width: 1.5; }
+  .legend-dot--max           { background: #10b981; }
+  .legend-dot--rest          { border-color: #6ee7b7; }
+}
+
+/* ── SVG ────────────────────────────────────────────────── */
 .history-svg {
   width: 100%;
+  height: auto;
   display: block;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.history-svg--lg {
-  height: 90px;
+.grid-line {
+  stroke: #e5e7eb;
+  stroke-width: 0.5;
+  stroke-dasharray: 3, 3;
 }
 
+/* ── Legend ─────────────────────────────────────────────── */
+.chart-legend {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.68rem;
+  color: #9ca3af;
+  padding: 0 0.1rem;
+}
+
+.legend-dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+
+  &--max  { /* background set by theme */ }
+  &--rest { background: #fff; border: 1.5px solid; /* border-color set by theme */ }
+}
+
+.legend-text { line-height: 1; }
+
+/* ── Misc ────────────────────────────────────────────────── */
 .note {
   color: #7a7a7a;
   font-size: 0.8rem;
+  margin: 0;
+
+  &--chart {
+    text-align: center;
+    padding: 1.2rem 0;
+  }
 }
 
 .close {
@@ -96,4 +165,8 @@
   background: transparent;
   color: #6b7280;
   cursor: pointer;
+  font-size: 0.82rem;
+  padding: 0.25rem 0;
+
+  &:hover { color: #111827; }
 }

@@ -296,7 +296,8 @@
     [elapsedLabel]="summaryElapsedLabel" [exercisesCount]="summaryExercisesCount" [setsCount]="summarySetsCount"
     (closed)="closeWorkoutSummary()" />
 
-  <app-history-modal [open]="showHistoryModal" [title]="historyExerciseTitle" [points]="historyPoints" (closed)="closeHistoryModal()" />
+  <app-history-modal [open]="showHistoryModal" [title]="historyExerciseTitle" [points]="historyPoints"
+    [historySessions]="historySessionsData" (closed)="closeHistoryModal()" />
 
   <app-exercise-info-modal [open]="showExerciseInfoModal" [exerciseName]="exerciseInfoName" [detail]="exerciseInfoDetail"
     (closed)="closeExerciseInfoModal()" />

@@ -1,10 +1,10 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import type { ExerciseHistorySession } from '../../../models/workout-record.model';
 
-interface HistoryChartPt { x: number; y: number; v: number; }
-interface HistoryGridLine { y: number; label: string; }
-interface HistoryXLabel { x: number; label: string; i: number; }
-interface HistoryChartData { path: string; dots: HistoryChartPt[]; grid: HistoryGridLine[]; xLabels: HistoryXLabel[]; }
+interface SessionDot     { x: number; y: number; v: number; isMax: boolean; }
+interface SessionColumn  { x: number; dateLabel: string; dots: SessionDot[]; rangeTopY: number; rangeBotY: number; }
+interface SessionChart   { columns: SessionColumn[]; trendPath: string; grid: { y: number; label: string }[]; isEmpty: boolean; }
 
 @Component({
   selector: 'app-history-modal',
@@ -14,85 +14,113 @@ interface HistoryChartData { path: string; dots: HistoryChartPt[]; grid: History
   styleUrl: './history-modal.component.scss'
 })
 export class HistoryModalComponent {
-  @Input() open: boolean = false;
-  @Input() title: string = '';
+  @Input() open = false;
+  @Input() title = '';
+  /** Backward-compat — no longer used for rendering (kept so callers don't break). */
   @Input() points: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
+
+  @Input() set historySessions(v: ExerciseHistorySession[]) {
+    this._sessions = v ?? [];
+    this._wCache = null;
+    this._rCache = null;
+  }
 
   @Output() closed = new EventEmitter<void>();
 
-  readonly HC = { cw: 300, ch: 90, pt: 12, pb: 18, pl: 32, pr: 6 };
-  private _histW: HistoryChartData | null = null;
-  private _histR: HistoryChartData | null = null;
-  private _histCacheSig = '';
+  /** viewBox dimensions — used in template for positioning helpers. */
+  readonly HC = { cw: 300, ch: 110, pt: 12, pb: 26, pl: 36, pr: 10 };
 
-  onClose(): void {
-    this.closed.emit();
+  activeTab: 'weight' | 'reps' = 'weight';
+
+  private _sessions: ExerciseHistorySession[] = [];
+  private _wCache: SessionChart | null = null;
+  private _rCache: SessionChart | null = null;
+
+  onClose(): void { this.closed.emit(); }
+
+  setTab(tab: 'weight' | 'reps'): void {
+    this.activeTab = tab;
   }
 
-  private historyChartCacheSig(): string {
-    return this.points.map((p) => `${p.date}:${p.max_weight}:${p.max_reps}`).join('|');
+  activeChart(): SessionChart {
+    return this.activeTab === 'weight' ? this.wChart() : this.rChart();
   }
 
-  private fmtHistChartDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  wChart(): SessionChart {
+    if (!this._wCache) this._wCache = this.buildChart('weight');
+    return this._wCache;
   }
 
-  private buildHistoryChartFromPoints(rawPoints: Array<{ value: number; date: string }>): HistoryChartData {
+  rChart(): SessionChart {
+    if (!this._rCache) this._rCache = this.buildChart('reps');
+    return this._rCache;
+  }
+
+  private buildChart(field: 'weight' | 'reps'): SessionChart {
+    const sessions = this._sessions;
     const { cw, ch, pt, pb, pl, pr } = this.HC;
     const iw = cw - pl - pr;
     const ih = ch - pt - pb;
 
-    if (rawPoints.length === 0) return { path: '', dots: [], grid: [], xLabels: [] };
+    if (sessions.length === 0) return { columns: [], trendPath: '', grid: [], isEmpty: true };
 
-    const vals = rawPoints.map((p) => p.value);
-    const maxV = Math.max(...vals);
-    const minV = Math.min(...vals);
-    const range = maxV - minV || 1;
+    const allVals: number[] = [];
+    for (const s of sessions) {
+      for (const set of s.sets) {
+        const v = field === 'weight' ? set.weight : set.done_reps;
+        if (v != null && v > 0) allVals.push(v);
+      }
+    }
+    if (allVals.length === 0) return { columns: [], trendPath: '', grid: [], isEmpty: true };
+
+    const maxV = Math.max(...allVals);
+    const minV = Math.min(...allVals);
+    const rawRange = maxV - minV;
+    // Add vertical padding so dots never touch top/bottom edge
+    const pad = rawRange * 0.18 || (field === 'weight' ? 2.5 : 1);
+    const range = rawRange + pad * 2;
+    const vMin = minV - pad;
 
     const mapX = (i: number) =>
-      rawPoints.length === 1 ? pl + iw / 2 : pl + (i / (rawPoints.length - 1)) * iw;
-    const mapY = (v: number) => pt + ih - ((v - minV) / range) * ih;
+      sessions.length === 1 ? pl + iw / 2 : pl + (i / (sessions.length - 1)) * iw;
+    const mapY = (v: number) => pt + ih - ((v - vMin) / range) * ih;
+    const fmtV = (v: number) =>
+      field === 'weight' ? (v % 1 === 0 ? String(v) : v.toFixed(1)) : String(Math.round(v));
 
-    const dots: HistoryChartPt[] = rawPoints.map((p, i) => ({ x: mapX(i), y: mapY(p.value), v: p.value }));
-    const path =
-      dots.length > 1 ? `M${dots.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join('L')}` : '';
+    const columns: SessionColumn[] = sessions.map((session, i) => {
+      const x = mapX(i);
+      const vals = session.sets
+        .map((s) => (field === 'weight' ? s.weight : s.done_reps))
+        .filter((v): v is number => v != null && v > 0);
 
-    const grid: HistoryGridLine[] = [0, 0.5, 1].map((ratio) => {
-      const v = minV + ratio * range;
-      return { y: mapY(v), label: v % 1 === 0 ? v.toString() : v.toFixed(1) };
+      if (vals.length === 0) {
+        const mid = mapY(vMin + range / 2);
+        return { x, dateLabel: this.fmtDate(session.date), dots: [], rangeTopY: mid, rangeBotY: mid };
+      }
+
+      const sessionMax = Math.max(...vals);
+      const sessionMin = Math.min(...vals);
+      const dots: SessionDot[] = vals.map((v) => ({ x, y: mapY(v), v, isMax: v === sessionMax }));
+      return { x, dateLabel: this.fmtDate(session.date), dots, rangeTopY: mapY(sessionMax), rangeBotY: mapY(sessionMin) };
     });
 
-    const step = Math.max(1, Math.ceil(rawPoints.length / 5));
-    const xLabels: HistoryXLabel[] = rawPoints
-      .map((p, i) => ({ x: mapX(i), label: this.fmtHistChartDate(p.date), i }))
-      .filter((item, _, arr) => item.i % step === 0 || item.i === arr.length - 1);
+    // Trend line: connects the max dot of each session
+    const trendPts = columns.flatMap((col) => col.dots.filter((d) => d.isMax));
+    const trendPath = trendPts.length > 1
+      ? `M${trendPts.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join('L')}`
+      : '';
 
-    return { path, dots, grid, xLabels };
+    // 3 horizontal grid lines
+    const grid = [0, 0.5, 1].map((r) => {
+      const v = vMin + r * range;
+      return { y: mapY(v), label: fmtV(v) };
+    });
+
+    return { columns, trendPath, grid, isEmpty: false };
   }
 
-  historyWChart(): HistoryChartData {
-    if (this.points.length === 0) {
-      return { path: '', dots: [], grid: [], xLabels: [] };
-    }
-    const sig = this.historyChartCacheSig();
-    if (this._histCacheSig !== sig || !this._histW) {
-      this._histCacheSig = sig;
-      this._histW = this.buildHistoryChartFromPoints(
-        this.points.map((p) => ({ value: p.max_weight, date: p.date })),
-      );
-      this._histR = this.buildHistoryChartFromPoints(
-        this.points.map((p) => ({ value: p.max_reps, date: p.date })),
-      );
-    }
-    return this._histW;
-  }
-
-  historyRChart(): HistoryChartData {
-    if (this.points.length === 0) {
-      return { path: '', dots: [], grid: [], xLabels: [] };
-    }
-    this.historyWChart();
-    return this._histR!;
+  private fmtDate(dateStr: string): string {
+    const d = new Date(dateStr + 'T12:00:00');
+    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
   }
 }

@@ -15,7 +15,7 @@ import { EXERCISEDB_LOCAL_MEDIA_IDS } from '../../core/exercisedb-local-media';
 import { ExerciseCatalogItem } from '../../models/exercise-catalog.model';
 import { isExerciseDbExercise } from '../../models/exercisedb.model';
 import type { ExerciseDbExercise } from '../../models/exercisedb.model';
-import { WorkoutExerciseRecord, WorkoutRecordDetail } from '../../models/workout-record.model';
+import { WorkoutExerciseRecord, WorkoutRecordDetail, ExerciseHistorySession } from '../../models/workout-record.model';
 import { ActiveWorkoutService } from '../../services/active-workout.service';
 import { WorkoutSessionDraftService, type WorkoutSessionDraftPayload } from '../../services/workout-session-draft.service';
 import { ExerciseCatalogService } from '../../services/exercise-catalog.service';
@@ -368,6 +368,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   /** Título del modal (nombre en español, como en la tarjeta del ejercicio). */
   historyExerciseTitle = '';
   historyPoints: Array<{ workout_id: string; date: string; max_weight: number; max_reps: number }> = [];
+  historySessionsData: ExerciseHistorySession[] = [];
   /** Mismas constantes que perfil para los SVG de historial. */
   readonly HC = { cw: 300, ch: 90, pt: 12, pb: 18, pl: 32, pr: 6 };
   private _histW: HistoryChartData | null = null;
@@ -1677,6 +1678,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.historyExerciseName = exercise.name;
     this.historyExerciseTitle = this.displayExercisePrimaryName(exercise);
     this.historyPoints = [...(exercise.history_points || [])];
+    this.historySessionsData = [...(exercise.history_sessions || [])];
     this._histCacheSig = '';
     this._histW = null;
     this._histR = null;

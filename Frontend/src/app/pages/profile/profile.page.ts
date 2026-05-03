@@ -36,9 +36,14 @@ export class ProfilePage implements OnInit {
 
   /* ── Chart modal ────────────────────────────────────────── */
   chartModalEx: WorkoutStatsProgressEntry | null = null;
+  profileChartTab: 'weight' | 'reps' = 'weight';
 
-  openChartModal(ex: WorkoutStatsProgressEntry): void { this.chartModalEx = ex; }
+  openChartModal(ex: WorkoutStatsProgressEntry): void {
+    this.chartModalEx = ex;
+    this.profileChartTab = 'weight';
+  }
   closeChartModal(): void { this.chartModalEx = null; }
+  setProfileChartTab(tab: 'weight' | 'reps'): void { this.profileChartTab = tab; }
 
   /* ── Chart cache ────────────────────────────────────────── */
   private _wChartCache = new Map<string, ChartData>();
