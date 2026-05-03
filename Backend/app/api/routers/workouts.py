@@ -1144,6 +1144,29 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                     row["id"]: row.get("created_at") for row in (records_res.data or [])
                 }
 
+            # Filtrar previous_sets al entrenamiento MÁS RECIENTE para cada ejercicio.
+            # Sin este filtro se acumularían series de todos los entrenos anteriores y
+            # la columna "ANTERIOR" mostraría valores mezclados de distintas sesiones.
+            for key in list(previous_sets_by_name.keys()):
+                sets_all = previous_sets_by_name[key]
+                if not sets_all:
+                    continue
+                most_recent_wid = None
+                most_recent_date = ""
+                for s in sets_all:
+                    wid = s.get("workout_id")
+                    if not wid:
+                        continue
+                    date = (record_date_by_id.get(wid) or s.get("created_at") or "")
+                    if date > most_recent_date:
+                        most_recent_date = date
+                        most_recent_wid = wid
+                if most_recent_wid:
+                    previous_sets_by_name[key] = sorted(
+                        [s for s in sets_all if s.get("workout_id") == most_recent_wid],
+                        key=lambda s: s.get("position", 0),
+                    )
+
             # Construcción de history_points por nombre.
             history_buf: dict[str, dict[str, dict]] = {}  # name_key -> {workout_id -> point}
             for s in prev_sets:
@@ -1202,7 +1225,7 @@ def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: s
         return []
     previous_exercises = (
         client.table("workout_exercises")
-        .select("id, name")
+        .select("id, name, workout_id")
         .eq("user_id", user_id)
         .neq("workout_id", current_workout_id)
         .execute()
@@ -1210,7 +1233,32 @@ def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: s
     rows = previous_exercises.data or []
     if not rows:
         return []
-    previous_exercise_ids = [row["id"] for row in rows if _normalize_name(row.get("name")) == target_name]
+    matching_rows = [row for row in rows if _normalize_name(row.get("name")) == target_name]
+    if not matching_rows:
+        return []
+
+    # Obtener fechas de los workouts para quedarnos solo con el más reciente.
+    prev_workout_ids = list({row["workout_id"] for row in matching_rows if row.get("workout_id")})
+    most_recent_workout_id = None
+    if prev_workout_ids:
+        records_res = (
+            client.table("workout_records")
+            .select("id, created_at")
+            .in_("id", prev_workout_ids)
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rec_rows = records_res.data or []
+        if rec_rows:
+            most_recent_workout_id = rec_rows[0]["id"]
+
+    if most_recent_workout_id:
+        previous_exercise_ids = [row["id"] for row in matching_rows if row.get("workout_id") == most_recent_workout_id]
+    else:
+        previous_exercise_ids = [row["id"] for row in matching_rows]
+
     if not previous_exercise_ids:
         return []
     previous_sets = (
