@@ -56,6 +56,13 @@ export class ProfilePage implements OnInit {
 
   exEs(name: string): string { return translateExerciseName(name); }
 
+  chartStartLabel(weeks: WorkoutStatsWeek[]): string {
+    const first = weeks.find(w => w.start_date);
+    if (!first) return '';
+    const d = new Date(first.start_date + 'T12:00:00');
+    return 'desde ' + d.toLocaleDateString('es', { month: 'long', year: 'numeric' });
+  }
+
   avgSessionsPerWeek(weeks: WorkoutStatsWeek[]): string {
     const active = weeks.filter(w => w.count > 0);
     if (!active.length) return '0';
@@ -67,7 +74,13 @@ export class ProfilePage implements OnInit {
   private barGeom(n: number): { barW: number; gap: number } {
     const iw = this.B.cw - this.B.pl - this.B.pr;
     const gap = 2;
-    return { barW: Math.max(1, (iw - gap * (n - 1)) / n), gap };
+    // Anchura máxima = la que tendría el gráfico con 20 semanas llenando el viewBox.
+    // Con menos semanas las barras mantienen ese ancho y dejan espacio en blanco a la derecha.
+    // Con más semanas se comprimen para que todo quepa.
+    const REF_WEEKS = 20;
+    const maxBarW = (iw - gap * (REF_WEEKS - 1)) / REF_WEEKS;
+    const naturalBarW = n > 1 ? (iw - gap * (n - 1)) / n : iw;
+    return { barW: Math.max(1, Math.min(maxBarW, naturalBarW)), gap };
   }
 
   private barColor(count: number): string {

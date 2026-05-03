@@ -461,11 +461,14 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         except ValueError:
             pass
 
-    # Sessions per week — Monday to Sunday (Spanish convention), from 2026-01-01 to now
+    # Sessions per week — Monday to Sunday (Spanish convention), from first workout to now
     now_utc = datetime.now(timezone.utc)
-    jan_1 = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    jan_1_monday = jan_1 - timedelta(days=jan_1.weekday())  # Monday of week containing Jan 1
-    year_start = jan_1_monday
+    if record_date_map:
+        earliest = min(record_date_map.values())
+    else:
+        earliest = now_utc
+    # Monday of the week containing the earliest workout
+    year_start = earliest - timedelta(days=earliest.weekday())
     sessions_per_week = []
     week_start = year_start
     while week_start < now_utc:
