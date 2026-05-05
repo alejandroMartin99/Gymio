@@ -657,9 +657,11 @@ def _compute_monthly_persistence(record_rows: list[dict]) -> dict:
     today = date.today()
     SESSIONS_PER_WEEK_TARGET = 4
 
-    def month_sessions(year: int, month: int) -> int:
+    def month_sessions(year: int, month: int, up_to_day: int | None = None) -> int:
         start = date(year, month, 1).isoformat()
         last_day = cal.monthrange(year, month)[1]
+        if up_to_day is not None:
+            last_day = min(last_day, max(1, up_to_day))
         end = date(year, month, last_day).isoformat()
         return sum(1 for r in record_rows if start <= (r.get("created_at") or "")[:10] <= end)
 
@@ -677,7 +679,8 @@ def _compute_monthly_persistence(record_rows: list[dict]) -> dict:
 
     # Current month
     cy, cm = today.year, today.month
-    curr_sessions = month_sessions(cy, cm)
+    curr_day = today.day
+    curr_sessions = month_sessions(cy, cm, up_to_day=curr_day)
     curr_target = month_target(cy, cm, cap_to_today=True)
     curr_pct = round(min(100.0, curr_sessions / max(curr_target, 1) * 100), 1)
 
@@ -686,8 +689,8 @@ def _compute_monthly_persistence(record_rows: list[dict]) -> dict:
         py, pm = cy - 1, 12
     else:
         py, pm = cy, cm - 1
-    prev_sessions = month_sessions(py, pm)
-    prev_target = month_target(py, pm, cap_to_today=False)
+    prev_sessions = month_sessions(py, pm, up_to_day=curr_day)
+    prev_target = (min(cal.monthrange(py, pm)[1], curr_day) / 7) * SESSIONS_PER_WEEK_TARGET
     prev_pct = round(min(100.0, prev_sessions / max(prev_target, 1) * 100), 1)
 
     return {
