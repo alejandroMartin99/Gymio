@@ -17,6 +17,7 @@ export class NumericPadSheetComponent {
 
   @Output() keyPressed = new EventEmitter<string>();
   @Output() backspace = new EventEmitter<void>();
+  @Output() clearAll = new EventEmitter<void>();
   @Output() next = new EventEmitter<void>();
   @Output() hide = new EventEmitter<void>();
 
@@ -26,6 +27,10 @@ export class NumericPadSheetComponent {
 
   onBackspace(): void {
     this.backspace.emit();
+  }
+
+  onClearAll(): void {
+    this.clearAll.emit();
   }
 
   onNext(): void {

@@ -3,6 +3,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
   z-index: 120;
+  touch-action: manipulation;
 }
 
 .numeric-pad-sheet {
@@ -19,6 +20,7 @@
   display: grid;
   gap: 0.5rem;
   box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.16);
+  touch-action: manipulation;
 }
 
 .numeric-pad-top {
@@ -54,11 +56,12 @@
   font-weight: 700;
   color: #0f172a;
   cursor: pointer;
+  touch-action: manipulation;
 }
 
 .numeric-pad-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1.2fr 0.8fr 0.8fr 1fr;
   gap: 0.38rem;
 }
 
@@ -72,6 +75,7 @@
   cursor: pointer;
   background: #fff;
   color: #334155;
+  touch-action: manipulation;
 }
 
 .numeric-pad-actions .primary {

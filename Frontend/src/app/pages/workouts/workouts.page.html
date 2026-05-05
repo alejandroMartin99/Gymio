@@ -304,7 +304,7 @@
 
   <app-numeric-pad-sheet [open]="numericPadOpen" [value]="numericPadValue" [fieldLabel]="numericPadFieldLabel()"
     [nextLabel]="numericPadNextLabel()" [keys]="numericPadKeys"
-    (keyPressed)="onNumericPadKey($event)" (backspace)="onNumericPadBackspace()" (next)="onNumericPadNext()"
+    (keyPressed)="onNumericPadKey($event)" (backspace)="onNumericPadBackspace()" (clearAll)="onNumericPadClearAll()" (next)="onNumericPadNext()"
     (hide)="hideNumericPad()" />
 
   <app-rest-timer-bar [open]="restTimerOpen" [label]="restTimerLabel()" [paused]="restTimerPaused" [progress]="restTimerProgress()"

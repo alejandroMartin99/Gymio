@@ -679,6 +679,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.numericPadValue = this.numericPadValue.slice(0, -1);
   }
 
+  onNumericPadClearAll(): void {
+    this.numericPadValue = '';
+  }
+
   async onNumericPadNext(): Promise<void> {
     // Modo edición de celda existente con encadenado KG → Reps → confirma.
     if (this.numericPadSetId) {
