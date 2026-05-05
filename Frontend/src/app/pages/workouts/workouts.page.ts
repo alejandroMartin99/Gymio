@@ -393,6 +393,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   private readonly sessionClosedEffect = effect(() => {
     const isActive = this.activeWorkout.isActive();
     if (!isActive) {
+      this.skipRestTimer();
       this.draftRestoredForWorkoutId = null;
     }
     if (!isActive && this.currentWorkout) {
@@ -982,21 +983,29 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   async confirmSet(exerciseId: string, setId: string): Promise<void> {
     if (!setId || !this.currentWorkout) return;
     if (this.confirmedSetIdsInSession.has(setId)) return;
+    // UI optimista: feedback inmediato al usuario.
+    this.confirmedSetIdsInSession.add(setId);
+    this.startRestTimer(exerciseId);
     // Solo llamamos al backend para series reales (no pendientes locales).
     if (!setId.startsWith('local-')) {
       const exercise = this.currentWorkout.exercises.find((e) => e.id === exerciseId);
       const set = exercise?.sets.find((s) => s.id === setId);
       if (set) {
-        await this.workoutRecordService.updateSet(
+        const ok = await this.workoutRecordService.updateSet(
           this.currentWorkout.id,
           exerciseId,
           setId,
           { weight: set.weight ?? null, done_reps: set.done_reps ?? null }
         );
+        if (!ok) {
+          // Si falla persistencia, revertimos estado visual optimista.
+          this.confirmedSetIdsInSession.delete(setId);
+          if (this.currentRestExerciseId === exerciseId && this.restTimerOpen) {
+            this.skipRestTimer();
+          }
+        }
       }
     }
-    this.confirmedSetIdsInSession.add(setId);
-    this.startRestTimer(exerciseId);
   }
 
   /* ── "Subir peso" — peso igual + reps iguales o superiores ────────── */
@@ -1501,6 +1510,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
 
 
   cancelWorkoutView(): void {
+    this.skipRestTimer();
     this.currentWorkout = null;
     this.selectedExerciseId = '';
     this.workoutExerciseMediaUrls.set({});
@@ -1520,6 +1530,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   closeWorkoutSummary(): void {
+    this.skipRestTimer();
     this.showWorkoutSummaryModal = false;
     this.currentWorkout = null;
     this.selectedExerciseId = '';
@@ -1800,6 +1811,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
     this.openWorkoutSummary();
     this.activeWorkout.finishWorkout();
+    this.skipRestTimer();
     this.currentWorkout = null;
     this.selectedExerciseId = '';
     this.workoutExerciseMediaUrls.set({});
