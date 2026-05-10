@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit, computed, effect, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import {
@@ -129,6 +129,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   numericPadSetId = '';
   numericPadField: 'weight' | 'reps' | 'assistReps' = 'weight';
   numericPadValue = '';
+  /** Aviso “sube peso”: id de ejercicio con popover abierto. */
+  weightHintOpenForExerciseId: string | null = null;
   readonly numericPadKeys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'];
   setSubmitStateByExercise: Record<string, 'idle' | 'saving' | 'confirmed'> = {};
   /** IDs de series que se acaban de confirmar en esta sesión (incluye id local optimista y luego id real). */
@@ -1546,12 +1548,30 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.activeWorkout.finishWorkout();
   }
 
-  selectExercise(exerciseId: string): void {
+  focusExercise(exerciseId: string): void {
     this.selectedExerciseId = exerciseId;
   }
 
-  toggleExercise(exerciseId: string): void {
-    this.selectedExerciseId = this.selectedExerciseId === exerciseId ? '' : exerciseId;
+  toggleWeightHintPop(exerciseId: string, ev: Event): void {
+    ev.stopPropagation();
+    this.weightHintOpenForExerciseId =
+      this.weightHintOpenForExerciseId === exerciseId ? null : exerciseId;
+  }
+
+  closeWeightHintPop(): void {
+    this.weightHintOpenForExerciseId = null;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClickForWeightHint(ev: Event): void {
+    if (!this.weightHintOpenForExerciseId) {
+      return;
+    }
+    const t = ev.target as HTMLElement | null;
+    if (t?.closest?.('.weight-hint-anchor')) {
+      return;
+    }
+    this.weightHintOpenForExerciseId = null;
   }
 
   selectedExercisePreview(): WorkoutExerciseRecord | null {
@@ -1569,13 +1589,17 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (!ok) {
       return;
     }
+    const remaining = this.currentWorkout.exercises.filter((e) => e.id !== exerciseId);
     if (this.selectedExerciseId === exerciseId) {
-      this.selectedExerciseId = '';
+      this.selectedExerciseId = remaining[0]?.id ?? '';
+    }
+    if (this.weightHintOpenForExerciseId === exerciseId) {
+      this.weightHintOpenForExerciseId = null;
     }
     delete this.pendingSetsByExercise[exerciseId];
     this.currentWorkout = {
       ...this.currentWorkout,
-      exercises: this.currentWorkout.exercises.filter((e) => e.id !== exerciseId)
+      exercises: remaining
     };
   }
 

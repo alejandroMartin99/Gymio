@@ -1,4 +1,4 @@
-<section class="workout-start">
+<section class="workout-start" [class.workout-start--session]="!!currentWorkout">
   <app-workout-start-overlay [show]="showRoutineStartOverlay" [currentGif]="currentRoutineLoaderGif()" />
 
   @if (!currentWorkout) {
@@ -119,9 +119,8 @@
           class="exercise-card"
           [class.selected]="selectedExerciseId === exercise.id"
           [class.completed]="completedExerciseIds.has(exercise.id)"
-          [class.needs-weight-up]="exerciseShouldRaiseWeight(exercise)"
         >
-          <div class="exercise-head" (click)="toggleExercise(exercise.id)">
+          <div class="exercise-head" (click)="focusExercise(exercise.id)">
             <div class="exercise-order-controls" (click)="$event.stopPropagation()">
               <button
                 type="button"
@@ -148,121 +147,137 @@
                 </svg>
               </button>
             </div>
-            <strong class="exercise-name-block">
-              <span class="exercise-name-row">
-                <span class="exercise-primary-name">{{ displayExercisePrimaryName(exercise) }}</span>
-                @if (exerciseShouldRaiseWeight(exercise)) {
-                  <span class="weight-up-chip" title="Llevas dos series con el mismo peso y reps. Sube el peso.">
-                    <svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true">
-                      <path d="M5 8V2M2.5 4.5L5 2l2.5 2.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                    Sube peso
-                  </span>
+            <div class="exercise-title-line">
+              <div class="exercise-title-stack">
+                <div class="exercise-title-row-primary">
+                  <span class="exercise-primary-name">{{ displayExercisePrimaryName(exercise) }}</span>
+                </div>
+                @if (displayExerciseSecondaryName(exercise); as enName) {
+                  <div class="exercise-title-row-en" lang="en">{{ enName }}</div>
                 }
-              </span>
-              @if (displayExerciseSecondaryName(exercise); as enName) {
-                <small>{{ enName }}</small>
+              </div>
+              @if (completedExerciseIds.has(exercise.id)) {
+                <span class="exercise-done-badge" aria-label="Ejercicio terminado">Hecho</span>
               }
-            </strong>
-            <div class="exercise-head-actions">
-              @if (exerciseDbDetail(exercise)) {
-                <button
-                  type="button"
-                  class="info-icon-btn"
-                  (click)="$event.stopPropagation(); openExerciseInfoModal(exercise)"
-                  aria-label="Ver informacion del ejercicio"
-                >
-                  <img src="/icons/info-circle.svg" alt="" />
-                </button>
+              @if (exerciseShouldRaiseWeight(exercise)) {
+                <span class="weight-hint-anchor">
+                  <button
+                    type="button"
+                    class="weight-hint-trigger"
+                    (click)="toggleWeightHintPop(exercise.id, $event)"
+                    aria-label="Sube peso: más información"
+                    [attr.aria-expanded]="weightHintOpenForExerciseId === exercise.id"
+                  >
+                    <svg class="weight-hint-trigger-icon" viewBox="0 0 12 12" width="11" height="11" aria-hidden="true">
+                      <path d="M6 2.5v6M3.5 5L6 2.5 8.5 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <span>Sube peso</span>
+                  </button>
+                  @if (weightHintOpenForExerciseId === exercise.id) {
+                    <div class="weight-hint-popover" role="dialog" aria-live="polite" (click)="$event.stopPropagation()">
+                      <p>Dos series seguidas con el mismo peso y reps. En la siguiente, sube un poco el peso.</p>
+                      <button type="button" class="weight-hint-dismiss" (click)="closeWeightHintPop()">Cerrar</button>
+                    </div>
+                  }
+                </span>
               }
-              <button
-                type="button"
-                class="history-icon-btn"
-                (click)="$event.stopPropagation(); openHistoryModal(exercise)"
-                aria-label="Ver historial"
-              >
-                <img src="/icons/chart-line.svg" alt="" />
-              </button>
-              <button type="button" class="remove-btn" (click)="$event.stopPropagation(); removeExercise(exercise.id)">
-                Eliminar
-              </button>
             </div>
           </div>
-          @if (selectedExerciseId === exercise.id) {
-            <small>{{ exercise.muscle_group || 'General' }}</small>
+
+          <div class="exercise-body">
             <div class="exercise-hero">
               <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
             </div>
-            <div class="set-grid header">
-              <span>SERIE</span>
-              <span>ANTERIOR</span>
-              <span>KG</span>
-              <span>REPS</span>
-              <span></span>
-            </div>
-            @for (set of exercise.sets; track set.id; let idx = $index) {
-              <div
-                class="set-grid"
-                [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
-              >
-                <span class="set-index">{{ idx + 1 }}</span>
-                <span class="set-prev">{{ formatPreviousSetSnapshot(exercise, idx) }}</span>
-                @if (confirmedSetIdsInSession.has(set.id)) {
-                  <span>{{ set.weight ?? '–' }}</span>
-                  <span>{{ set.done_reps ?? '–' }}</span>
-                } @else {
-                  <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
-                    {{ set.weight ?? '–' }}
-                  </button>
-                  <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
-                    {{ set.done_reps ?? '–' }}
-                  </button>
-                }
-                @if (confirmedSetIdsInSession.has(set.id)) {
-                  <button
-                    type="button"
-                    class="delete-set-btn"
-                    (click)="removeSet(exercise.id, set.id)"
-                    aria-label="Eliminar serie"
-                    title="Eliminar"
-                  >×</button>
-                } @else {
-                  <button
-                    type="button"
-                    class="set-tick-btn"
-                    (click)="confirmSet(exercise.id, set.id)"
-                    aria-label="Confirmar serie"
-                    title="Confirmar"
-                  >
-                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <polyline points="3.5 8.5 7 12 12.5 4.5"/>
-                    </svg>
-                  </button>
-                }
-              </div>
-              @if (set.comment) {
-                <small class="set-comment">{{ set.comment }}</small>
+            <div class="exercise-tools" (click)="$event.stopPropagation()">
+              @if (exerciseDbDetail(exercise)) {
+                <button type="button" class="exercise-tool-btn exercise-tool-btn--icon" (click)="openExerciseInfoModal(exercise)" aria-label="Información del ejercicio">
+                  <img src="/icons/info-circle.svg" alt="" />
+                  <span>Info</span>
+                </button>
               }
-            }
+              <button type="button" class="exercise-tool-btn exercise-tool-btn--icon" (click)="openHistoryModal(exercise)" aria-label="Historial">
+                <img src="/icons/chart-line.svg" alt="" />
+                <span>Historial</span>
+              </button>
+            </div>
 
-            <button
-              type="button"
-              class="add-set-btn"
-              (click)="addEmptySet(exercise.id)"
-              aria-label="Añadir nueva serie"
-              title="Añadir serie"
-            >
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-                <line x1="8" y1="3" x2="8" y2="13"/>
-                <line x1="3" y1="8" x2="13" y2="8"/>
-              </svg>
-              <span>Añadir serie</span>
-            </button>
-            <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
-            <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
-              Terminar ejercicio
-            </button>
-          }
+            <div class="sets-panel">
+              <div class="set-grid header">
+                <span>SERIE</span>
+                <span>ANTERIOR</span>
+                <span>KG</span>
+                <span>REPS</span>
+                <span></span>
+              </div>
+              @for (set of exercise.sets; track set.id; let idx = $index) {
+                <div
+                  class="set-grid"
+                  [class.confirmed]="confirmedSetIdsInSession.has(set.id)"
+                >
+                  <span class="set-index">{{ idx + 1 }}</span>
+                  <span class="set-prev">{{ formatPreviousSetSnapshot(exercise, idx) }}</span>
+                  @if (confirmedSetIdsInSession.has(set.id)) {
+                    <span>{{ set.weight ?? '–' }}</span>
+                    <span>{{ set.done_reps ?? '–' }}</span>
+                  } @else {
+                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
+                      {{ set.weight ?? '–' }}
+                    </button>
+                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
+                      {{ set.done_reps ?? '–' }}
+                    </button>
+                  }
+                  @if (confirmedSetIdsInSession.has(set.id)) {
+                    <button
+                      type="button"
+                      class="delete-set-btn"
+                      (click)="removeSet(exercise.id, set.id)"
+                      aria-label="Eliminar serie"
+                      title="Eliminar"
+                    >×</button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="set-tick-btn"
+                      (click)="confirmSet(exercise.id, set.id)"
+                      aria-label="Confirmar serie"
+                      title="Confirmar"
+                    >
+                      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polyline points="3.5 8.5 7 12 12.5 4.5"/>
+                      </svg>
+                    </button>
+                  }
+                </div>
+                @if (set.comment) {
+                  <small class="set-comment">{{ set.comment }}</small>
+                }
+              }
+
+              <button
+                type="button"
+                class="add-set-btn"
+                (click)="addEmptySet(exercise.id)"
+                aria-label="Añadir nueva serie"
+                title="Añadir serie"
+              >
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                  <line x1="8" y1="3" x2="8" y2="13"/>
+                  <line x1="3" y1="8" x2="13" y2="8"/>
+                </svg>
+                <span>Añadir serie</span>
+              </button>
+              <input class="set-note-input" [(ngModel)]="setInputs[exercise.id].comment" placeholder="Nota" />
+              <div class="exercise-footer-actions">
+                <button type="button" class="remove-exercise-footer" (click)="removeExercise(exercise.id)">
+                  Eliminar ejercicio
+                </button>
+                <button type="button" class="finish-exercise" (click)="completeExercise(exercise.id)">
+                  Terminar ejercicio
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       }
       </div>
