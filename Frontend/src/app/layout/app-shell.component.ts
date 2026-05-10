@@ -46,6 +46,11 @@ export class AppShellComponent {
   showWorkoutConfirmModal = false;
   pendingWorkoutAction: 'cancel' | 'finish' | null = null;
 
+  /** Navegación por swipe entre pestañas (móvil / pantalla estrecha). */
+  private mainSwipeStartX = 0;
+  private mainSwipeStartY = 0;
+  private mainSwipeActive = false;
+
   toggleProfileMenu(): void {
     this.profileMenuOpen = !this.profileMenuOpen;
   }
@@ -230,5 +235,59 @@ export class AppShellComponent {
       URL.revokeObjectURL(this.previewBlobUrl);
       this.previewBlobUrl = null;
     }
+  }
+
+  onMainSwipeStart(event: TouchEvent): void {
+    if (!this.canUseTabSwipe() || event.touches.length !== 1) {
+      this.mainSwipeActive = false;
+      return;
+    }
+    const t = event.touches[0];
+    this.mainSwipeStartX = t.clientX;
+    this.mainSwipeStartY = t.clientY;
+    this.mainSwipeActive = true;
+  }
+
+  onMainSwipeEnd(event: TouchEvent): void {
+    if (!this.mainSwipeActive) {
+      return;
+    }
+    this.mainSwipeActive = false;
+    if (!this.canUseTabSwipe()) {
+      return;
+    }
+    const t = event.changedTouches[0];
+    const dx = t.clientX - this.mainSwipeStartX;
+    const dy = t.clientY - this.mainSwipeStartY;
+    const min = 56;
+    if (Math.abs(dx) < min || Math.abs(dx) < Math.abs(dy) * 1.75) {
+      return;
+    }
+    const paths = this.navItems.map((item) => item.path);
+    const path = this.router.url.split('?')[0];
+    let idx = paths.indexOf(path);
+    if (idx < 0) {
+      idx = 1;
+    }
+    if (dx < 0 && idx < paths.length - 1) {
+      void this.router.navigate([paths[idx + 1]]);
+    } else if (dx > 0 && idx > 0) {
+      void this.router.navigate([paths[idx - 1]]);
+    }
+  }
+
+  private canUseTabSwipe(): boolean {
+    if (
+      this.profileMenuOpen ||
+      this.uploadModalOpen ||
+      this.nameModalOpen ||
+      this.showWorkoutConfirmModal
+    ) {
+      return false;
+    }
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return false;
+    }
+    return window.matchMedia('(max-width: 900px), (pointer: coarse)').matches;
   }
 }

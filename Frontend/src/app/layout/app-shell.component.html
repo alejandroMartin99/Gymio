@@ -27,7 +27,12 @@
     </div>
   </header>
 
-  <main class="content" (click)="closeProfileMenu()">
+  <main
+    class="content"
+    (click)="closeProfileMenu()"
+    (touchstart)="onMainSwipeStart($event)"
+    (touchend)="onMainSwipeEnd($event)"
+  >
     <router-outlet />
   </main>
 

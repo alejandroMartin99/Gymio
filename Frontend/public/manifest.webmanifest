@@ -1,0 +1,9 @@
+{
+  "name": "Gymio",
+  "short_name": "Gymio",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff"
+}
