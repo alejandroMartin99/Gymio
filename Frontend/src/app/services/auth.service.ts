@@ -2,6 +2,8 @@ import { Injectable, computed, signal } from '@angular/core';
 import { User } from '@supabase/supabase-js';
 
 import { supabase } from '../core/supabase.client';
+import { WorkoutsRouteReuseStrategy } from '../route-reuse/workouts-route-reuse.strategy';
+import { WorkoutRecordService } from './workout-record.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -38,6 +40,11 @@ export class AuthService {
     return parts[0].slice(0, 2).toUpperCase();
   });
 
+  constructor(
+    private readonly workoutsRouteReuse: WorkoutsRouteReuseStrategy,
+    private readonly workoutRecord: WorkoutRecordService
+  ) {}
+
   async initialize(): Promise<void> {
     if (this.initialized()) return;
     const { data, error } = await supabase.auth.getSession();
@@ -45,6 +52,12 @@ export class AuthService {
     this.user.set(data.session?.user ?? null);
     this.initialized.set(true);
     supabase.auth.onAuthStateChange((_event, session) => {
+      const prevId = this.user()?.id ?? null;
+      const nextId = session?.user?.id ?? null;
+      if (prevId !== nextId) {
+        this.workoutsRouteReuse.clearStored();
+        this.workoutRecord.clearDetailCaches();
+      }
       this.user.set(session?.user ?? null);
     });
   }

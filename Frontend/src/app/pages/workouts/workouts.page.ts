@@ -1160,7 +1160,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   private async loadDetail(workoutId: string): Promise<void> {
-    const detail = await this.workoutRecordService.getWorkoutDetail(workoutId, { silent: true });
+    const detail = await this.workoutRecordService.getWorkoutDetail(workoutId, {
+      silent: true,
+      preferCache: true
+    });
     if (!detail) {
       return;
     }

@@ -44,8 +44,68 @@ export class WorkoutRecordService {
 
   private lastRecordsLoadAt = 0;
   private readonly detailInflight = new Map<string, Promise<WorkoutRecordDetail | null>>();
+  private readonly detailCache = new Map<string, WorkoutRecordDetail>();
 
   constructor(private readonly http: HttpClient) {}
+
+  /** Tras logout o cambio de usuario (también desde AuthService). */
+  clearDetailCaches(): void {
+    this.detailCache.clear();
+  }
+
+  private invalidateWorkoutDetailCache(workoutId: string): void {
+    this.detailCache.delete(workoutId);
+  }
+
+  private cloneDetail(detail: WorkoutRecordDetail): WorkoutRecordDetail {
+    try {
+      return structuredClone(detail);
+    } catch {
+      return JSON.parse(JSON.stringify(detail)) as WorkoutRecordDetail;
+    }
+  }
+
+  private scheduleBackgroundDetailRefresh(workoutId: string, silent: boolean): void {
+    if (this.detailInflight.has(workoutId)) {
+      return;
+    }
+    const promise = this.fetchWorkoutDetailFromNetwork(workoutId, silent).finally(() => {
+      this.detailInflight.delete(workoutId);
+    });
+    this.detailInflight.set(workoutId, promise);
+    void promise;
+  }
+
+  private async fetchWorkoutDetailFromNetwork(
+    workoutId: string,
+    silent: boolean
+  ): Promise<WorkoutRecordDetail | null> {
+    if (!silent) {
+      this.loading.set(true);
+      this.error.set(null);
+    }
+    try {
+      const res = await firstValueFrom(
+        this.http.get<ApiResponse<WorkoutRecordDetail>>(`${environment.apiUrl}/api/workouts/records/${workoutId}`, {
+          headers: await this.authHeaders()
+        })
+      );
+      const data = res.data ?? null;
+      if (data) {
+        this.detailCache.set(workoutId, data);
+      }
+      return data;
+    } catch {
+      if (!silent) {
+        this.error.set('No se pudo cargar el detalle del entrenamiento.');
+      }
+      return null;
+    } finally {
+      if (!silent) {
+        this.loading.set(false);
+      }
+    }
+  }
 
   /**
    * Lista de entrenos. Con `minIntervalMs`, evita refetch si ya hay datos y poco tiempo pasó
@@ -143,37 +203,31 @@ export class WorkoutRecordService {
   /**
    * Detalle de un entreno. Varias llamadas concurrentes al mismo id comparten una sola petición HTTP.
    * `silent: true` no toca el spinner global (recomendado en la sesión en curso).
+   * `preferCache: true` devuelve al instante la última respuesta válida y refresca en segundo plano.
    */
-  async getWorkoutDetail(workoutId: string, options?: { silent?: boolean }): Promise<WorkoutRecordDetail | null> {
+  async getWorkoutDetail(
+    workoutId: string,
+    options?: { silent?: boolean; preferCache?: boolean }
+  ): Promise<WorkoutRecordDetail | null> {
+    const silent = options?.silent ?? false;
+    const preferCache = options?.preferCache ?? false;
+
+    if (preferCache) {
+      const cached = this.detailCache.get(workoutId);
+      if (cached) {
+        this.scheduleBackgroundDetailRefresh(workoutId, silent);
+        return this.cloneDetail(cached);
+      }
+    }
+
     const existing = this.detailInflight.get(workoutId);
     if (existing) {
       return existing;
     }
-    const silent = options?.silent ?? false;
-    const promise = (async (): Promise<WorkoutRecordDetail | null> => {
-      if (!silent) {
-        this.loading.set(true);
-        this.error.set(null);
-      }
-      try {
-        const res = await firstValueFrom(
-          this.http.get<ApiResponse<WorkoutRecordDetail>>(`${environment.apiUrl}/api/workouts/records/${workoutId}`, {
-            headers: await this.authHeaders()
-          })
-        );
-        return res.data ?? null;
-      } catch {
-        if (!silent) {
-          this.error.set('No se pudo cargar el detalle del entrenamiento.');
-        }
-        return null;
-      } finally {
-        if (!silent) {
-          this.loading.set(false);
-        }
-        this.detailInflight.delete(workoutId);
-      }
-    })();
+
+    const promise = this.fetchWorkoutDetailFromNetwork(workoutId, silent).finally(() => {
+      this.detailInflight.delete(workoutId);
+    });
     this.detailInflight.set(workoutId, promise);
     return promise;
   }
@@ -194,6 +248,7 @@ export class WorkoutRecordService {
       rest_seconds?: number;
     }
   ): Promise<WorkoutExerciseRecord | null> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       const res = await firstValueFrom(
@@ -215,6 +270,7 @@ export class WorkoutRecordService {
    * cambia el array localmente antes y nosotros confirmamos con el backend.
    */
   async reorderExercises(workoutId: string, exerciseIds: string[]): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -240,6 +296,7 @@ export class WorkoutRecordService {
     exerciseId: string,
     restSeconds: number
   ): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -262,6 +319,7 @@ export class WorkoutRecordService {
     exerciseId: string,
     payload: { set_type: string; target_reps?: number; done_reps?: number; weight?: number; unit?: 'kg' | 'lb'; comment?: string; assisted_reps?: number; rpe?: number }
   ): Promise<ExerciseSetRecord | null> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       const res = await firstValueFrom(
@@ -283,6 +341,7 @@ export class WorkoutRecordService {
   }
 
   async deleteSet(workoutId: string, exerciseId: string, setId: string): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -304,6 +363,7 @@ export class WorkoutRecordService {
     setId: string,
     payload: { done_reps?: number | null; weight?: number | null; comment?: string | null }
   ): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -321,6 +381,7 @@ export class WorkoutRecordService {
   }
 
   async updateExerciseNotes(workoutId: string, exerciseId: string, notes: string): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -338,6 +399,7 @@ export class WorkoutRecordService {
   }
 
   async deleteExercise(workoutId: string, exerciseId: string): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);
     try {
       await firstValueFrom(
@@ -354,6 +416,7 @@ export class WorkoutRecordService {
   }
 
   async deleteWorkout(workoutId: string): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.loading.set(true);
     this.error.set(null);
     try {
@@ -376,6 +439,7 @@ export class WorkoutRecordService {
   }
 
   async updateWorkoutName(workoutId: string, workoutName: string, trainedAt?: string): Promise<boolean> {
+    this.invalidateWorkoutDetailCache(workoutId);
     this.loading.set(true);
     this.error.set(null);
     try {
