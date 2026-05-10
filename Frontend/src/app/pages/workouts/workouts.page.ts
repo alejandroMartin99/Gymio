@@ -104,6 +104,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   selectedMuscleGroup = '';
   selectedCatalogExerciseId = '';
   selectedExerciseId = '';
+  /** Acordeón: como mucho un ejercicio con detalle expandido. */
+  expandedExerciseId: string | null = null;
   completedExerciseIds = new Set<string>();
   catalogSearchQuery = '';
   debouncedCatalogSearchQuery = '';
@@ -401,6 +403,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (!isActive && this.currentWorkout) {
       this.currentWorkout = null;
       this.selectedExerciseId = '';
+      this.expandedExerciseId = null;
       this.workoutExerciseMediaUrls.set({});
       this.showExerciseListModal = false;
       this.selectedCatalogThumbs.set([]);
@@ -420,7 +423,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       void this.loadDetail(wid).then(() => {
         const exercises = this.currentWorkout?.exercises ?? [];
         const first = exercises.find((e) => !this.completedExerciseIds.has(e.id));
-        this.selectedExerciseId = first?.id ?? exercises[0]?.id ?? '';
+        const id = first?.id ?? exercises[0]?.id ?? '';
+        this.selectedExerciseId = id;
+        this.expandedExerciseId = id || null;
       });
     });
   });
@@ -1233,6 +1238,25 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       this.autoOpenedPickerForWorkoutId = detail.id;
       await this.openExerciseGroupModal();
     }
+
+    this.syncExpandedExerciseFromContext();
+  }
+
+  /** Tras cargar el detalle: un ejercicio expandido por defecto si hacía falta. */
+  private syncExpandedExerciseFromContext(): void {
+    const exs = this.currentWorkout?.exercises ?? [];
+    if (exs.length === 0) {
+      this.expandedExerciseId = null;
+      return;
+    }
+    if (this.expandedExerciseId && exs.some((e) => e.id === this.expandedExerciseId)) {
+      return;
+    }
+    const pref =
+      (this.selectedExerciseId && exs.some((e) => e.id === this.selectedExerciseId)
+        ? this.selectedExerciseId
+        : exs.find((e) => !this.completedExerciseIds.has(e.id))?.id) ?? exs[0].id;
+    this.expandedExerciseId = pref;
   }
 
   private async refreshWorkoutExerciseMedia(): Promise<void> {
@@ -1458,6 +1482,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       exercises: [...this.currentWorkout.exercises, newEx].sort((a, b) => a.position - b.position)
     };
     this.selectedExerciseId = newEx.id;
+    this.expandedExerciseId = newEx.id;
     this.setInputs[newEx.id] = this.setInputs[newEx.id] ?? { setKind: 'normal' };
     void this.refreshWorkoutExerciseMedia();
     // Si el ejercicio tiene marcas previas, prellenamos N series pendientes
@@ -1522,6 +1547,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.skipRestTimer();
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.expandedExerciseId = null;
     this.workoutExerciseMediaUrls.set({});
     this.selectedCatalogThumbs.set([]);
     this.activeWorkout.finishWorkout();
@@ -1543,9 +1569,20 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.showWorkoutSummaryModal = false;
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.expandedExerciseId = null;
     this.workoutExerciseMediaUrls.set({});
     this.selectedCatalogThumbs.set([]);
     this.activeWorkout.finishWorkout();
+  }
+
+  /** Cabecera del ejercicio: alterna expandir / colapsar (solo uno abierto). */
+  onExerciseHeadClick(exerciseId: string): void {
+    if (this.expandedExerciseId === exerciseId) {
+      this.expandedExerciseId = null;
+    } else {
+      this.expandedExerciseId = exerciseId;
+      this.selectedExerciseId = exerciseId;
+    }
   }
 
   focusExercise(exerciseId: string): void {
@@ -1590,8 +1627,15 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       return;
     }
     const remaining = this.currentWorkout.exercises.filter((e) => e.id !== exerciseId);
+    const wasExpanded = this.expandedExerciseId === exerciseId;
     if (this.selectedExerciseId === exerciseId) {
       this.selectedExerciseId = remaining[0]?.id ?? '';
+    }
+    if (wasExpanded) {
+      this.expandedExerciseId =
+        (this.selectedExerciseId && remaining.some((e) => e.id === this.selectedExerciseId)
+          ? this.selectedExerciseId
+          : remaining[0]?.id) ?? null;
     }
     if (this.weightHintOpenForExerciseId === exerciseId) {
       this.weightHintOpenForExerciseId = null;
@@ -1646,7 +1690,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     const next = this.currentWorkout.exercises
       .slice(currentIndex + 1)
       .find((item) => !this.completedExerciseIds.has(item.id));
-    this.selectedExerciseId = next?.id ?? '';
+    const nextId = next?.id ?? '';
+    this.selectedExerciseId = nextId;
+    this.expandedExerciseId = nextId || null;
   }
 
   exerciseIcon(item: ExerciseCatalogItem): string {
@@ -1845,6 +1891,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.skipRestTimer();
     this.currentWorkout = null;
     this.selectedExerciseId = '';
+    this.expandedExerciseId = null;
     this.workoutExerciseMediaUrls.set({});
     this.pendingSetsByExercise = {};
     this.isFinalizing = false;

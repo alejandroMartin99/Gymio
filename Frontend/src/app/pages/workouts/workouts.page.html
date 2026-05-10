@@ -120,7 +120,15 @@
           [class.selected]="selectedExerciseId === exercise.id"
           [class.completed]="completedExerciseIds.has(exercise.id)"
         >
-          <div class="exercise-head" (click)="focusExercise(exercise.id)">
+          <div
+            class="exercise-head"
+            (click)="onExerciseHeadClick(exercise.id)"
+            [attr.aria-expanded]="expandedExerciseId === exercise.id"
+            role="button"
+            tabindex="0"
+            (keydown.enter)="onExerciseHeadClick(exercise.id)"
+            (keydown.space)="$event.preventDefault(); onExerciseHeadClick(exercise.id)"
+          >
             <div class="exercise-order-controls" (click)="$event.stopPropagation()">
               <button
                 type="button"
@@ -181,9 +189,19 @@
                   }
                 </span>
               }
+              <span
+                class="exercise-expand-chevron"
+                [class.exercise-expand-chevron--open]="expandedExerciseId === exercise.id"
+                aria-hidden="true"
+              >
+                <svg viewBox="0 0 12 12" width="14" height="14">
+                  <path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
             </div>
           </div>
 
+          @if (expandedExerciseId === exercise.id) {
           <div class="exercise-body">
             <div class="exercise-hero">
               <img [src]="workoutExerciseHero(exercise)" [alt]="exercise.name" />
@@ -278,6 +296,7 @@
               </div>
             </div>
           </div>
+          }
         </div>
       }
       </div>
