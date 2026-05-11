@@ -43,10 +43,10 @@ h3 {
   flex-direction: column;
   align-items: center;
   gap: 0.2rem;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #d1d5db;
   border-radius: 12px;
   padding: 0.3rem 0.35rem 0.25rem;
-  background: #fafafa;
+  background: #fff;
   cursor: pointer;
   min-width: 62px;
   font: inherit;
@@ -55,7 +55,7 @@ h3 {
 
 .group-slide.active {
   border-color: #111;
-  background: #f0f0f0;
+  background: #fff;
 }
 
 .group-slide img {

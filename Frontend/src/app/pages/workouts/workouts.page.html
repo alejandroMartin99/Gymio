@@ -321,7 +321,7 @@
     [confirmed]="replicateSelectionConfirmed" [isLoading]="workoutRecordService.loading()"
     (workoutSelected)="selectReplicateWorkout($event)" (confirm)="confirmReplicateWorkout()" (cancel)="closeReplicateModal()" />
 
-  <app-exercise-catalog-modal [open]="showExerciseListModal" [selectedMuscleGroup]="selectedMuscleGroup"
+  <app-exercise-catalog-modal [open]="showExerciseListModal" [selectedMuscleGroup]="activeMuscleGroup"
     [selectedEquipmentFilter]="selectedEquipmentFilter" [searchQuery]="catalogSearchQuery"
     [catalogItems]="filteredCatalogItems()" [selectedThumbs]="selectedCatalogThumbs()" [isLoading]="exerciseCatalogService.loading()"
     [muscleGroupSlides]="muscleGroupSlides" [equipmentFilters]="equipmentFilters"
