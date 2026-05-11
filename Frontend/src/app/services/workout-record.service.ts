@@ -265,6 +265,27 @@ export class WorkoutRecordService {
     }
   }
 
+  async addExercisesBatch(
+    workoutId: string,
+    exercises: { name: string; muscle_group?: string }[]
+  ): Promise<WorkoutExerciseRecord[] | null> {
+    this.invalidateWorkoutDetailCache(workoutId);
+    this.error.set(null);
+    try {
+      const res = await firstValueFrom(
+        this.http.post<ApiResponse<WorkoutExerciseRecord[]>>(
+          `${environment.apiUrl}/api/workouts/records/${workoutId}/exercises/batch`,
+          { exercises },
+          { headers: await this.authHeaders() }
+        )
+      );
+      return res.data;
+    } catch {
+      this.error.set('No se pudieron agregar los ejercicios.');
+      return null;
+    }
+  }
+
   /**
    * Reordena los ejercicios de un workout. Optimistic UI desde el llamador:
    * cambia el array localmente antes y nosotros confirmamos con el backend.

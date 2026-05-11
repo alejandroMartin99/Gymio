@@ -51,6 +51,10 @@ class AddExerciseRequest(BaseModel):
     rest_seconds: int | None = None
 
 
+class BatchAddExercisesRequest(BaseModel):
+    exercises: list[AddExerciseRequest]
+
+
 class AddSetRequest(BaseModel):
     set_type: str = "normal"
     target_reps: int | None = None

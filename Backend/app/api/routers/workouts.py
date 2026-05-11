@@ -8,6 +8,7 @@ from postgrest.exceptions import APIError
 from app.api.schemas.workouts import (
     AddExerciseRequest,
     AddSetRequest,
+    BatchAddExercisesRequest,
     CreateWorkoutRecordRequest,
     ReorderExercisesRequest,
     UpdateSetRequest,
@@ -238,6 +239,63 @@ def add_exercise(
         exercise_name=payload.name,
     )
     return {"success": True, "data": created}
+
+
+@router.post("/records/{workout_id}/exercises/batch")
+def add_exercises_batch(
+    workout_id: str,
+    payload: BatchAddExercisesRequest,
+    user_id: str = Depends(get_current_user_id),
+) -> dict:
+    """Insert multiple exercises in one request and enrich them all at once."""
+    client = get_supabase_service_client()
+    base_pos = _next_exercise_position(client, workout_id)
+
+    rows = []
+    for i, ex in enumerate(payload.exercises):
+        row: dict = {
+            "workout_id": workout_id,
+            "user_id": user_id,
+            "name": ex.name,
+            "muscle_group": ex.muscle_group,
+            "notes": ex.notes,
+            "position": base_pos + i,
+        }
+        if ex.external_exercise_id:
+            row["external_exercise_id"] = ex.external_exercise_id.strip()
+        if ex.exercise_detail is not None:
+            row["exercise_detail"] = ex.exercise_detail
+        if ex.rest_seconds is not None:
+            row["rest_seconds"] = max(0, int(ex.rest_seconds))
+        rows.append(row)
+
+    result = client.table("workout_exercises").insert(rows).execute()
+    if not result.data:
+        raise HTTPException(status_code=400, detail="Unable to add exercises")
+
+    # Enrich all at once: collect unique names, query previous_sets + history_points once per name
+    name_cache: dict[str, dict] = {}
+    created_list = []
+    for item in result.data:
+        created = dict(item)
+        name = created.get("name", "")
+        norm = _normalize_name(name)
+        if norm not in name_cache:
+            name_cache[norm] = {
+                "previous_sets": _previous_sets_for_exercise_name(
+                    client=client, user_id=user_id,
+                    current_workout_id=workout_id, exercise_name=name,
+                ),
+                "history_points": _history_points_for_exercise_name(
+                    client=client, user_id=user_id,
+                    current_workout_id=workout_id, exercise_name=name,
+                ),
+            }
+        created["previous_sets"] = name_cache[norm]["previous_sets"]
+        created["history_points"] = name_cache[norm]["history_points"]
+        created_list.append(created)
+
+    return {"success": True, "data": created_list}
 
 
 @router.post("/records/{workout_id}/exercises/{exercise_id}/sets")

@@ -484,13 +484,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       }
       this.showNewSessionModal = false;
       this.activeWorkout.startWorkout(created.id, created.workout_name);
-      await this.loadDetail(created.id);
-      for (const ex of template.exercises) {
-        await this.workoutRecordService.addExercise(created.id, {
-          name: ex.name,
-          muscle_group: ex.muscle_group
-        });
-      }
+      await this.workoutRecordService.addExercisesBatch(
+        created.id,
+        template.exercises.map(ex => ({ name: ex.name, muscle_group: ex.muscle_group }))
+      );
       await this.loadDetail(created.id);
       this.showExerciseListModal = false;
     } finally {
@@ -1025,45 +1022,96 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
   }
 
-  /* ── "Subir peso" — peso igual + reps iguales o superiores ────────── */
-
-  setRepeatsWeight(exercise: WorkoutExerciseRecord, idx: number): boolean {
-    if (idx <= 0) return false;
-    const current = exercise.sets[idx];
-    const prev = exercise.sets[idx - 1];
-    if (!current || !prev) return false;
-    if (current.weight == null || prev.weight == null) return false;
-    if (current.weight !== prev.weight) return false;
-    if (current.done_reps == null || prev.done_reps == null) return false;
-    // Reps iguales o superiores: el usuario sigue con el mismo peso pero ya iguala
-    // o supera al de la serie previa, así que toca subir peso.
-    return current.done_reps >= prev.done_reps;
-  }
+  /* ── "Subir peso" — razones contextuales ────────────────────────── */
 
   /**
-   * Marca "Sube peso" si:
-   *  1. El usuario ya confirmó en esta sesión una serie que iguala (peso) y empata
-   *     o mejora reps respecto a la anterior, o
-   *  2. Las marcas previas (último entreno) ya muestran ese patrón → te avisa nada
-   *     más cargar el ejercicio para que subas la carga directamente.
+   * Devuelve las razones activas de "Sube peso" para un ejercicio.
+   * Comprueba tanto la sesión actual (series confirmadas) como previous_sets (última sesión).
+   * - 'weight_up': subió peso en series posteriores → podía empezar más pesado.
+   * - 'high_reps': >10 reps → el peso se queda corto.
+   * - 'plateau': mismo peso + reps iguales/superiores → sube carga.
    */
-  exerciseShouldRaiseWeight(exercise: WorkoutExerciseRecord): boolean {
+  exerciseWeightHints(exercise: WorkoutExerciseRecord): string[] {
+    const hints: Set<string> = new Set();
     const sets = exercise.sets ?? [];
-    for (let i = 1; i < sets.length; i += 1) {
-      const current = sets[i];
-      if (!this.confirmedSetIdsInSession.has(current.id)) continue;
-      if (this.setRepeatsWeight(exercise, i)) return true;
+    const confirmed = this.confirmedSetIdsInSession;
+
+    for (let i = 0; i < sets.length; i++) {
+      const s = sets[i];
+      if (!confirmed.has(s.id)) continue;
+
+      // high_reps: >10 reps en cualquier serie confirmada
+      if (s.done_reps != null && s.done_reps > 10) {
+        hints.add('high_reps');
+      }
+
+      // weight_up: una serie posterior tiene MÁS peso que una anterior → podías haber empezado más pesado
+      if (i > 0) {
+        const prev = sets[i - 1];
+        if (s.weight != null && prev.weight != null && s.weight > prev.weight) {
+          hints.add('weight_up');
+        }
+      }
+
+      // plateau: mismo peso e iguales o más reps que la serie anterior
+      if (i > 0) {
+        const prev = sets[i - 1];
+        if (
+          s.weight != null && prev.weight != null && s.weight === prev.weight &&
+          s.done_reps != null && prev.done_reps != null && s.done_reps >= prev.done_reps
+        ) {
+          hints.add('plateau');
+        }
+      }
     }
+
+    // Comprobar previous_sets (última sesión) para avisos preventivos
     const prev = exercise.previous_sets ?? [];
-    for (let i = 1; i < prev.length; i += 1) {
-      const a = prev[i - 1];
-      const b = prev[i];
-      if (!a || !b) continue;
-      if (a.weight == null || b.weight == null || a.weight !== b.weight) continue;
-      if (a.done_reps == null || b.done_reps == null) continue;
-      if (b.done_reps >= a.done_reps) return true;
+    for (let i = 0; i < prev.length; i++) {
+      const s = prev[i];
+
+      // high_reps desde sesión anterior
+      if (!hints.has('high_reps') && s.done_reps != null && s.done_reps > 10) {
+        hints.add('high_reps');
+      }
+
+      if (i > 0) {
+        const p = prev[i - 1];
+        if (!p) continue;
+
+        // weight_up desde sesión anterior (subió peso en series posteriores)
+        if (!hints.has('weight_up') && s.weight != null && p.weight != null && s.weight > p.weight) {
+          hints.add('weight_up');
+        }
+
+        // plateau desde sesión anterior
+        if (!hints.has('plateau') &&
+          s.weight != null && p.weight != null && s.weight === p.weight &&
+          s.done_reps != null && p.done_reps != null && s.done_reps >= p.done_reps
+        ) {
+          hints.add('plateau');
+        }
+      }
     }
-    return false;
+
+    return [...hints];
+  }
+
+  exerciseShouldRaiseWeight(exercise: WorkoutExerciseRecord): boolean {
+    return this.exerciseWeightHints(exercise).length > 0;
+  }
+
+  weightHintMessage(hint: string): string {
+    switch (hint) {
+      case 'weight_up':
+        return 'Has subido peso respecto a una serie anterior. Intenta empezar con el mayor peso posible desde la primera serie.';
+      case 'high_reps':
+        return 'Has superado 10 reps con este peso. Sube carga para trabajar en un rango de fuerza.';
+      case 'plateau':
+        return 'Dos series seguidas con el mismo peso y reps iguales o superiores. En la siguiente sesión, sube un poco el peso.';
+      default:
+        return 'Considera subir el peso.';
+    }
   }
 
 

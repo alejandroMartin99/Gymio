@@ -183,7 +183,9 @@
                   </button>
                   @if (weightHintOpenForExerciseId === exercise.id) {
                     <div class="weight-hint-popover" role="dialog" aria-live="polite" (click)="$event.stopPropagation()">
-                      <p>Dos series seguidas con el mismo peso y reps. En la siguiente, sube un poco el peso.</p>
+                      @for (hint of exerciseWeightHints(exercise); track hint) {
+                        <p>{{ weightHintMessage(hint) }}</p>
+                      }
                       <button type="button" class="weight-hint-dismiss" (click)="closeWeightHintPop()">Cerrar</button>
                     </div>
                   }
