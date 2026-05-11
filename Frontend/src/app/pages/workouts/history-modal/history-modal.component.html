@@ -11,91 +11,110 @@
         </button>
       </div>
 
-      @if (wChart().isEmpty && rChart().isEmpty) {
+      @if (weightChart().isEmpty && repsChart().isEmpty && rmChart().isEmpty) {
         <small class="note">No hay datos históricos para este ejercicio todavía.</small>
       } @else {
 
-        <!-- ── Segmented tabs ─────────────────────────────── -->
-        <div class="chart-section" [class.mode-weight]="activeTab === 'weight'" [class.mode-reps]="activeTab === 'reps'">
-
-          <div class="chart-tabs" role="tablist">
-            <button type="button" role="tab" class="chart-tab" [class.active]="activeTab === 'weight'" (click)="setTab('weight')" [attr.aria-selected]="activeTab === 'weight'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true">
-                <path d="M3 6h18M3 12h18M3 18h18"/>
-              </svg>
-              Peso (kg)
-            </button>
-            <button type="button" role="tab" class="chart-tab" [class.active]="activeTab === 'reps'" (click)="setTab('reps')" [attr.aria-selected]="activeTab === 'reps'">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true">
-                <polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>
-                <polyline points="17 6 23 6 23 12"/>
-              </svg>
-              Reps
-            </button>
-          </div>
-
-          <!-- ── Chart SVG ──────────────────────────────────── -->
-          @if (!activeChart().isEmpty) {
-            <svg class="history-svg" [attr.viewBox]="'0 0 ' + HC.cw + ' ' + HC.ch" aria-hidden="true">
-
-              <!-- Grid lines + Y labels -->
-              @for (g of activeChart().grid; track $index) {
-                <line
-                  [attr.x1]="HC.pl" [attr.y1]="g.y"
-                  [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
-                  class="grid-line"/>
-                <text [attr.x]="HC.pl - 4" [attr.y]="g.y + 3.5"
-                  text-anchor="end" font-size="7" fill="#9ca3af">{{ g.label }}</text>
-              }
-
-              <!-- X date labels -->
-              @for (col of activeChart().columns; track $index) {
-                <text [attr.x]="col.x" [attr.y]="HC.ch - 5"
-                  text-anchor="middle" font-size="6.5" fill="#9ca3af">{{ col.dateLabel }}</text>
-              }
-
-              <!-- Vertical range bars (min→max within each session) -->
-              @for (col of activeChart().columns; track $index) {
-                @if (col.dots.length > 1) {
-                  <line
-                    [attr.x1]="col.x" [attr.y1]="col.rangeTopY"
-                    [attr.x2]="col.x" [attr.y2]="col.rangeBotY"
-                    class="range-bar" stroke-width="1.5" stroke-linecap="round"/>
-                }
-              }
-
-              <!-- Trend line (connects max dots across sessions) -->
-              @if (activeChart().trendPath) {
-                <path [attr.d]="activeChart().trendPath"
-                  fill="none" class="trend-line"
-                  stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              }
-
-              <!-- Dots (one per set per session) -->
-              @for (col of activeChart().columns; track colIdx; let colIdx = $index) {
-                @for (dot of col.dots; track dotIdx; let dotIdx = $index) {
-                  <circle
-                    [attr.cx]="dot.x" [attr.cy]="dot.y"
-                    [attr.r]="dot.isMax ? 4 : 2.4"
-                    [class.dot-max]="dot.isMax"
-                    [class.dot-rest]="!dot.isMax"/>
-                }
-              }
-
-            </svg>
-
-            <!-- Legend -->
-            <div class="chart-legend">
-              <span class="legend-dot legend-dot--max"></span>
-              <span class="legend-text">Máximo sesión</span>
-              <span class="legend-dot legend-dot--rest"></span>
-              <span class="legend-text">Otras series</span>
-            </div>
-          } @else {
-            <p class="note note--chart">Sin datos de {{ activeTab === 'weight' ? 'peso' : 'repeticiones' }}.</p>
-          }
-
+        <div class="chart-tabs" role="tablist">
+          <button type="button" role="tab" class="chart-tab" [class.active]="activeTab === 'series'" (click)="setTab('series')">Series</button>
+          <button type="button" role="tab" class="chart-tab" [class.active]="activeTab === 'rm'" (click)="setTab('rm')">1RM estimado</button>
         </div>
+
+        <!-- ── Tab: Series (two stacked charts) ────────────── -->
+        @if (activeTab === 'series') {
+          <div class="chart-section">
+
+            <!-- Weight chart -->
+            @if (!weightChart().isEmpty) {
+              <div class="sub-chart">
+                <span class="sub-chart-label">Peso (kg)</span>
+                <svg class="history-svg" [attr.viewBox]="'0 0 ' + SVG.cw + ' ' + SVG.ch" aria-hidden="true">
+                  @for (g of weightChart().grid; track $index) {
+                    <line [attr.x1]="SVG.pl" [attr.y1]="g.y" [attr.x2]="SVG.cw - SVG.pr" [attr.y2]="g.y" class="grid-line"/>
+                    <text [attr.x]="SVG.pl - 4" [attr.y]="g.y + 3.5" text-anchor="end" font-size="7" fill="#9ca3af">{{ g.label }}</text>
+                  }
+                  @for (lbl of weightChart().xLabels; track $index) {
+                    <text [attr.x]="lbl.x" [attr.y]="SVG.ch - 4" text-anchor="middle" font-size="6" fill="#9ca3af">{{ lbl.label }}</text>
+                  }
+                  @for (line of weightChart().lines; track line.position) {
+                    @if (line.path) {
+                      <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" [attr.stroke-width]="line.position === 1 ? 2 : 1.5" stroke-linecap="round" stroke-linejoin="round" [attr.opacity]="setOpacity(line.position)" [attr.stroke-dasharray]="setDash(line.position)"/>
+                    }
+                    @for (dot of line.dots; track $index) {
+                      <circle [attr.cx]="dot.x" [attr.cy]="dot.y" [attr.r]="line.position === 1 ? 3 : 2.5" [attr.fill]="line.color" [attr.opacity]="setOpacity(line.position)"/>
+                    }
+                  }
+                </svg>
+              </div>
+            }
+
+            <!-- Reps chart -->
+            @if (!repsChart().isEmpty) {
+              <div class="sub-chart">
+                <span class="sub-chart-label">Reps</span>
+                <svg class="history-svg" [attr.viewBox]="'0 0 ' + SVG.cw + ' ' + SVG.ch" aria-hidden="true">
+                  @for (g of repsChart().grid; track $index) {
+                    <line [attr.x1]="SVG.pl" [attr.y1]="g.y" [attr.x2]="SVG.cw - SVG.pr" [attr.y2]="g.y" class="grid-line"/>
+                    <text [attr.x]="SVG.pl - 4" [attr.y]="g.y + 3.5" text-anchor="end" font-size="7" fill="#9ca3af">{{ g.label }}</text>
+                  }
+                  @for (lbl of repsChart().xLabels; track $index) {
+                    <text [attr.x]="lbl.x" [attr.y]="SVG.ch - 4" text-anchor="middle" font-size="6" fill="#9ca3af">{{ lbl.label }}</text>
+                  }
+                  @for (line of repsChart().lines; track line.position) {
+                    @if (line.path) {
+                      <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" [attr.stroke-width]="line.position === 1 ? 2 : 1.5" stroke-linecap="round" stroke-linejoin="round" [attr.opacity]="setOpacity(line.position)" [attr.stroke-dasharray]="setDash(line.position)"/>
+                    }
+                    @for (dot of line.dots; track $index) {
+                      <circle [attr.cx]="dot.x" [attr.cy]="dot.y" [attr.r]="line.position === 1 ? 3 : 2.5" [attr.fill]="line.color" [attr.opacity]="setOpacity(line.position)"/>
+                    }
+                  }
+                </svg>
+              </div>
+            }
+
+            <!-- Shared legend -->
+            <div class="chart-legend">
+              @for (line of weightChart().lines; track line.position) {
+                <span class="legend-item">
+                  <span class="legend-dot" [style.background]="line.color"></span>
+                  <span class="legend-text">S{{ line.position }}</span>
+                </span>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- ── Tab: 1RM estimado ───────────────────────────── -->
+        @if (activeTab === 'rm') {
+          <div class="chart-section">
+            @if (!rmChart().isEmpty) {
+              <svg class="history-svg" [attr.viewBox]="'0 0 ' + SVG.cw + ' ' + SVG.ch" aria-hidden="true">
+                @for (g of rmChart().grid; track $index) {
+                  <line [attr.x1]="SVG.pl" [attr.y1]="g.y" [attr.x2]="SVG.cw - SVG.pr" [attr.y2]="g.y" class="grid-line"/>
+                  <text [attr.x]="SVG.pl - 4" [attr.y]="g.y + 3.5" text-anchor="end" font-size="7" fill="#9ca3af">{{ g.label }}</text>
+                }
+                @for (lbl of rmChart().xLabels; track $index) {
+                  <text [attr.x]="lbl.x" [attr.y]="SVG.ch - 4" text-anchor="middle" font-size="6" fill="#9ca3af">{{ lbl.label }}</text>
+                }
+                @if (rmChart().path) {
+                  <path [attr.d]="rmChart().path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                }
+                @for (dot of rmChart().dots; track $index) {
+                  <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3.5" fill="#6366f1"/>
+                  <text [attr.x]="dot.x" [attr.y]="dot.y - 6" text-anchor="middle" font-size="5.8" font-weight="600" fill="#6366f1">
+                    {{ dot.v | number:'1.0-0' }}
+                  </text>
+                }
+              </svg>
+              <div class="chart-legend">
+                <span class="legend-label">Epley: peso × (1 + reps / 30)</span>
+              </div>
+            } @else {
+              <p class="note note--chart">Sin datos suficientes para calcular 1RM.</p>
+            }
+          </div>
+        }
+
       }
 
       <button type="button" class="close" (click)="onClose()">Cerrar</button>

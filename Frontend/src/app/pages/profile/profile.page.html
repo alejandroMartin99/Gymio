@@ -8,22 +8,6 @@
 
   @if (svc.stats(); as s) {
 
-    <!-- Stat cards -->
-    <div class="stat-cards">
-      <div class="stat-card">
-        <span class="stat-value">{{ s.totals.sessions }}</span>
-        <span class="stat-label">Sesiones totales</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">{{ s.totals.sets }}</span>
-        <span class="stat-label">Series totales</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value">{{ avgSessionsPerWeek(s.sessions_per_week) }}</span>
-        <span class="stat-label">Media ses. / semana</span>
-      </div>
-    </div>
-
     <!-- ── Persistencia mensual ────────────────────────── -->
     @if (s.monthly_persistence.current_month) {
       <div class="persist-card">

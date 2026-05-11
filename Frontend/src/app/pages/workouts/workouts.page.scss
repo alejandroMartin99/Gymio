@@ -407,12 +407,12 @@ h3 {
 }
 
 .exercise-card.selected {
-  background: rgba(241, 245, 249, 0.45);
+  background: transparent;
   box-shadow: none;
 }
 
 .exercise-card.completed {
-  background: rgba(236, 253, 245, 0.35);
+  background: transparent;
 }
 
 .exercise-done-badge {
@@ -710,6 +710,11 @@ h3 {
   border-radius: 0;
   padding: 0.38rem 0.25rem;
   transition: background 0.18s ease;
+}
+
+.set-grid:not(.header):not(.confirmed):nth-child(even) {
+  background: #f8fafc;
+  border-radius: 6px;
 }
 
 .set-grid.confirmed {

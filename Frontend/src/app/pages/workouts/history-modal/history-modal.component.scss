@@ -23,6 +23,8 @@
 .chart-modal {
   width: min(480px, 94vw);
   max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 /* ── Header ────────────────────────────────────────────── */
@@ -53,11 +55,6 @@
 }
 
 /* ── Segmented tabs ────────────────────────────────────── */
-.chart-section {
-  display: grid;
-  gap: 0.65rem;
-}
-
 .chart-tabs {
   display: flex;
   gap: 3px;
@@ -85,35 +82,36 @@
 
   &.active {
     background: #fff;
+    color: #374151;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
   }
 }
 
-/* ── Color themes ───────────────────────────────────────── */
-.mode-weight {
-  .chart-tab.active          { color: #6366f1; }
-  .trend-line                { stroke: #6366f1; stroke-dasharray: 5, 2.5; }
-  .range-bar                 { stroke: #c7d2fe; }
-  .dot-max                   { fill: #6366f1; }
-  .dot-rest                  { fill: #fff; stroke: #a5b4fc; stroke-width: 1.5; }
-  .legend-dot--max           { background: #6366f1; }
-  .legend-dot--rest          { border-color: #a5b4fc; }
+/* ── Chart section ─────────────────────────────────────── */
+.chart-section {
+  display: grid;
+  gap: 0.6rem;
 }
 
-.mode-reps {
-  .chart-tab.active          { color: #10b981; }
-  .trend-line                { stroke: #10b981; stroke-dasharray: 5, 2.5; }
-  .range-bar                 { stroke: #a7f3d0; }
-  .dot-max                   { fill: #10b981; }
-  .dot-rest                  { fill: #fff; stroke: #6ee7b7; stroke-width: 1.5; }
-  .legend-dot--max           { background: #10b981; }
-  .legend-dot--rest          { border-color: #6ee7b7; }
+.sub-chart {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.sub-chart-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b7280;
+  padding-left: 0.15rem;
 }
 
 /* ── SVG ────────────────────────────────────────────────── */
 .history-svg {
   width: 100%;
   height: auto;
+  min-height: 140px;
   display: block;
   overflow: visible;
 }
@@ -128,10 +126,17 @@
 .chart-legend {
   display: flex;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.4rem;
   font-size: 0.68rem;
   color: #9ca3af;
   padding: 0 0.1rem;
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
 }
 
 .legend-dot {
@@ -140,12 +145,18 @@
   height: 8px;
   border-radius: 50%;
   display: inline-block;
-
-  &--max  { /* background set by theme */ }
-  &--rest { background: #fff; border: 1.5px solid; /* border-color set by theme */ }
 }
 
-.legend-text { line-height: 1; }
+.legend-text {
+  line-height: 1;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.legend-label {
+  font-size: 0.65rem;
+  color: #9ca3af;
+}
 
 /* ── Misc ────────────────────────────────────────────────── */
 .note {

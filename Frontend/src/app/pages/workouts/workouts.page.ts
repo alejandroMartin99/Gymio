@@ -506,6 +506,11 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       clearTimeout(this.catalogSearchDebounceTimer);
       this.catalogSearchDebounceTimer = null;
     }
+    this.persistSessionDraft();
+  }
+
+  /** Persiste el estado de la sesión en sessionStorage (seguro de llamar en cualquier momento). */
+  private persistSessionDraft(): void {
     const activeId = this.activeWorkout.workoutId();
     const cid = this.currentWorkout?.id;
     if (activeId && cid && cid === activeId) {
@@ -996,6 +1001,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (this.confirmedSetIdsInSession.has(setId)) return;
     // UI optimista: feedback inmediato al usuario.
     this.confirmedSetIdsInSession.add(setId);
+    this.persistSessionDraft();
     this.startRestTimer(exerciseId);
     // Solo llamamos al backend para series reales (no pendientes locales).
     if (!setId.startsWith('local-')) {
@@ -1009,8 +1015,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
           { weight: set.weight ?? null, done_reps: set.done_reps ?? null }
         );
         if (!ok) {
-          // Si falla persistencia, revertimos estado visual optimista.
           this.confirmedSetIdsInSession.delete(setId);
+          this.persistSessionDraft();
           if (this.currentRestExerciseId === exerciseId && this.restTimerOpen) {
             this.skipRestTimer();
           }
@@ -1111,6 +1117,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     // Marcamos esta serie como "confirmada en sesión" para que reciba el sombreado verde
     // (y eventualmente el accent amber si repite). Las series cargadas por defecto no lo reciben.
     this.confirmedSetIdsInSession.add(localId);
+    this.persistSessionDraft();
 
     // Lanza el timer YA — sin esperar la respuesta del backend.
     // Si el descanso está corriendo de una serie anterior, se reinicia limpio.
@@ -1138,9 +1145,9 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.pendingSetsByExercise[exerciseId] = (this.pendingSetsByExercise[exerciseId] || []).filter(
       (set) => set.local_id !== localId
     );
-    // Promovemos el id en el Set ANTES de mutar exercise.sets para evitar flicker.
     this.confirmedSetIdsInSession.add(serverSet.id);
     this.confirmedSetIdsInSession.delete(localId);
+    this.persistSessionDraft();
     if (exercise) {
       exercise.sets = exercise.sets.map((s) => (s.id === localId ? serverSet : s));
       exercise.sets.sort((a, b) => a.position - b.position);
@@ -1693,6 +1700,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     const nextId = next?.id ?? '';
     this.selectedExerciseId = nextId;
     this.expandedExerciseId = nextId || null;
+    this.persistSessionDraft();
   }
 
   exerciseIcon(item: ExerciseCatalogItem): string {

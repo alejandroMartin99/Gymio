@@ -467,11 +467,13 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         earliest = min(record_date_map.values())
     else:
         earliest = now_utc
-    # Monday of the week containing the earliest workout
-    year_start = earliest - timedelta(days=earliest.weekday())
+    # Monday 00:00 of the week containing the earliest workout
+    year_start = (earliest - timedelta(days=earliest.weekday())).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
     sessions_per_week = []
     week_start = year_start
-    while week_start < now_utc:
+    while week_start <= now_utc:
         week_end = week_start + timedelta(weeks=1)
         count = sum(
             1 for r in record_rows
