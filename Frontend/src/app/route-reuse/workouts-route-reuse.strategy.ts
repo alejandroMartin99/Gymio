@@ -32,9 +32,7 @@ export class WorkoutsRouteReuseStrategy extends RouteReuseStrategy {
     if (!this.isWorkoutsTab(route)) {
       return null;
     }
-    const handle = this.handles.get('workouts') ?? null;
-    this.handles.delete('workouts');
-    return handle;
+    return this.handles.get('workouts') ?? null;
   }
 
   shouldReuseRoute(future: ActivatedRouteSnapshot, curr: ActivatedRouteSnapshot): boolean {

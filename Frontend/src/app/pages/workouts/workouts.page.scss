@@ -802,6 +802,19 @@ h3 {
   color: #0f172a;
 }
 
+.set-cell-btn--confirmed {
+  color: #059669;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+  text-decoration-color: #a7f3d0;
+}
+
+.set-cell-btn--confirmed:hover {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .set-tick-btn {
   width: 24px;
   height: 24px;

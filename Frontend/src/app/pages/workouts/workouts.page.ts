@@ -433,7 +433,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     await this.workoutRecordService.loadRecords({ minIntervalMs: 12_000 });
     const activeWorkoutId = this.activeWorkout.workoutId();
-    if (activeWorkoutId) {
+    if (activeWorkoutId && (!this.currentWorkout || this.currentWorkout.id !== activeWorkoutId)) {
       await this.loadDetail(activeWorkoutId);
       if (!this.currentWorkout) {
         this.activeWorkout.finishWorkout();
@@ -743,6 +743,14 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     if (this.numericPadField === 'weight') set.weight = parsed;
     else if (this.numericPadField === 'reps') set.done_reps = parsed != null ? Math.round(parsed) : null;
     else if (this.numericPadField === 'assistReps') set.assisted_reps = parsed != null ? Math.round(parsed) : null;
+
+    if (this.confirmedSetIdsInSession.has(setId) && !setId.startsWith('local-')) {
+      void this.workoutRecordService.updateSet(
+        this.currentWorkout.id, exId, setId,
+        { weight: set.weight ?? null, done_reps: set.done_reps ?? null }
+      );
+      this.persistSessionDraft();
+    }
   }
 
   /** Total de series del workout (incluye pendientes). */
@@ -1012,8 +1020,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
           { weight: set.weight ?? null, done_reps: set.done_reps ?? null }
         );
         if (!ok) {
-          this.confirmedSetIdsInSession.delete(setId);
-          this.persistSessionDraft();
+          // Mantener tick verde en sesión aunque falle el backend (p. ej. servidor caído).
           if (this.currentRestExerciseId === exerciseId && this.restTimerOpen) {
             this.skipRestTimer();
           }
@@ -1295,6 +1302,19 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     }
 
     this.syncExpandedExerciseFromContext();
+    this.syncConfirmedSetsFromDraft(workoutId, detail);
+  }
+
+  /** Reaplica ticks verdes desde sessionStorage (p. ej. tras recargar detalle o reinicio del servidor). */
+  private syncConfirmedSetsFromDraft(workoutId: string, detail: WorkoutRecordDetail): void {
+    const allSetIds = new Set(detail.exercises.flatMap((e) => e.sets.map((s) => s.id)));
+    const fromMemory = [...this.confirmedSetIdsInSession].filter((id) => allSetIds.has(id));
+    const draft = this.sessionDraft.load(workoutId);
+    const fromDraft = (draft?.confirmedSetIds ?? []).filter((id) => allSetIds.has(id));
+    this.confirmedSetIdsInSession = new Set([...fromMemory, ...fromDraft]);
+    if (fromMemory.length > 0 || fromDraft.length > 0) {
+      this.persistSessionDraft();
+    }
   }
 
   /** Tras cargar el detalle: un ejercicio expandido por defecto si hacía falta. */

@@ -236,17 +236,12 @@
                 >
                   <span class="set-index">{{ idx + 1 }}</span>
                   <span class="set-prev">{{ formatPreviousSetSnapshot(exercise, idx) }}</span>
-                  @if (confirmedSetIdsInSession.has(set.id)) {
-                    <span>{{ set.weight ?? '–' }}</span>
-                    <span>{{ set.done_reps ?? '–' }}</span>
-                  } @else {
-                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
-                      {{ set.weight ?? '–' }}
-                    </button>
-                    <button type="button" class="set-cell-btn" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
-                      {{ set.done_reps ?? '–' }}
-                    </button>
-                  }
+                  <button type="button" class="set-cell-btn" [class.set-cell-btn--confirmed]="confirmedSetIdsInSession.has(set.id)" (click)="openSetCellPad(exercise.id, set.id, 'weight')">
+                    {{ set.weight ?? '–' }}
+                  </button>
+                  <button type="button" class="set-cell-btn" [class.set-cell-btn--confirmed]="confirmedSetIdsInSession.has(set.id)" (click)="openSetCellPad(exercise.id, set.id, 'reps')">
+                    {{ set.done_reps ?? '–' }}
+                  </button>
                   @if (confirmedSetIdsInSession.has(set.id)) {
                     <button
                       type="button"
