@@ -1,32 +1,56 @@
 .auth-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: var(--color-bg);
+  background: #000;
+  overflow: hidden;
+}
+
+.auth-bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.auth-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1;
 }
 
 .auth-card {
+  position: relative;
+  z-index: 2;
   width: 100%;
   max-width: 380px;
-  background: #fff;
-  border: 1px solid var(--color-border);
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
   padding: 28px 24px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .auth-title {
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 900;
   margin: 0 0 4px;
-  letter-spacing: -0.02em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
 }
 
 .auth-subtitle {
   font-size: 14px;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 16px;
 }
 
@@ -45,32 +69,47 @@
 .form-group label {
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .form-group input {
-  border: 1px solid var(--color-border);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
   font-family: inherit;
-  background: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+
+  &::placeholder { color: rgba(255, 255, 255, 0.35); }
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #111;
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.08);
 }
 
 .auth-btn {
   border: none;
   border-radius: 10px;
-  background: #111;
+  background: rgba(255, 255, 255, 0.15);
   color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
   padding: 12px 14px;
   font-weight: 600;
   cursor: pointer;
   font-family: inherit;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
 }
 
 .auth-btn:disabled {
@@ -105,13 +144,13 @@
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--color-text-muted);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .auth-footer button {
   border: 0;
   background: transparent;
-  color: #111;
+  color: #fff;
   font-weight: 600;
   cursor: pointer;
   padding: 0;

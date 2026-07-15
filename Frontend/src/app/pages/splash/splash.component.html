@@ -1,0 +1,14 @@
+<div class="splash">
+  <video class="splash-video" autoplay muted loop playsinline>
+    <source src="Video/videoplayback.mp4" type="video/mp4">
+  </video>
+  <div class="splash-overlay"></div>
+  <div class="splash-content">
+    <h1 class="splash-logo">GYMIO</h1>
+    <p class="splash-text">{{ currentText() }}</p>
+    <div class="splash-bar-wrap">
+      <div class="splash-bar" [style.width.%]="progress()"></div>
+    </div>
+    <span class="splash-pct">{{ progress() | number:'1.0-0' }}%</span>
+  </div>
+</div>

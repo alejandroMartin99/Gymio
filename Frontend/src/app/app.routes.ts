@@ -8,7 +8,11 @@ export const routes: Routes = [
   {
     path: '',
     pathMatch: 'full',
-    redirectTo: 'workouts'
+    redirectTo: 'splash'
+  },
+  {
+    path: 'splash',
+    loadComponent: () => import('./pages/splash/splash.component').then(m => m.SplashComponent)
   },
   {
     path: 'login',
@@ -36,6 +40,6 @@ export const routes: Routes = [
   },
   {
     path: '**',
-    redirectTo: 'workouts'
+    redirectTo: 'splash'
   }
 ];
