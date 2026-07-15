@@ -32,7 +32,7 @@
               <section class="hm-spark">
                 <div class="hm-spark-head">
                   <span class="hm-spark-label">Peso</span>
-                  @if (weightChart().lines[0]?.dots?.length) {
+                  @if (weightChart().lines[0] && weightChart().lines[0].dots.length) {
                     <span class="hm-spark-val">{{ weightChart().lines[0].dots[weightChart().lines[0].dots.length - 1].v | number:'1.0-1' }}<small>kg</small></span>
                   }
                 </div>
@@ -64,7 +64,7 @@
               <section class="hm-spark">
                 <div class="hm-spark-head">
                   <span class="hm-spark-label">Reps</span>
-                  @if (repsChart().lines[0]?.dots?.length) {
+                  @if (repsChart().lines[0] && repsChart().lines[0].dots.length) {
                     <span class="hm-spark-val">{{ repsChart().lines[0].dots[repsChart().lines[0].dots.length - 1].v }}</span>
                   }
                 </div>
