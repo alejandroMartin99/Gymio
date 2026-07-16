@@ -1,17 +1,14 @@
 @if (show) {
-  <div class="routine-start-overlay" role="alertdialog" aria-busy="true" aria-live="polite" aria-label="Iniciando rutina">
-    <div class="routine-start-card">
-      <div class="routine-video-stage">
-        <video class="routine-video" autoplay muted loop playsinline>
-          <source src="Video/videoplayback.mp4" type="video/mp4">
-        </video>
-        <div class="routine-video-overlay"></div>
-        <div class="routine-video-content">
-          <p class="routine-video-title">Cargando rutina</p>
-          <div class="routine-bar-wrap">
-            <div class="routine-bar"></div>
-          </div>
-        </div>
+  <div class="routine-overlay">
+    <video #vid class="routine-video" autoplay muted loop playsinline webkit-playsinline>
+      <source src="Video/videoplayback.mp4" type="video/mp4">
+    </video>
+    <div class="routine-dim"></div>
+    <div class="routine-center">
+      <h1 class="routine-logo">GYMIO</h1>
+      <p class="routine-label">Cargando rutina</p>
+      <div class="routine-bar-wrap">
+        <div class="routine-bar"></div>
       </div>
     </div>
   </div>

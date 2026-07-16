@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 
@@ -12,7 +12,8 @@ import { WorkoutRecordService } from '../../services/workout-record.service';
   templateUrl: './splash.component.html',
   styleUrl: './splash.component.scss',
 })
-export class SplashComponent implements OnInit, OnDestroy {
+export class SplashComponent implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('vid') videoRef?: ElementRef<HTMLVideoElement>;
   progress = signal(0);
   currentText = signal('');
 
@@ -33,6 +34,11 @@ export class SplashComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly workoutRecord: WorkoutRecordService
   ) {}
+
+  ngAfterViewInit(): void {
+    const v = this.videoRef?.nativeElement;
+    if (v) { v.muted = true; v.play().catch(() => {}); }
+  }
 
   ngOnInit(): void {
     this.currentText.set(this.texts[0]);
