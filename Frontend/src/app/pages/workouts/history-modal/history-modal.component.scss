@@ -1,188 +1,145 @@
-/* ── Overlay: blocks background scroll ──────────────── */
-.hm-overlay {
+/* ── Backdrop ───────────────────────────────────────────── */
+.hm-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 50;
-  background: rgba(15, 23, 42, 0.5);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  overscroll-behavior: contain;
-  touch-action: none;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 200;
 }
 
-@media (min-width: 520px) {
-  .hm-overlay { align-items: center; padding: 1.5rem; }
-}
-
-/* ── Sheet ──────────────────────────────────────────── */
-.hm-sheet {
-  width: 100%;
-  max-width: 400px;
-  max-height: 82vh;
-  display: flex;
-  flex-direction: column;
+/* ── Modal (centered, same as profile chart-modal) ──────── */
+.hm-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 210;
   background: #fff;
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -4px 32px rgba(15, 23, 42, 0.14);
-  overflow: hidden;
-
-  @media (min-width: 520px) {
-    border-radius: 16px;
-    box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
-  }
-}
-
-.hm-handle {
-  display: flex;
-  justify-content: center;
-  padding: 0.5rem 0 0.2rem;
-  flex-shrink: 0;
-
-  span {
-    width: 36px;
-    height: 4px;
-    border-radius: 3px;
-    background: #e2e8f0;
-  }
-
-  @media (min-width: 520px) { display: none; }
-}
-
-/* ── Single scrollable body ─────────────────────────── */
-.hm-body {
-  flex: 1;
-  min-height: 0;
+  border-radius: 14px;
+  padding: 0.9rem 1rem 1.05rem;
+  width: min(480px, 94vw);
+  max-height: 85vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 0 1rem 1.25rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+  border: 1px solid #e5e7eb;
+  display: grid;
+  gap: 0.75rem;
 }
 
-/* ── Header ─────────────────────────────────────────── */
-.hm-head {
+/* ── Header ─────────────────────────────────────────────── */
+.hm-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.65rem 0 0.5rem;
-  position: sticky;
-  top: 0;
-  background: #fff;
-  z-index: 3;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #f3f4f6;
 }
 
 .hm-title {
-  margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 700;
-  color: #0f172a;
+  color: #111827;
+  margin: 0;
 }
 
 .hm-close {
-  flex-shrink: 0;
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
+  background: none;
   border: none;
-  border-radius: 50%;
-  background: #f1f5f9;
-  color: #64748b;
   cursor: pointer;
-  &:hover { background: #e2e8f0; color: #334155; }
+  color: #9ca3af;
+  padding: 2px;
+  line-height: 0;
+  border-radius: 4px;
+  &:hover { color: #374151; }
 }
 
-/* ── Tabs ────────────────────────────────────────────── */
-.hm-tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-  background: #f1f5f9;
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 0.85rem;
-}
-
-.hm-tab {
-  padding: 0.4rem 0;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.76rem;
-  font-weight: 600;
-  cursor: pointer;
-  background: transparent;
-  color: #94a3b8;
-  transition: all 0.14s ease;
-
-  &.active {
-    background: #fff;
-    color: #0f172a;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-  }
-}
-
-/* ── Sparkline charts ────────────────────────────────── */
-.hm-spark {
-  margin-bottom: 0.5rem;
-  background: #f8fafc;
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  padding: 0.5rem 0.6rem 0.35rem;
-}
-
-.hm-spark-head {
+/* ── Meta (current weight + reps) ───────────────────────── */
+.hm-meta {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: 0.15rem;
+  gap: 1rem;
 }
 
-.hm-spark-label {
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #94a3b8;
-}
-
-.hm-spark-val {
-  font-size: 0.95rem;
+.hm-meta-weight,
+.hm-meta-reps {
+  font-size: 0.82rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #111827;
 
   small {
     font-size: 0.6rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: #9ca3af;
     margin-left: 1px;
   }
 }
 
-.hm-spark-svg {
+/* ── Charts area ────────────────────────────────────────── */
+.hm-charts {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.35rem 0 0.1rem;
+  border-top: 1px solid #f3f4f6;
+}
+
+/* ── Tab selector (identical to profile) ────────────────── */
+.hm-chart-tabs {
+  display: flex;
+  gap: 3px;
+  background: #f3f4f6;
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 0.2rem;
+}
+
+.hm-chart-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  padding: 0.36rem 0.5rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 600;
+  background: transparent;
+  color: #9ca3af;
+  transition: all 0.14s ease;
+  line-height: 1;
+
+  &.active {
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.mode-weight .hm-chart-tab.active { color: #6366f1; }
+.mode-reps   .hm-chart-tab.active { color: #10b981; }
+
+/* ── Chart label + SVG ──────────────────────────────────── */
+.hm-chart-label {
+  font-size: 0.64rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  margin-bottom: -0.1rem;
+}
+
+.hm-chart-svg {
   width: 100%;
-  height: 56px;
+  height: auto;
   display: block;
-  overflow: visible;
+  overflow: hidden;
 }
 
-.hm-grid {
-  stroke: #f1f5f9;
-  stroke-width: 0.8;
-}
-
-.hm-ax {
-  font-size: 8px;
-  fill: #94a3b8;
-  font-weight: 500;
-
-  &--x { font-size: 7.5px; }
-}
-
-/* ── Legend pills ─────────────────────────────────────── */
+/* ── Legend pills ─────────────────────────────────────────── */
 .hm-legend {
   display: flex;
   gap: 0.3rem;
-  margin-bottom: 0.85rem;
 }
 
 .hm-pill {
@@ -193,9 +150,9 @@
   border-radius: 5px;
 }
 
-/* ── Section title ───────────────────────────────────── */
+/* ── Section title ───────────────────────────────────────── */
 .hm-section-title {
-  margin: 0 0 0.5rem;
+  margin: 0;
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -203,9 +160,18 @@
   color: #94a3b8;
 }
 
-/* ── Session card ────────────────────────────────────── */
+/* ── Session cards scroll area ───────────────────────────── */
+.hm-sessions-scroll {
+  max-height: 220px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* ── Session card ────────────────────────────────────────── */
 .hm-session {
-  margin-bottom: 0.65rem;
   border: 1px solid #f1f5f9;
   border-radius: 10px;
   overflow: hidden;
@@ -233,7 +199,6 @@
   gap: 0.25rem;
   padding: 0.4rem 0.65rem;
   border-top: 1px solid #f8fafc;
-
   &:first-child { border-top: none; }
 }
 
@@ -245,7 +210,6 @@
 .hm-row-val {
   font-size: 0.85rem;
   color: #1e293b;
-
   strong { font-weight: 700; }
   small { font-size: 0.65rem; color: #94a3b8; margin: 0 0.05rem; }
 }
@@ -261,7 +225,7 @@
   gap: 0.25rem;
 }
 
-/* ── Deltas ──────────────────────────────────────────── */
+/* ── Deltas ──────────────────────────────────────────────── */
 .d {
   font-size: 0.62rem;
   font-weight: 600;
@@ -273,70 +237,7 @@
   &--down { color: #dc2626; background: #fef2f2; }
 }
 
-/* ── 1RM stats ───────────────────────────────────────── */
-.hm-rm-stats {
-  display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.hm-rm-stat {
-  flex: 1;
-  padding: 0.55rem 0.65rem;
-  border: 1px solid #f1f5f9;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.hm-rm-label {
-  display: block;
-  font-size: 0.6rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #94a3b8;
-}
-
-.hm-rm-val {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: #0f172a;
-
-  small {
-    font-size: 0.7rem;
-    font-weight: 600;
-    color: #94a3b8;
-    margin-left: 2px;
-  }
-
-  &.d--up   { color: #059669; font-size: 1rem; }
-  &.d--down { color: #dc2626; font-size: 1rem; }
-}
-
-/* ── 1RM chart ───────────────────────────────────────── */
-.hm-rm-chart {
-  border: 1px solid #f1f5f9;
-  border-radius: 12px;
-  padding: 0.4rem 0.25rem 0.15rem;
-  background: #f8fafc;
-  margin-bottom: 0.5rem;
-}
-
-.hm-rm-svg {
-  width: 100%;
-  height: auto;
-  display: block;
-  overflow: visible;
-}
-
-.hm-footnote {
-  margin: 0;
-  text-align: center;
-  font-size: 0.62rem;
-  color: #94a3b8;
-}
-
-/* ── Empty ───────────────────────────────────────────── */
+/* ── Empty ───────────────────────────────────────────────── */
 .hm-empty {
   text-align: center;
   color: #94a3b8;

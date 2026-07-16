@@ -1,183 +1,113 @@
 @if (open) {
-  <div class="hm-overlay" (click)="onClose()">
-    <div class="hm-sheet" (click)="$event.stopPropagation()">
+  <div class="hm-backdrop" (click)="onClose()"></div>
+  <div class="hm-modal" (click)="$event.stopPropagation()">
 
-      <!-- ── Handle bar (mobile) ─── -->
-      <div class="hm-handle"><span></span></div>
+    <div class="hm-header">
+      <span class="hm-title">{{ title }}</span>
+      <button type="button" class="hm-close" (click)="onClose()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
 
-      <!-- ── Scrollable body ─────── -->
-      <div class="hm-body">
+    <div class="hm-meta">
+      <span class="hm-meta-weight">{{ currentWeight() }}<small>kg</small></span>
+      <span class="hm-meta-reps">{{ currentReps() }}<small>reps</small></span>
+    </div>
 
-        <header class="hm-head">
-          <h2 class="hm-title">{{ title }}</h2>
-          <button type="button" class="hm-close" (click)="onClose()" aria-label="Cerrar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
-        </header>
-
-        <nav class="hm-tabs" role="tablist">
-          <button type="button" role="tab" class="hm-tab" [class.active]="activeTab === 'series'" (click)="setTab('series')">Por sesión</button>
-          <button type="button" role="tab" class="hm-tab" [class.active]="activeTab === 'rm'" (click)="setTab('rm')">1RM</button>
-        </nav>
-
-        @if (!hasData()) {
-          <div class="hm-empty">No hay datos históricos todavía.</div>
-        } @else {
-
-          <!-- ═══ TAB SERIES ═══ -->
-          @if (activeTab === 'series') {
-
-            <!-- Weight sparkline -->
-            @if (!weightChart().isEmpty) {
-              <section class="hm-spark">
-                <div class="hm-spark-head">
-                  <span class="hm-spark-label">Peso</span>
-                  @if (weightChart().lines[0] && weightChart().lines[0].dots.length) {
-                    <span class="hm-spark-val">{{ weightChart().lines[0].dots[weightChart().lines[0].dots.length - 1].v | number:'1.0-1' }}<small>kg</small></span>
-                  }
-                </div>
-                <svg class="hm-spark-svg" [attr.viewBox]="'0 0 ' + MINI.cw + ' ' + MINI.ch">
-                  <defs>
-                    <linearGradient id="wGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.18"/>
-                      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  @for (line of weightChart().lines; track line.position) {
-                    @if (line.areaPath) {
-                      <path [attr.d]="line.areaPath" fill="url(#wGrad)"/>
-                    }
-                    @if (line.path) {
-                      <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" [attr.stroke-width]="line.position === 1 ? 2 : 1.2" stroke-linecap="round" [attr.opacity]="setOpacity(line.position)" [attr.stroke-dasharray]="setDash(line.position)"/>
-                    }
-                    @if (line.position === 1 && line.dots.length) {
-                      <circle [attr.cx]="line.dots[line.dots.length - 1].x" [attr.cy]="line.dots[line.dots.length - 1].y" r="3.5" fill="#fff" stroke="#0ea5e9" stroke-width="2"/>
-                      <circle [attr.cx]="line.dots[line.dots.length - 1].x" [attr.cy]="line.dots[line.dots.length - 1].y" r="1.8" fill="#0ea5e9"/>
-                    }
-                  }
-                </svg>
-              </section>
-            }
-
-            <!-- Reps sparkline -->
-            @if (!repsChart().isEmpty) {
-              <section class="hm-spark">
-                <div class="hm-spark-head">
-                  <span class="hm-spark-label">Reps</span>
-                  @if (repsChart().lines[0] && repsChart().lines[0].dots.length) {
-                    <span class="hm-spark-val">{{ repsChart().lines[0].dots[repsChart().lines[0].dots.length - 1].v }}</span>
-                  }
-                </div>
-                <svg class="hm-spark-svg" [attr.viewBox]="'0 0 ' + MINI.cw + ' ' + MINI.ch">
-                  <defs>
-                    <linearGradient id="rGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.18"/>
-                      <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  @for (line of repsChart().lines; track line.position) {
-                    @if (line.areaPath) {
-                      <path [attr.d]="line.areaPath" fill="url(#rGrad)"/>
-                    }
-                    @if (line.path) {
-                      <path [attr.d]="line.path" fill="none" [attr.stroke]="line.position === 1 ? '#8b5cf6' : line.color" [attr.stroke-width]="line.position === 1 ? 2 : 1.2" stroke-linecap="round" [attr.opacity]="setOpacity(line.position)" [attr.stroke-dasharray]="setDash(line.position)"/>
-                    }
-                    @if (line.position === 1 && line.dots.length) {
-                      <circle [attr.cx]="line.dots[line.dots.length - 1].x" [attr.cy]="line.dots[line.dots.length - 1].y" r="3.5" fill="#fff" stroke="#8b5cf6" stroke-width="2"/>
-                      <circle [attr.cx]="line.dots[line.dots.length - 1].x" [attr.cy]="line.dots[line.dots.length - 1].y" r="1.8" fill="#8b5cf6"/>
-                    }
-                  }
-                </svg>
-              </section>
-            }
-
-            <!-- Legend -->
-            <div class="hm-legend">
-              @for (pos of legendPositions(); track pos) {
-                <span class="hm-pill" [style.background]="setColor(pos)">S{{ pos }}</span>
-              }
-            </div>
-
-            <!-- Session cards -->
-            <h3 class="hm-section-title">Detalle por sesión</h3>
-            @for (card of sessionCards(); track card.date) {
-              <div class="hm-session">
-                <time class="hm-session-date">{{ card.dateLabel }}</time>
-                <div class="hm-session-table">
-                  @for (set of card.sets; track set.position) {
-                    <div class="hm-row">
-                      <span class="hm-row-pos" [style.color]="set.color">S{{ set.position }}</span>
-                      <span class="hm-row-val">
-                        <strong>{{ set.weight != null ? (set.weight | number:'1.0-1') : '–' }}</strong>
-                        <small>kg</small>
-                        <span class="hm-x">×</span>
-                        <strong>{{ set.reps ?? '–' }}</strong>
-                      </span>
-                      <span class="hm-row-delta">
-                        @if (set.weightDelta != null && set.weightDelta !== 0) {
-                          <span [class]="'d d--' + deltaTone(set.weightDelta)">{{ formatDelta(set.weightDelta, 'kg') }}</span>
-                        }
-                        @if (set.repsDelta != null && set.repsDelta !== 0) {
-                          <span [class]="'d d--' + deltaTone(set.repsDelta)">{{ formatDelta(set.repsDelta, 'r') }}</span>
-                        }
-                      </span>
-                    </div>
-                  }
-                </div>
-              </div>
-            }
-
-          }
-
-          <!-- ═══ TAB 1RM ═══ -->
-          @if (activeTab === 'rm') {
-            @if (!rmChart().isEmpty) {
-              <div class="hm-rm-stats">
-                <div class="hm-rm-stat">
-                  <span class="hm-rm-label">Último 1RM</span>
-                  <span class="hm-rm-val">{{ rmChart().latest | number:'1.0-1' }}<small>kg</small></span>
-                </div>
-                @if (rmChart().change != null) {
-                  <div class="hm-rm-stat">
-                    <span class="hm-rm-label">vs anterior</span>
-                    <span class="hm-rm-val" [class]="'d--' + deltaTone(rmChart().change)">{{ formatDelta(rmChart().change, ' kg') }}</span>
-                  </div>
-                }
-              </div>
-
-              <section class="hm-rm-chart">
-                <svg class="hm-rm-svg" [attr.viewBox]="'0 0 ' + SVG.cw + ' ' + SVG.ch">
-                  <defs>
-                    <linearGradient id="rmGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stop-color="#0ea5e9" stop-opacity="0.22"/>
-                      <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0"/>
-                    </linearGradient>
-                  </defs>
-                  @for (g of rmChart().grid; track $index) {
-                    <line [attr.x1]="SVG.pl" [attr.y1]="g.y" [attr.x2]="SVG.cw - SVG.pr" [attr.y2]="g.y" class="hm-grid"/>
-                    <text [attr.x]="SVG.pl - 6" [attr.y]="g.y + 4" text-anchor="end" class="hm-ax">{{ g.label }}</text>
-                  }
-                  @if (rmChart().areaPath) { <path [attr.d]="rmChart().areaPath" fill="url(#rmGrad)"/> }
-                  @if (rmChart().path) { <path [attr.d]="rmChart().path" fill="none" stroke="#0ea5e9" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/> }
-                  @for (dot of rmChart().dots; track $index) {
-                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="4" fill="#fff" stroke="#0ea5e9" stroke-width="2"/>
-                    <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="2.5" fill="#0ea5e9"/>
-                  }
-                  @for (lbl of rmChart().xLabels; track $index) {
-                    <text [attr.x]="lbl.x" [attr.y]="SVG.ch - 5" text-anchor="middle" class="hm-ax hm-ax--x">{{ lbl.label }}</text>
-                  }
-                </svg>
-              </section>
-
-              <p class="hm-footnote">Epley: peso × (1 + reps / 30)</p>
-            } @else {
-              <div class="hm-empty">Sin datos suficientes para 1RM.</div>
-            }
-          }
-
-        }
+    <!-- Tab selector -->
+    <div class="hm-charts" [class.mode-weight]="activeTab === 'weight'" [class.mode-reps]="activeTab === 'reps'">
+      <div class="hm-chart-tabs" role="tablist">
+        <button type="button" role="tab" class="hm-chart-tab" [class.active]="activeTab === 'weight'" (click)="setTab('weight')">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+          Peso (kg)
+        </button>
+        <button type="button" role="tab" class="hm-chart-tab" [class.active]="activeTab === 'reps'" (click)="setTab('reps')">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Reps máx.
+        </button>
       </div>
 
+      @if (!hasData()) {
+        <div class="hm-empty">No hay datos históricos todavía.</div>
+      } @else {
+
+        @if (activeTab === 'weight') {
+          <div class="hm-chart-label">Peso máximo (kg)</div>
+          <svg class="hm-chart-svg" viewBox="0 0 300 90">
+            @for (g of wChart().grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of wChart().xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="wChart().path" fill="none" stroke="#6366f1" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of wChart().dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#6366f1" stroke-width="1.8"/>
+            }
+          </svg>
+        }
+
+        @if (activeTab === 'reps') {
+          <div class="hm-chart-label">Reps en máximo</div>
+          <svg class="hm-chart-svg" viewBox="0 0 300 90">
+            @for (g of rChart().grid; track $index) {
+              <line [attr.x1]="HC.pl" [attr.y1]="g.y" [attr.x2]="HC.cw - HC.pr" [attr.y2]="g.y"
+                stroke="#e5e7eb" stroke-width="0.6" stroke-dasharray="3,3"/>
+              <text [attr.x]="HC.pl - 3" [attr.y]="g.y + 3" text-anchor="end" font-size="7.5" fill="#9ca3af">{{ g.label }}</text>
+            }
+            @for (xl of rChart().xLabels; track $index) {
+              <text [attr.x]="xl.x" [attr.y]="HC.ch - 1" text-anchor="middle" font-size="7" fill="#9ca3af">{{ xl.label }}</text>
+            }
+            <path [attr.d]="rChart().path" fill="none" stroke="#10b981" stroke-width="1.8" stroke-dasharray="5,2.5" stroke-linejoin="round" stroke-linecap="round"/>
+            @for (dot of rChart().dots; track $index) {
+              <circle [attr.cx]="dot.x" [attr.cy]="dot.y" r="3" fill="#fff" stroke="#10b981" stroke-width="1.8"/>
+            }
+          </svg>
+        }
+      }
     </div>
+
+    <!-- Legend -->
+    <div class="hm-legend">
+      @for (pos of legendPositions(); track pos) {
+        <span class="hm-pill" [style.background]="setColor(pos)">S{{ pos }}</span>
+      }
+    </div>
+
+    <!-- Session detail -->
+    <h3 class="hm-section-title">Detalle por sesión</h3>
+    <div class="hm-sessions-scroll">
+      @for (card of sessionCards(); track card.date) {
+        <div class="hm-session">
+          <time class="hm-session-date">{{ card.dateLabel }}</time>
+          <div class="hm-session-table">
+            @for (set of card.sets; track set.position) {
+              <div class="hm-row">
+                <span class="hm-row-pos" [style.color]="set.color">S{{ set.position }}</span>
+                <span class="hm-row-val">
+                  <strong>{{ set.weight != null ? (set.weight | number:'1.0-1') : '–' }}</strong>
+                  <small>kg</small>
+                  <span class="hm-x">×</span>
+                  <strong>{{ set.reps ?? '–' }}</strong>
+                </span>
+                <span class="hm-row-delta">
+                  @if (set.weightDelta != null && set.weightDelta !== 0) {
+                    <span [class]="'d d--' + deltaTone(set.weightDelta)">{{ formatDelta(set.weightDelta, 'kg') }}</span>
+                  }
+                  @if (set.repsDelta != null && set.repsDelta !== 0) {
+                    <span [class]="'d d--' + deltaTone(set.repsDelta)">{{ formatDelta(set.repsDelta, 'r') }}</span>
+                  }
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
   </div>
 }
