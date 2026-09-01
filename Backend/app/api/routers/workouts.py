@@ -1,8 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
-import json
 import re
 import unicodedata
-from pathlib import Path
 from postgrest.exceptions import APIError
 
 from app.api.schemas.workouts import (
@@ -17,20 +15,9 @@ from app.api.schemas.workouts import (
 )
 from app.core.auth import get_current_user_id
 from app.services.supabase.supabase_service import get_supabase_service_client
+from app.api.routers.exercisedb import get_body_part_lookup
 
 router = APIRouter()
-
-# Build name → (bodyPart, target) lookup from the local exercises.json
-_EXERCISE_BODY_PART: dict[str, tuple[str, str]] = {}
-try:
-    _ex_json_path = Path(__file__).parent.parent.parent.parent / "data" / "exercisedb" / "exercises.json"
-    _ex_data = json.loads(_ex_json_path.read_text(encoding="utf-8"))
-    for _ex in _ex_data:
-        _key = re.sub(r"\s+", " ", (_ex.get("name") or "").strip().lower())
-        if _key and _ex.get("bodyPart"):
-            _EXERCISE_BODY_PART[_key] = (_ex["bodyPart"], _ex.get("target") or "")
-except Exception:
-    pass
 
 _MUSCLE_MAP: dict[str, str] = {
     # ── Pecho ──────────────────────────────
@@ -105,7 +92,7 @@ def _normalize_muscle_group(
     # 3. Look up exercise name in local exercises.json
     if exercise_name:
         ex_key = re.sub(r"\s+", " ", exercise_name.strip().lower())
-        entry = _EXERCISE_BODY_PART.get(ex_key)
+        entry = get_body_part_lookup().get(ex_key)
         if entry:
             body_part, target = entry
             if body_part.lower() == "upper arms":

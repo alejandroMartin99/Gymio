@@ -16,22 +16,29 @@ router = APIRouter()
 _DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "exercisedb"
 _GIFS_DIR = _DATA_DIR / "gifs"
 
+_loaded = False
 _exercises: list[dict[str, Any]] = []
 _body_parts: list[str] = []
 _targets: list[str] = []
 _by_id: dict[str, dict[str, Any]] = {}
 _by_body_part: dict[str, list[dict[str, Any]]] = {}
 _by_target: dict[str, list[dict[str, Any]]] = {}
+_name_lookup: dict[str, tuple[str, str]] = {}
 
 
-def _boot() -> None:
-    global _exercises, _body_parts, _targets, _by_id, _by_body_part, _by_target
+def _ensure_loaded() -> None:
+    global _loaded, _exercises, _body_parts, _targets, _by_id, _by_body_part, _by_target, _name_lookup
+    if _loaded:
+        return
+    _loaded = True
 
     ex_path = _DATA_DIR / "exercises.json"
     if not ex_path.exists():
         return
 
-    _exercises = json.loads(ex_path.read_text(encoding="utf-8"))
+    raw: list[dict[str, Any]] = json.loads(ex_path.read_text(encoding="utf-8"))
+
+    _exercises = raw
 
     bp_path = _DATA_DIR / "body_parts.json"
     if bp_path.exists():
@@ -41,28 +48,34 @@ def _boot() -> None:
     if tgt_path.exists():
         _targets = json.loads(tgt_path.read_text(encoding="utf-8"))
 
-    _by_id = {str(ex["id"]): ex for ex in _exercises}
+    for ex in raw:
+        eid = str(ex["id"])
+        _by_id[eid] = ex
 
-    for ex in _exercises:
-        bp = ex.get("bodyPart", "").lower().strip()
+        name_key = " ".join((ex.get("name") or "").strip().lower().split())
+        bp = (ex.get("bodyPart") or "").strip().lower()
+        tgt = (ex.get("target") or "").strip().lower()
+
         if bp:
             _by_body_part.setdefault(bp, []).append(ex)
-        tgt = ex.get("target", "").lower().strip()
         if tgt:
             _by_target.setdefault(tgt, []).append(ex)
+        if name_key and bp:
+            _name_lookup[name_key] = (ex["bodyPart"], tgt)
 
 
-_boot()
+def get_body_part_lookup() -> dict[str, tuple[str, str]]:
+    """Shared lookup used by workouts router — avoids duplicate JSON load."""
+    _ensure_loaded()
+    return _name_lookup
 
 
 def _require_data() -> None:
+    _ensure_loaded()
     if not _exercises:
         raise HTTPException(
             status_code=503,
-            detail=(
-                "No hay datos locales de ExerciseDB. "
-                "Ejecuta: cd Backend && python -m scripts.scrape_exercisedb"
-            ),
+            detail="No hay datos locales de ExerciseDB. Ejecuta: cd Backend && python -m scripts.scrape_exercisedb",
         )
 
 
@@ -103,6 +116,7 @@ def search_exercises_by_name(
 
 @router.get("/targets")
 def target_list(user_id: str = Depends(get_current_user_id)) -> dict[str, Any]:
+    _ensure_loaded()
     data = _targets or [
         "abductors", "abs", "adductors", "biceps", "calves",
         "cardiovascular system", "delts", "forearms", "glutes",
@@ -127,6 +141,7 @@ def get_exercise(
 
 @router.get("/body-parts")
 def body_parts(user_id: str = Depends(get_current_user_id)) -> dict[str, Any]:
+    _ensure_loaded()
     data = _body_parts or [
         "back", "cardio", "chest", "lower arms", "lower legs",
         "neck", "shoulders", "upper arms", "upper legs", "waist",
