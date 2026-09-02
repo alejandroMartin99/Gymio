@@ -337,7 +337,7 @@
 
 .progress-grid-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 68px 54px 54px 30px;
+  grid-template-columns: minmax(0, 1fr) 78px 44px 48px 28px;
   align-items: center;
   gap: 0.35rem;
   margin-bottom: 0.15rem;
@@ -358,7 +358,7 @@
 
 .progress-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 68px 54px 54px 30px;
+  grid-template-columns: minmax(0, 1fr) 78px 44px 48px 28px;
   align-items: center;
   gap: 0.35rem;
 }
@@ -408,6 +408,42 @@
   color: #374151;
   white-space: nowrap;
   text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  justify-self: center;
+}
+
+.pr-flame {
+  display: inline-flex;
+  color: #ea580c;
+  line-height: 0;
+  filter: drop-shadow(0 0 2.5px rgba(234, 88, 12, 0.5));
+  animation: pr-glow 2.4s ease-in-out infinite;
+}
+
+.pr-flame-icon {
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+@keyframes pr-glow {
+  0%, 100% {
+    color: #ea580c;
+    filter: drop-shadow(0 0 2px rgba(234, 88, 12, 0.4));
+    transform: translateY(0);
+  }
+  50% {
+    color: #f59e0b;
+    filter: drop-shadow(0 0 5px rgba(245, 158, 11, 0.7));
+    transform: translateY(-0.5px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pr-flame { animation: none; }
 }
 
 .progress-top-label {

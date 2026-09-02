@@ -53,9 +53,11 @@ interface CalendarCell {
 
         <div class="calendar-wrap">
           <div class="cal-nav">
-            <button type="button" class="cal-nav-btn" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
             <span class="cal-title">{{ monthTitle() }}</span>
-            <button type="button" class="cal-nav-btn" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+            <div class="cal-nav-btns">
+              <button type="button" class="cal-nav-btn" (click)="prevMonth()" aria-label="Mes anterior">‹</button>
+              <button type="button" class="cal-nav-btn" (click)="nextMonth()" aria-label="Mes siguiente">›</button>
+            </div>
           </div>
           <div class="cal-weekdays">
             @for (w of weekLabels; track w) {
@@ -79,13 +81,14 @@ interface CalendarCell {
                     : 'Sin entreno'
                 "
               >
-                <span class="cal-num">{{ cell.day }}</span>
-                @if (cell.hasWorkout) {
-                  <span class="cal-marker" aria-hidden="true"></span>
-                  @if (cell.workoutShortLabel) {
-                    <span class="cal-routine">{{ cell.workoutShortLabel }}</span>
+                <span class="cal-ring">
+                  @if (cell.hasWorkout) {
+                    <svg class="cal-tick" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M3.2 8.2 6.6 11.5 12.8 4.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
                   }
-                }
+                  <span class="cal-num">{{ cell.day }}</span>
+                </span>
               </button>
             }
           </div>
@@ -270,9 +273,9 @@ interface CalendarCell {
 
     .calendar-wrap {
       display: grid;
-      gap: 0.45rem;
+      gap: 0.7rem;
       margin-bottom: 0.25rem;
-      padding: 0.35rem 0;
+      padding: 0.15rem 0 0.5rem;
     }
 
     .cal-nav {
@@ -282,116 +285,147 @@ interface CalendarCell {
       gap: 0.5rem;
     }
 
+    .cal-nav-btns {
+      display: flex;
+      align-items: center;
+      gap: 0.15rem;
+    }
+
     .cal-nav-btn {
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      color: #111827;
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
-      font-size: 1.15rem;
+      border: none;
+      background: transparent;
+      color: #007aff;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-size: 1.45rem;
       line-height: 1;
       cursor: pointer;
+      padding: 0;
+    }
+
+    .cal-nav-btn:active {
+      opacity: 0.45;
     }
 
     .cal-title {
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: #111827;
+      font-size: 1.22rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: #111;
       text-transform: capitalize;
     }
 
     .cal-weekdays {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 0.2rem;
       text-align: center;
-      font-size: 0.65rem;
+      font-size: 0.68rem;
       font-weight: 600;
-      color: #9ca3af;
-      letter-spacing: 0.02em;
+      color: #c7c7cc;
+      letter-spacing: 0.04em;
     }
 
     .cal-grid {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
-      gap: 0.28rem;
+      row-gap: 0.35rem;
     }
 
     .cal-day {
-      position: relative;
-      min-height: 48px;
-      border: 1px solid #f3f4f6;
-      border-radius: 10px;
-      background: #fff;
+      border: none;
+      background: transparent;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: flex-start;
-      padding: 0.25rem 0.12rem 0.2rem;
+      justify-content: center;
+      padding: 0.12rem 0;
       cursor: default;
       font: inherit;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .cal-ring {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2.5px solid #ececee;
+      display: grid;
+      place-items: center;
+      box-sizing: border-box;
+      transition: transform 0.12s ease;
+    }
+
+    .cal-tick {
+      position: absolute;
+      z-index: 2;
+      width: 18px;
+      height: 18px;
+      color: var(--day-color, #111);
+      opacity: 0.34;
+      pointer-events: none;
+    }
+
+    .cal-num {
+      position: relative;
+      z-index: 1;
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: #1c1c1e;
+      line-height: 1;
+    }
+
+    .cal-day.has-workout .cal-ring {
+      border-width: 3px;
+      border-color: var(--day-color, #111);
+    }
+
+    .cal-day.has-workout .cal-num {
+      font-weight: 600;
+    }
+
+    .cal-day.today .cal-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1c1c1e;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-weight: 600;
+    }
+
+    .cal-day.today.has-workout .cal-tick {
+      color: #fff;
+      opacity: 0.4;
     }
 
     .cal-day.off-month .cal-num {
-      color: #d1d5db;
+      color: #d1d1d6;
     }
 
-    .cal-day.off-month .cal-routine {
-      color: #d1d5db;
+    .cal-day.off-month.today .cal-num {
+      color: #fff;
     }
 
-    .cal-day.today {
-      border-color: #111827;
+    .cal-day.off-month .cal-ring {
+      border-color: #f2f2f7;
+    }
+
+    .cal-day.off-month.has-workout .cal-ring {
+      opacity: 0.4;
     }
 
     .cal-day.has-workout:not(:disabled) {
       cursor: pointer;
-      border-color: color-mix(in srgb, var(--day-color, #c4b5fd) 40%, #ffffff 60%);
-      background: color-mix(in srgb, var(--day-color, #c4b5fd) 18%, #ffffff 82%);
     }
 
-    .cal-day.has-workout:not(:disabled):active {
-      background: #fafafa;
+    .cal-day.has-workout:not(:disabled):active .cal-ring {
+      transform: scale(0.92);
     }
 
     .cal-day:disabled {
       opacity: 1;
-    }
-
-    .cal-day:disabled:not(.has-workout) {
-      opacity: 0.55;
-    }
-
-    .cal-num {
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: #374151;
-      line-height: 1.2;
-    }
-
-    .cal-marker {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--day-color, #111827);
-      margin-top: 0.2rem;
-      flex-shrink: 0;
-    }
-
-    .cal-routine {
-      margin-top: 0.15rem;
-      font-size: 0.55rem;
-      font-weight: 500;
-      color: #6b7280;
-      line-height: 1.15;
-      text-align: center;
-      max-width: 100%;
-      overflow: hidden;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      word-break: break-word;
     }
 
     .muted {
@@ -814,22 +848,22 @@ export class HistoricPage implements OnInit {
 
   readonly weekLabels = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
   readonly routinePastelPalette = [
-    '#BFDBFE', // azul
-    '#FBCFE8', // rosa
-    '#C7F9CC', // verde
-    '#FDE68A', // amarillo
-    '#DDD6FE', // violeta
-    '#FED7AA', // naranja
-    '#A7F3D0', // menta
-    '#FECACA', // rojo
-    '#BAE6FD', // celeste
-    '#E9D5FF', // lila
-    '#D9F99D', // lima
-    '#FDE8C8', // melocotón
-    '#C7F2FA', // aguamarina
-    '#FCE7F3', // blush
-    '#DCFCE7', // esmeralda claro
-    '#FEF9C3', // crema
+    '#3B82F6', // azul
+    '#EC4899', // rosa
+    '#22C55E', // verde
+    '#D97706', // ámbar
+    '#8B5CF6', // violeta
+    '#F97316', // naranja
+    '#14B8A6', // teal
+    '#EF4444', // rojo
+    '#0EA5E9', // celeste
+    '#A855F7', // lila
+    '#65A30D', // lima
+    '#EA580C', // naranja oscuro
+    '#06B6D4', // cyan
+    '#F43F5E', // rose
+    '#10B981', // esmeralda
+    '#CA8A04', // gold
   ];
 
   private _routineColorCache = new Map<string, string>();

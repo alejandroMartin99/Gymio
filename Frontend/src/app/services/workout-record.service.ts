@@ -267,7 +267,7 @@ export class WorkoutRecordService {
 
   async addExercisesBatch(
     workoutId: string,
-    exercises: { name: string; muscle_group?: string }[]
+    exercises: { name: string; muscle_group?: string; external_exercise_id?: string }[]
   ): Promise<WorkoutExerciseRecord[] | null> {
     this.invalidateWorkoutDetailCache(workoutId);
     this.error.set(null);

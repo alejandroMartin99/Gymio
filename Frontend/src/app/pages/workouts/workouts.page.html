@@ -9,30 +9,63 @@
   }
 
   @if (!currentWorkout) {
-    <div class="empty">
+    <div class="start-home">
       @if (workoutRecordService.loading()) {
         <div class="loading-state">
           <span class="spinner" aria-hidden="true"></span>
           <small>Cargando rutinas...</small>
         </div>
       } @else {
-        <div class="action-row">
-          <button type="button" (click)="openReplicateModal()" [disabled]="replicateModalRecords().length === 0">
-            Repetir rutina
-          </button>
-          <button type="button" class="secondary" (click)="openNewSessionModal()">
-            Nueva rutina
-          </button>
-        </div>
+        <section class="routines-zone">
+          <div class="routines-head">
+            <h3>Repetir rutina</h3>
+            <small>Un toque y empiezas.</small>
+          </div>
+          @if (repeatRoutines().length) {
+            <div class="routine-list">
+              @for (r of repeatRoutines(); track r.id) {
+                <button
+                  type="button"
+                  class="routine-card"
+                  [disabled]="showRoutineStartOverlay || isCreatingTemplate()"
+                  [class.routine-card--busy]="replicatingFromId === r.id"
+                  (click)="startRepeatRoutine(r.id)"
+                >
+                  <span class="routine-card-text">
+                    <strong>{{ r.workout_name }}</strong>
+                    @if (formatRoutineDate(r.created_at); as when) {
+                      <small>Última · {{ when }}</small>
+                    }
+                  </span>
+                  @if (replicatingFromId === r.id) {
+                    <span class="spinner" aria-hidden="true"></span>
+                  } @else {
+                    <span class="routine-card-go" aria-hidden="true">
+                      <svg viewBox="0 0 12 12" width="14" height="14">
+                        <path d="M4.5 2.5L8 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+                      </svg>
+                    </span>
+                  }
+                </button>
+              }
+            </div>
+          } @else {
+            <p class="routines-empty">Todavía no tienes rutinas. Crea una o carga una plantilla.</p>
+          }
+        </section>
+
+        <button type="button" class="new-routine-btn" (click)="openNewSessionModal()">
+          Nueva rutina
+        </button>
       }
     </div>
 
     @if (!workoutRecordService.loading()) {
-      <div class="templates-zone">
-        <div class="templates-head">
+      <details class="templates-zone" [open]="templatesOpen" (toggle)="onTemplatesToggle($event)">
+        <summary class="templates-head">
           <h3>Workout Templates</h3>
           <small>Rutinas completas y listas para empezar.</small>
-        </div>
+        </summary>
 
         <div class="template-filter-group">
           <span class="filter-label">Días / semana</span>
@@ -96,7 +129,7 @@
             </article>
           }
         </div>
-      </div>
+      </details>
     }
   }
 

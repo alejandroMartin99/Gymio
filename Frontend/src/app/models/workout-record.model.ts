@@ -90,8 +90,10 @@ export interface WorkoutStatsProgressEntry {
   prev_max: number;
   change_pct: number | null;
   all_time_min: number | null;
+  all_time_max: number | null;
+  change_vs_max_pct: number | null;
   change_vs_min_pct: number | null;
-  /** % cambio: máx. última sesión vs sesión anterior disponible. null si es la primera. */
+  /** % cambio: última sesión vs sesión anterior. null si es la primera. */
   change_vs_prev_week_pct?: number | null;
   history_points: WorkoutStatsHistoryPoint[];
 }

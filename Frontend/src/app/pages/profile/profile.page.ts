@@ -45,6 +45,12 @@ export class ProfilePage implements OnInit {
   closeChartModal(): void { this.chartModalEx = null; }
   setProfileChartTab(tab: 'weight' | 'reps'): void { this.profileChartTab = tab; }
 
+  isHistoricMax(ex: WorkoutStatsProgressEntry): boolean {
+    const max = ex.all_time_max;
+    if (max == null || max <= 0) return false;
+    return ex.current_max >= max - 1e-6;
+  }
+
   /* ── Chart cache ────────────────────────────────────────── */
   private _wChartCache = new Map<string, ChartData>();
   private _rChartCache = new Map<string, ChartData>();

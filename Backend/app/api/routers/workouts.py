@@ -218,12 +218,14 @@ def add_exercise(
         user_id=user_id,
         current_workout_id=workout_id,
         exercise_name=payload.name,
+        external_exercise_id=payload.external_exercise_id,
     )
     created["history_points"] = _history_points_for_exercise_name(
         client=client,
         user_id=user_id,
         current_workout_id=workout_id,
         exercise_name=payload.name,
+        external_exercise_id=payload.external_exercise_id,
     )
     return {"success": True, "data": created}
 
@@ -260,26 +262,28 @@ def add_exercises_batch(
     if not result.data:
         raise HTTPException(status_code=400, detail="Unable to add exercises")
 
-    # Enrich all at once: collect unique names, query previous_sets + history_points once per name
-    name_cache: dict[str, dict] = {}
+    # Enrich all at once: collect unique identities, query previous_sets + history_points once
+    ident_cache: dict[frozenset[str], dict] = {}
     created_list = []
     for item in result.data:
         created = dict(item)
         name = created.get("name", "")
-        norm = _normalize_name(name)
-        if norm not in name_cache:
-            name_cache[norm] = {
+        cache_key = frozenset(_exercise_keys(name, created.get("external_exercise_id")))
+        if cache_key not in ident_cache:
+            ident_cache[cache_key] = {
                 "previous_sets": _previous_sets_for_exercise_name(
                     client=client, user_id=user_id,
                     current_workout_id=workout_id, exercise_name=name,
+                    external_exercise_id=created.get("external_exercise_id"),
                 ),
                 "history_points": _history_points_for_exercise_name(
                     client=client, user_id=user_id,
                     current_workout_id=workout_id, exercise_name=name,
+                    external_exercise_id=created.get("external_exercise_id"),
                 ),
             }
-        created["previous_sets"] = name_cache[norm]["previous_sets"]
-        created["history_points"] = name_cache[norm]["history_points"]
+        created["previous_sets"] = ident_cache[cache_key]["previous_sets"]
+        created["history_points"] = ident_cache[cache_key]["history_points"]
         created_list.append(created)
 
     return {"success": True, "data": created_list}
@@ -450,36 +454,28 @@ def update_set(
 @router.get("/stats")
 def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     from datetime import datetime, timedelta, timezone
+    from zoneinfo import ZoneInfo
+
+    _local_tz = ZoneInfo("Europe/Madrid")
 
     client = get_supabase_service_client()
 
-    records_res = (
-        client.table("workout_records")
-        .select("id, created_at, workout_name")
-        .eq("user_id", user_id)
-        .order("created_at")
-        .execute()
+    record_rows = _paginated_user_rows(
+        client, "workout_records", "id, created_at, workout_name", user_id, order="created_at"
     )
-    record_rows = records_res.data or []
 
     if not record_rows:
         return {"success": True, "data": _empty_stats()}
 
-    ex_res = (
-        client.table("workout_exercises")
-        .select("id, workout_id, name, muscle_group, exercise_detail")
-        .eq("user_id", user_id)
-        .execute()
+    ex_rows = _paginated_user_rows(
+        client,
+        "workout_exercises",
+        "id, workout_id, name, muscle_group, exercise_detail, external_exercise_id",
+        user_id,
     )
-    ex_rows = ex_res.data or []
-
-    set_res = (
-        client.table("exercise_sets")
-        .select("workout_exercise_id, weight, done_reps")
-        .eq("user_id", user_id)
-        .execute()
+    set_rows = _paginated_user_rows(
+        client, "exercise_sets", "workout_exercise_id, weight, done_reps", user_id
     )
-    set_rows = set_res.data or []
 
     # Lookup maps
     sets_by_ex: dict[str, list] = {}
@@ -502,7 +498,10 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         if not ts_str:
             continue
         try:
-            record_date_map[r["id"]] = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            record_date_map[r["id"]] = ts.astimezone(_local_tz)
         except ValueError:
             pass
 
@@ -531,23 +530,25 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         })
         week_start = week_end
 
-    # Top exercises by frequency
+    # Top exercises by frequency (mismo ejercicio = mismo id de catálogo o nombre)
+    group_of = _exercise_group_map(ex_rows)
     ex_freq: dict[str, dict] = {}
     ex_max_weight: dict[str, float] = {}
     for ex in ex_rows:
-        norm = _normalize_name(ex.get("name", ""))
-        if not norm:
+        g = group_of.get(ex["id"])
+        if not g:
             continue
-        if norm not in ex_freq:
-            ex_freq[norm] = {"display": ex.get("name", norm), "count": 0}
-        ex_freq[norm]["count"] += 1
+        if g not in ex_freq:
+            ex_freq[g] = {"display": ex.get("name", g), "count": 0}
+        ex_freq[g]["count"] += 1
         for s in sets_by_ex.get(ex["id"], []):
             w = float(s.get("weight") or 0)
-            if w > ex_max_weight.get(norm, 0.0):
-                ex_max_weight[norm] = w
+            if w > ex_max_weight.get(g, 0.0):
+                ex_max_weight[g] = w
     top_exercises = sorted(ex_freq.values(), key=lambda x: x["count"], reverse=True)[:7]
     for t in top_exercises:
-        t["max_weight"] = ex_max_weight.get(_normalize_name(t["display"]), 0.0)
+        g = next((k for k, v in ex_freq.items() if v is t), None)
+        t["max_weight"] = ex_max_weight.get(g, 0.0) if g else 0.0
 
     # Muscle group breakdown
     muscle_counts: dict[str, int] = {}
@@ -569,32 +570,36 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     # Display name + muscle group per exercise (all time; no calendar-week filter)
     ex_meta: dict[str, dict] = {}
     for ex in ex_rows:
-        norm = _normalize_name(ex.get("name", ""))
-        if not norm:
+        g = group_of.get(ex["id"])
+        if not g:
             continue
         mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"), ex.get("name"))
-        if norm not in ex_meta:
-            ex_meta[norm] = {
-                "display": ex.get("name", norm),
+        if g not in ex_meta:
+            ex_meta[g] = {
+                "display": ex.get("name", g),
                 "muscle_group": mg,
             }
-        elif mg is not None and ex_meta[norm]["muscle_group"] is None:
-            ex_meta[norm]["muscle_group"] = mg
+        else:
+            if mg is not None and ex_meta[g]["muscle_group"] is None:
+                ex_meta[g]["muscle_group"] = mg
+            # Prefer English catalog name when we have an external id.
+            if ex.get("external_exercise_id") and ex.get("name"):
+                ex_meta[g]["display"] = ex.get("name")
 
-    # Build full history per normalized exercise name (all time)
-    ex_history_map: dict[str, dict[str, dict]] = {}  # norm -> {date -> {max_weight, max_reps_at_max}}
+    # Build full history per exercise identity (all routines)
+    ex_history_map: dict[str, dict[str, dict]] = {}  # group -> {date -> {max_weight, max_reps}}
     for ex in ex_rows:
-        norm = _normalize_name(ex.get("name", ""))
-        if not norm:
+        g = group_of.get(ex["id"])
+        if not g:
             continue
         wid = ex.get("workout_id", "")
         workout_ts = record_date_map.get(wid)
         if workout_ts is None:
             continue
         date_str = workout_ts.strftime("%Y-%m-%d")
-        if norm not in ex_history_map:
-            ex_history_map[norm] = {}
-        day = ex_history_map[norm].setdefault(date_str, {"max_weight": 0.0, "max_reps": 0})
+        if g not in ex_history_map:
+            ex_history_map[g] = {}
+        day = ex_history_map[g].setdefault(date_str, {"max_weight": 0.0, "max_reps": 0})
         for s in sets_by_ex.get(ex["id"], []):
             w = float(s.get("weight") or 0)
             r = int(s.get("done_reps") or 0)
@@ -605,11 +610,11 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
                 day["max_reps"] = r
 
     progress_by_muscle_map: dict[str, list] = {}
-    for norm, meta in ex_meta.items():
+    for g, meta in ex_meta.items():
         mg = meta["muscle_group"]
         if not mg or mg not in _VALID_GROUPS:
             continue
-        day_map = ex_history_map.get(norm, {})
+        day_map = ex_history_map.get(g, {})
         history_points = sorted(
             [{"date": d, "max_weight": v["max_weight"], "max_reps": v["max_reps"]}
              for d, v in day_map.items() if v["max_weight"] > 0],
@@ -620,12 +625,15 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         current_max = float(history_points[-1]["max_weight"] or 0)
         if current_max <= 0:
             continue
-        # Compare vs last available previous session (skip empty weeks); first session → None ("—")
         prev_max = float(history_points[-2]["max_weight"] or 0) if len(history_points) >= 2 else 0.0
         change_pct: float | None = None
         if prev_max > 0:
             change_pct = round(((current_max - prev_max) / prev_max) * 100, 1)
+        all_time_max = max(float(p["max_weight"] or 0) for p in history_points)
         all_time_min = min((p["max_weight"] for p in history_points), default=None)
+        change_vs_max_pct: float | None = None
+        if all_time_max > 0:
+            change_vs_max_pct = round(((current_max - all_time_max) / all_time_max) * 100, 1)
         change_vs_min_pct: float | None = None
         if all_time_min is not None and all_time_min > 0:
             change_vs_min_pct = round(((current_max - all_time_min) / all_time_min) * 100, 1)
@@ -638,6 +646,8 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
             "prev_max": prev_max,
             "change_pct": change_pct,
             "all_time_min": all_time_min,
+            "all_time_max": all_time_max,
+            "change_vs_max_pct": change_vs_max_pct,
             "change_vs_min_pct": change_vs_min_pct,
             "change_vs_prev_week_pct": change_pct,
             "history_points": history_points,
@@ -918,13 +928,9 @@ def _find_record_by_name(client, user_id: str, workout_name: str) -> dict | None
 
 
 def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_workout_id: str) -> None:
-    """Replica ejercicios + series del workout `from_workout_id` a `to_workout_id`.
-
-    Optimización: una única consulta para los ejercicios, una única consulta
-    para sus series y un único insert masivo de las nuevas series. Esto reduce
-    drásticamente la latencia de "Repetir rutina" (antes: 1 select + N inserts
-    de ejercicios + 0 series; ahora: 2 selects + 2 inserts masivos con series
-    prellenadas).
+    """Replica ejercicios de la rutina origen; las series se prellenan con la
+    última sesión de cada ejercicio en cualquier rutina (mismo id de catálogo
+    o mismo nombre).
     """
     old_exercises_res = (
         client.table("workout_exercises")
@@ -963,51 +969,73 @@ def _copy_exercises_and_sets(client, user_id: str, from_workout_id: str, to_work
         # los ejercicios creados aunque sea sin series.
         return
 
-    # Mapa old_id -> new_id usando el orden devuelto por la inserción masiva.
-    exercise_id_map: dict[str, str] = {
-        old["id"]: new["id"] for old, new in zip(old_exercises, inserted_exercises)
-    }
-
-    # Una única consulta para todas las series del workout original.
-    old_set_ids = list(exercise_id_map.keys())
-    if not old_set_ids:
-        return
-    old_sets_res = (
-        client.table("exercise_sets")
-        .select("*")
-        .in_("workout_exercise_id", old_set_ids)
+    # Series: última sesión GLOBAL de cada ejercicio (cualquier rutina), no
+    # solo las de la rutina origen. Así un máximo hecho en Push se prellena
+    # cuando el mismo ejercicio aparece en Full Body.
+    prev_ex_res = (
+        client.table("workout_exercises")
+        .select("id, workout_id, name, external_exercise_id")
         .eq("user_id", user_id)
-        .order("position")
+        .neq("workout_id", to_workout_id)
         .execute()
     )
-    old_sets = old_sets_res.data or []
-    if not old_sets:
-        return
+    prev_ex_rows = prev_ex_res.data or []
+    prev_ex_ids = [row["id"] for row in prev_ex_rows]
+    prev_workout_ids = list({row["workout_id"] for row in prev_ex_rows if row.get("workout_id")})
 
-    # Construye el array masivo de nuevas series con peso/reps prellenados
-    # tal como pidió el usuario (las puede editar antes de confirmar con el check).
-    new_set_rows: list[dict] = []
-    for old_set in old_sets:
-        old_ex_id = old_set.get("workout_exercise_id")
-        new_ex_id = exercise_id_map.get(old_ex_id)
-        if not new_ex_id:
-            continue
-        new_set_rows.append(
-            {
-                "workout_id": to_workout_id,
-                "workout_exercise_id": new_ex_id,
-                "user_id": user_id,
-                "set_type": old_set.get("set_type") or "normal",
-                "target_reps": old_set.get("target_reps"),
-                "done_reps": old_set.get("done_reps"),
-                "weight": old_set.get("weight"),
-                "unit": old_set.get("unit") or "kg",
-                "comment": old_set.get("comment"),
-                "assisted_reps": old_set.get("assisted_reps"),
-                "rpe": old_set.get("rpe"),
-                "position": old_set.get("position", 0),
-            }
+    sets_by_ex_id: dict[str, list[dict]] = {}
+    if prev_ex_ids:
+        prev_sets_res = (
+            client.table("exercise_sets")
+            .select("*")
+            .in_("workout_exercise_id", prev_ex_ids)
+            .eq("user_id", user_id)
+            .order("position")
+            .execute()
         )
+        for s in prev_sets_res.data or []:
+            sets_by_ex_id.setdefault(s.get("workout_exercise_id"), []).append(s)
+
+    record_date_by_id: dict[str, str] = {}
+    if prev_workout_ids:
+        records_res = (
+            client.table("workout_records")
+            .select("id, created_at")
+            .in_("id", prev_workout_ids)
+            .eq("user_id", user_id)
+            .execute()
+        )
+        record_date_by_id = {
+            row["id"]: row.get("created_at") or "" for row in (records_res.data or [])
+        }
+
+    new_set_rows: list[dict] = []
+    for old, new in zip(old_exercises, inserted_exercises):
+        keys = _exercise_keys(new.get("name") or old.get("name"), new.get("external_exercise_id") or old.get("external_exercise_id"))
+        matching = [
+            row for row in prev_ex_rows
+            if _exercise_keys(row.get("name"), row.get("external_exercise_id")) & keys
+        ]
+        chosen = _pick_best_session_sets(matching, sets_by_ex_id, record_date_by_id)
+        if not chosen:
+            chosen = sets_by_ex_id.get(old["id"], [])
+        for old_set in chosen:
+            new_set_rows.append(
+                {
+                    "workout_id": to_workout_id,
+                    "workout_exercise_id": new["id"],
+                    "user_id": user_id,
+                    "set_type": old_set.get("set_type") or "normal",
+                    "target_reps": old_set.get("target_reps"),
+                    "done_reps": old_set.get("done_reps"),
+                    "weight": old_set.get("weight"),
+                    "unit": old_set.get("unit") or "kg",
+                    "comment": old_set.get("comment"),
+                    "assisted_reps": old_set.get("assisted_reps"),
+                    "rpe": old_set.get("rpe"),
+                    "position": old_set.get("position", 0),
+                }
+            )
 
     if new_set_rows:
         client.table("exercise_sets").insert(new_set_rows).execute()
@@ -1105,39 +1133,42 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
         workout["exercises"] = []
         return workout
 
-    # Nombres normalizados que necesitamos resolver.
-    name_keys_needed = {
-        _normalize_name(exercise.get("name", "")) for exercise in exercise_list
-    }
+    # Nombres / ids de catálogo que necesitamos resolver (el máximo es del
+    # ejercicio, no de la rutina).
+    current_keys_by_idx: list[set[str]] = [
+        _exercise_keys(exercise.get("name"), exercise.get("external_exercise_id"))
+        for exercise in exercise_list
+    ]
+    name_keys_needed = set()
+    for keys in current_keys_by_idx:
+        name_keys_needed |= keys
     name_keys_needed.discard("")
 
-    previous_sets_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
-    history_points_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
-    history_sessions_by_name: dict[str, list[dict]] = {key: [] for key in name_keys_needed}
+    previous_sets_by_idx: list[list[dict]] = [[] for _ in exercise_list]
+    history_points_by_idx: list[list[dict]] = [[] for _ in exercise_list]
+    history_sessions_by_idx: list[list[dict]] = [[] for _ in exercise_list]
 
     if name_keys_needed:
         # 1 query: TODOS los workout_exercises del usuario excluyendo el actual.
         prev_ex_res = (
             client.table("workout_exercises")
-            .select("id, workout_id, name")
+            .select("id, workout_id, name, external_exercise_id")
             .eq("user_id", user_id)
             .neq("workout_id", workout_id)
             .execute()
         )
         prev_ex_rows = prev_ex_res.data or []
 
-        # Filtramos en memoria por los nombres que sí necesitamos.
         relevant_prev: list[dict] = []
         for row in prev_ex_rows:
-            key = _normalize_name(row.get("name", ""))
-            if key in name_keys_needed:
-                relevant_prev.append({**row, "_norm": key})
+            keys = _exercise_keys(row.get("name"), row.get("external_exercise_id"))
+            if keys & name_keys_needed:
+                relevant_prev.append({**row, "_keys": keys})
 
         prev_ex_ids = [row["id"] for row in relevant_prev]
         prev_workout_ids = list({row["workout_id"] for row in relevant_prev if row.get("workout_id")})
 
         if prev_ex_ids:
-            # 1 query: TODOS los sets de los ejercicios previos relevantes.
             prev_sets_res = (
                 client.table("exercise_sets")
                 .select(
@@ -1152,17 +1183,10 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
             prev_sets = prev_sets_res.data or []
 
             ex_by_id = {row["id"]: row for row in relevant_prev}
-
-            # Agrupamos previous_sets por nombre normalizado.
+            sets_by_ex_id: dict[str, list[dict]] = {}
             for s in prev_sets:
-                ex = ex_by_id.get(s.get("workout_exercise_id"))
-                if not ex:
-                    continue
-                key = ex.get("_norm", "")
-                if key in previous_sets_by_name:
-                    previous_sets_by_name[key].append(s)
+                sets_by_ex_id.setdefault(s.get("workout_exercise_id"), []).append(s)
 
-            # 1 query: fechas de los workouts previos para los history_points.
             record_date_by_id: dict[str, str] = {}
             if prev_workout_ids:
                 records_res = (
@@ -1176,86 +1200,56 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                     row["id"]: row.get("created_at") for row in (records_res.data or [])
                 }
 
-            # Filtrar previous_sets al entrenamiento MÁS RECIENTE para cada ejercicio.
-            # Sin este filtro se acumularían series de todos los entrenos anteriores y
-            # la columna "ANTERIOR" mostraría valores mezclados de distintas sesiones.
-            for key in list(previous_sets_by_name.keys()):
-                sets_all = previous_sets_by_name[key]
-                if not sets_all:
+            for idx, current_keys in enumerate(current_keys_by_idx):
+                if not current_keys:
                     continue
-                most_recent_wid = None
-                most_recent_date = ""
-                for s in sets_all:
-                    wid = s.get("workout_id")
-                    if not wid:
-                        continue
-                    date = (record_date_by_id.get(wid) or s.get("created_at") or "")
-                    if date > most_recent_date:
-                        most_recent_date = date
-                        most_recent_wid = wid
-                if most_recent_wid:
-                    previous_sets_by_name[key] = sorted(
-                        [s for s in sets_all if s.get("workout_id") == most_recent_wid],
-                        key=lambda s: s.get("position", 0),
-                    )
-
-            # Construcción de history_points por nombre.
-            history_buf: dict[str, dict[str, dict]] = {}  # name_key -> {workout_id -> point}
-            for s in prev_sets:
-                ex = ex_by_id.get(s.get("workout_exercise_id"))
-                if not ex:
-                    continue
-                key = ex.get("_norm", "")
-                if not key:
-                    continue
-                workout_id_prev = s.get("workout_id") or ex.get("workout_id")
-                if not workout_id_prev:
-                    continue
-                date = (record_date_by_id.get(workout_id_prev) or s.get("created_at") or "")[:10]
-                point = history_buf.setdefault(key, {}).setdefault(
-                    workout_id_prev,
-                    {
-                        "workout_id": workout_id_prev,
-                        "date": date,
-                        "max_weight": 0.0,
-                        "max_reps": 0,
-                    },
+                matching_rows = [row for row in relevant_prev if row.get("_keys", set()) & current_keys]
+                matching_ids = {row["id"] for row in matching_rows}
+                previous_sets_by_idx[idx] = _pick_best_session_sets(
+                    matching_rows, sets_by_ex_id, record_date_by_id
                 )
-                weight = float(s.get("weight") or 0.0)
-                reps = int(s.get("done_reps") or 0)
-                if weight > point["max_weight"]:
-                    point["max_weight"] = weight
-                if reps > point["max_reps"]:
-                    point["max_reps"] = reps
 
-            for key, by_workout in history_buf.items():
-                pts = list(by_workout.values())
+                history_buf: dict[str, dict] = {}
+                session_buf: dict[str, list[dict]] = {}
+                for s in prev_sets:
+                    if s.get("workout_exercise_id") not in matching_ids:
+                        continue
+                    ex = ex_by_id.get(s.get("workout_exercise_id"))
+                    if not ex:
+                        continue
+                    workout_id_prev = s.get("workout_id") or ex.get("workout_id")
+                    if not workout_id_prev:
+                        continue
+                    date = (record_date_by_id.get(workout_id_prev) or s.get("created_at") or "")[:10]
+                    point = history_buf.setdefault(
+                        workout_id_prev,
+                        {
+                            "workout_id": workout_id_prev,
+                            "date": date,
+                            "max_weight": 0.0,
+                            "max_reps": 0,
+                        },
+                    )
+                    weight = float(s.get("weight") or 0.0)
+                    reps = int(s.get("done_reps") or 0)
+                    if weight > point["max_weight"]:
+                        point["max_weight"] = weight
+                    if reps > point["max_reps"]:
+                        point["max_reps"] = reps
+                    session_buf.setdefault(workout_id_prev, []).append(s)
+
+                pts = list(history_buf.values())
                 pts.sort(key=lambda item: item.get("date", ""))
-                history_points_by_name[key] = pts
+                history_points_by_idx[idx] = pts
 
-            # Construir history_sessions: últimas 5 sesiones con sets individuales.
-            session_buf: dict[str, dict[str, list[dict]]] = {}
-            for s in prev_sets:
-                ex = ex_by_id.get(s.get("workout_exercise_id"))
-                if not ex:
-                    continue
-                key = ex.get("_norm", "")
-                if not key:
-                    continue
-                wid = s.get("workout_id") or ex.get("workout_id")
-                if not wid:
-                    continue
-                session_buf.setdefault(key, {}).setdefault(wid, []).append(s)
-
-            for key, by_workout in session_buf.items():
                 sorted_wids = sorted(
-                    by_workout.keys(),
+                    session_buf.keys(),
                     key=lambda wid: (record_date_by_id.get(wid) or ""),
                 )[-5:]
                 sessions = []
                 for wid in sorted_wids:
                     date = (record_date_by_id.get(wid) or "")[:10]
-                    sets_raw = sorted(by_workout[wid], key=lambda s: s.get("position", 0))
+                    sets_raw = sorted(session_buf[wid], key=lambda s: s.get("position", 0))
                     sessions.append({
                         "workout_id": wid,
                         "date": date,
@@ -1268,18 +1262,17 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
                             for s in sets_raw
                         ],
                     })
-                history_sessions_by_name[key] = sessions
+                history_sessions_by_idx[idx] = sessions
 
     enriched_exercises: list[dict] = []
-    for exercise in exercise_list:
-        name_key = _normalize_name(exercise.get("name", ""))
+    for idx, exercise in enumerate(exercise_list):
         enriched_exercises.append(
             {
                 **exercise,
                 "sets": sets_by_exercise.get(exercise["id"], []),
-                "previous_sets": previous_sets_by_name.get(name_key, []),
-                "history_points": history_points_by_name.get(name_key, []),
-                "history_sessions": history_sessions_by_name.get(name_key, []),
+                "previous_sets": previous_sets_by_idx[idx],
+                "history_points": history_points_by_idx[idx],
+                "history_sessions": history_sessions_by_idx[idx],
             }
         )
 
@@ -1287,15 +1280,111 @@ def _build_workout_detail(client, user_id: str, workout_id: str) -> dict | None:
     return workout
 
 
-def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
-    if not exercise_name:
+def _exercise_keys(name: str | None, external_id: str | None = None) -> set[str]:
+    """Identidad de un ejercicio: id de catálogo y/o nombre normalizado."""
+    keys: set[str] = set()
+    ext = (external_id or "").strip()
+    if ext:
+        keys.add(f"id:{ext}")
+    norm = _normalize_name(name)
+    if norm:
+        keys.add(f"name:{norm}")
+    return keys
+
+
+def _exercise_group_map(ex_rows: list[dict]) -> dict[str, str]:
+    """Une el mismo ejercicio aunque cambie el nombre o la rutina (id catálogo + nombre)."""
+    parent: dict[str, str] = {}
+
+    def find(x: str) -> str:
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    def union(a: str, b: str) -> None:
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+
+    for ex in ex_rows:
+        keys = list(_exercise_keys(ex.get("name"), ex.get("external_exercise_id")))
+        if len(keys) >= 2:
+            base = keys[0]
+            for k in keys[1:]:
+                union(base, k)
+
+    grouped: dict[str, str] = {}
+    for ex in ex_rows:
+        eid = ex.get("id")
+        keys = list(_exercise_keys(ex.get("name"), ex.get("external_exercise_id")))
+        if not eid or not keys:
+            continue
+        grouped[eid] = find(keys[0])
+    return grouped
+
+
+def _paginated_user_rows(client, table: str, columns: str, user_id: str, order: str | None = None) -> list[dict]:
+    """Lee todas las filas del usuario; PostgREST corta en 1000 si no se pagina."""
+    page = 1000
+    rows: list[dict] = []
+    start = 0
+    while True:
+        q = client.table(table).select(columns).eq("user_id", user_id)
+        if order:
+            q = q.order(order)
+        batch = (q.range(start, start + page - 1).execute().data) or []
+        rows.extend(batch)
+        if len(batch) < page:
+            break
+        start += page
+    return rows
+
+
+def _pick_best_session_sets(
+    matching_rows: list[dict],
+    sets_by_ex_id: dict[str, list[dict]],
+    record_date_by_id: dict[str, str],
+) -> list[dict]:
+    """Series de la sesión con más peso (cualquier rutina). Empate → la más reciente."""
+    by_workout: dict[str, list[dict]] = {}
+    for row in matching_rows:
+        wid = row.get("workout_id")
+        if not wid:
+            continue
+        by_workout.setdefault(wid, []).extend(sets_by_ex_id.get(row["id"], []))
+
+    best_wid = None
+    best_weight = -1.0
+    best_date = ""
+    for wid, sets in by_workout.items():
+        if not sets:
+            continue
+        w = max((float(s.get("weight") or 0) for s in sets), default=0.0)
+        date = record_date_by_id.get(wid) or ""
+        if w > best_weight or (w == best_weight and date > best_date):
+            best_weight = w
+            best_date = date
+            best_wid = wid
+    if not best_wid:
         return []
-    target_name = _normalize_name(exercise_name)
-    if not target_name:
+    return sorted(by_workout[best_wid], key=lambda s: s.get("position", 0))
+
+
+def _previous_sets_for_exercise_name(
+    client,
+    user_id: str,
+    current_workout_id: str,
+    exercise_name: str,
+    external_exercise_id: str | None = None,
+) -> list[dict]:
+    target_keys = _exercise_keys(exercise_name, external_exercise_id)
+    if not target_keys:
         return []
     previous_exercises = (
         client.table("workout_exercises")
-        .select("id, name, workout_id")
+        .select("id, name, workout_id, external_exercise_id")
         .eq("user_id", user_id)
         .neq("workout_id", current_workout_id)
         .execute()
@@ -1303,43 +1392,41 @@ def _previous_sets_for_exercise_name(client, user_id: str, current_workout_id: s
     rows = previous_exercises.data or []
     if not rows:
         return []
-    matching_rows = [row for row in rows if _normalize_name(row.get("name")) == target_name]
+    matching_rows = [
+        row for row in rows
+        if _exercise_keys(row.get("name"), row.get("external_exercise_id")) & target_keys
+    ]
     if not matching_rows:
         return []
 
-    # Obtener fechas de los workouts para quedarnos solo con el más reciente.
     prev_workout_ids = list({row["workout_id"] for row in matching_rows if row.get("workout_id")})
-    most_recent_workout_id = None
+    matching_ids = [row["id"] for row in matching_rows]
+    previous_sets = (
+        client.table("exercise_sets")
+        .select("*")
+        .in_("workout_exercise_id", matching_ids)
+        .eq("user_id", user_id)
+        .order("position")
+        .execute()
+    )
+    sets_by_ex_id: dict[str, list[dict]] = {}
+    for s in previous_sets.data or []:
+        sets_by_ex_id.setdefault(s.get("workout_exercise_id"), []).append(s)
+
+    record_date_by_id: dict[str, str] = {}
     if prev_workout_ids:
         records_res = (
             client.table("workout_records")
             .select("id, created_at")
             .in_("id", prev_workout_ids)
             .eq("user_id", user_id)
-            .order("created_at", desc=True)
-            .limit(1)
             .execute()
         )
-        rec_rows = records_res.data or []
-        if rec_rows:
-            most_recent_workout_id = rec_rows[0]["id"]
+        record_date_by_id = {
+            row["id"]: row.get("created_at") or "" for row in (records_res.data or [])
+        }
 
-    if most_recent_workout_id:
-        previous_exercise_ids = [row["id"] for row in matching_rows if row.get("workout_id") == most_recent_workout_id]
-    else:
-        previous_exercise_ids = [row["id"] for row in matching_rows]
-
-    if not previous_exercise_ids:
-        return []
-    previous_sets = (
-        client.table("exercise_sets")
-        .select("*")
-        .in_("workout_exercise_id", previous_exercise_ids)
-        .eq("user_id", user_id)
-        .order("position")
-        .execute()
-    )
-    return previous_sets.data or []
+    return _pick_best_session_sets(matching_rows, sets_by_ex_id, record_date_by_id)
 
 
 def _normalize_name(value: str | None) -> str:
@@ -1351,20 +1438,27 @@ def _normalize_name(value: str | None) -> str:
     return re.sub(r"\s+", " ", without_accents).strip()
 
 
-def _history_points_for_exercise_name(client, user_id: str, current_workout_id: str, exercise_name: str) -> list[dict]:
-    if not exercise_name:
-        return []
-    target_name = _normalize_name(exercise_name)
-    if not target_name:
+def _history_points_for_exercise_name(
+    client,
+    user_id: str,
+    current_workout_id: str,
+    exercise_name: str,
+    external_exercise_id: str | None = None,
+) -> list[dict]:
+    target_keys = _exercise_keys(exercise_name, external_exercise_id)
+    if not target_keys:
         return []
     previous_exercises = (
         client.table("workout_exercises")
-        .select("id, workout_id, name")
+        .select("id, workout_id, name, external_exercise_id")
         .eq("user_id", user_id)
         .neq("workout_id", current_workout_id)
         .execute()
     )
-    rows = [row for row in (previous_exercises.data or []) if _normalize_name(row.get("name")) == target_name]
+    rows = [
+        row for row in (previous_exercises.data or [])
+        if _exercise_keys(row.get("name"), row.get("external_exercise_id")) & target_keys
+    ]
     if not rows:
         return []
     exercise_ids = [row["id"] for row in rows]

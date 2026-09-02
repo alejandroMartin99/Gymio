@@ -84,7 +84,7 @@
         <div class="chart-header">
           <div>
             <div class="chart-title">Progreso por ejercicio</div>
-            <div class="chart-sub">Máx. última sesión · % vs mín. histórico y vs sesión anterior</div>
+            <div class="chart-sub">Máximo histórico · llama si la última sesión es récord</div>
           </div>
         </div>
         @for (group of s.progress_by_muscle; track group.muscle_group; let last = $last) {
@@ -93,8 +93,8 @@
             <div class="progress-grid-head">
               <span></span>
               <span>Peso</span>
-              <span>Min</span>
-              <span>vs ULT</span>
+              <span>Mín</span>
+              <span>Ant</span>
               <span>Graf</span>
             </div>
             <div class="progress-list">
@@ -102,7 +102,16 @@
                 <div class="progress-ex-block">
                   <div class="progress-row">
                     <span class="progress-name">{{ exEs(ex.display) }}</span>
-                    <span class="progress-weight">{{ ex.current_max | number:'1.1-1' }} kg</span>
+                    <span class="progress-weight">
+                      {{ (ex.all_time_max ?? ex.current_max) | number:'1.1-1' }} kg
+                      @if (isHistoricMax(ex)) {
+                        <span class="pr-flame" title="Récord histórico">
+                          <svg class="pr-flame-icon" viewBox="0 0 24 24" aria-hidden="true">
+                            <path fill="currentColor" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.25 5.25 0 0 0 5.18.172Z"/>
+                          </svg>
+                        </span>
+                      }
+                    </span>
                     <span class="progress-delta" [ngClass]="progressPctTone(ex.change_vs_min_pct)">{{ progressPctLabel(ex.change_vs_min_pct) }}</span>
                     <span class="progress-delta" [ngClass]="progressPctTone(ex.change_vs_prev_week_pct)">{{ progressPctLabel(ex.change_vs_prev_week_pct) }}</span>
                     <button type="button" class="chart-toggle-btn"
@@ -163,14 +172,23 @@
         </button>
       </div>
       <div class="chart-modal-meta">
-        <span class="progress-weight">{{ chartModalEx.current_max | number:'1.1-1' }} kg</span>
+        <span class="progress-weight">
+          {{ (chartModalEx.all_time_max ?? chartModalEx.current_max) | number:'1.1-1' }} kg
+          @if (isHistoricMax(chartModalEx)) {
+            <span class="pr-flame" title="Récord histórico">
+              <svg class="pr-flame-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M12.963 2.286a.75.75 0 0 0-1.071-.136 9.742 9.742 0 0 0-3.539 6.176 7.547 7.547 0 0 1-1.705-1.715.75.75 0 0 0-1.152-.082A9 9 0 1 0 15.68 4.534a7.46 7.46 0 0 1-2.717-2.248ZM15.75 14.25a3.75 3.75 0 1 1-7.313-1.172c.628.465 1.35.81 2.133 1a5.25 5.25 0 0 0 5.18.172Z"/>
+              </svg>
+            </span>
+          }
+        </span>
         <div class="chart-modal-deltas">
           <span class="progress-delta-line">
             <span class="progress-delta-tag">mín</span>
             <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_min_pct)">{{ progressPctLabel(chartModalEx.change_vs_min_pct) }}</span>
           </span>
           <span class="progress-delta-line">
-            <span class="progress-delta-tag">vs último</span>
+            <span class="progress-delta-tag">ant</span>
             <span class="progress-delta" [ngClass]="progressPctTone(chartModalEx.change_vs_prev_week_pct)">{{ progressPctLabel(chartModalEx.change_vs_prev_week_pct) }}</span>
           </span>
         </div>

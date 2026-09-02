@@ -97,6 +97,8 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   currentWorkout: WorkoutRecordDetail | null = null;
   showReplicateModal = false;
   showRoutineStartOverlay = false;
+  replicatingFromId = '';
+  templatesOpen = false;
   selectedReplicateWorkoutId = '';
   replicateSelectionConfirmed = false;
   showNewSessionModal = false;
@@ -432,6 +434,7 @@ export class WorkoutsPage implements OnInit, OnDestroy {
 
   async ngOnInit(): Promise<void> {
     await this.workoutRecordService.loadRecords({ minIntervalMs: 12_000 });
+    this.templatesOpen = this.repeatRoutines().length === 0;
     const activeWorkoutId = this.activeWorkout.workoutId();
     if (activeWorkoutId && (!this.currentWorkout || this.currentWorkout.id !== activeWorkoutId)) {
       await this.loadDetail(activeWorkoutId);
@@ -486,7 +489,11 @@ export class WorkoutsPage implements OnInit, OnDestroy {
       this.activeWorkout.startWorkout(created.id, created.workout_name);
       await this.workoutRecordService.addExercisesBatch(
         created.id,
-        template.exercises.map(ex => ({ name: ex.name, muscle_group: ex.muscle_group }))
+        template.exercises.map(ex => ({
+          name: ex.name,
+          muscle_group: ex.muscle_group,
+          external_exercise_id: ex.exerciseId,
+        }))
       );
       await this.loadDetail(created.id);
       this.showExerciseListModal = false;
@@ -529,6 +536,10 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     void this.createWorkout();
   }
 
+  onTemplatesToggle(ev: Event): void {
+    this.templatesOpen = (ev.target as HTMLDetailsElement).open;
+  }
+
   openReplicateModal(): void {
     this.showReplicateModal = true;
     this.selectedReplicateWorkoutId = '';
@@ -541,16 +552,44 @@ export class WorkoutsPage implements OnInit, OnDestroy {
     this.replicateSelectionConfirmed = false;
   }
 
-  replicateModalRecords(): Array<{ id: string; workout_name: string }> {
-    const byName = new Map<string, { id: string; workout_name: string }>();
+  repeatRoutines(): Array<{ id: string; workout_name: string; created_at: string }> {
+    const byName = new Map<string, { id: string; workout_name: string; created_at: string }>();
     for (const record of this.workoutRecordService.records()) {
       const normalized = this.normalizeText(record.workout_name);
       if (!normalized || byName.has(normalized)) {
         continue;
       }
-      byName.set(normalized, { id: record.id, workout_name: record.workout_name });
+      byName.set(normalized, {
+        id: record.id,
+        workout_name: record.workout_name,
+        created_at: record.created_at
+      });
     }
     return Array.from(byName.values());
+  }
+
+  replicateModalRecords(): Array<{ id: string; workout_name: string }> {
+    return this.repeatRoutines();
+  }
+
+  formatRoutineDate(iso: string): string {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  }
+
+  async startRepeatRoutine(workoutId: string): Promise<void> {
+    if (this.showRoutineStartOverlay || this.isCreatingTemplate()) {
+      return;
+    }
+    this.replicatingFromId = workoutId;
+    try {
+      await this.replicateFrom(workoutId);
+    } finally {
+      this.replicatingFromId = '';
+    }
   }
 
   selectReplicateWorkout(workoutId: string): void {
@@ -1829,12 +1868,21 @@ export class WorkoutsPage implements OnInit, OnDestroy {
   }
 
   previousMaxWeight(exercise: WorkoutExerciseRecord): string {
-    const maxWeight = Math.max(...(exercise.previous_sets || []).map((set) => Number(set.weight || 0)), 0);
+    const fromPrev = Math.max(0, ...(exercise.previous_sets || []).map((set) => Number(set.weight || 0)));
+    const fromHist = Math.max(0, ...(exercise.history_points || []).map((p) => Number(p.max_weight || 0)));
+    const maxWeight = Math.max(fromPrev, fromHist);
     return maxWeight > 0 ? `${maxWeight}` : 'KG';
   }
 
   previousMaxReps(exercise: WorkoutExerciseRecord): string {
-    const maxReps = Math.max(...(exercise.previous_sets || []).map((set) => Number(set.done_reps || 0)), 0);
+    const points = exercise.history_points || [];
+    if (points.length > 0) {
+      const best = points.reduce((a, b) => (Number(b.max_weight || 0) > Number(a.max_weight || 0) ? b : a));
+      if (Number(best.max_reps || 0) > 0) {
+        return `${best.max_reps}`;
+      }
+    }
+    const maxReps = Math.max(0, ...(exercise.previous_sets || []).map((set) => Number(set.done_reps || 0)));
     return maxReps > 0 ? `${maxReps}` : 'REPS';
   }
 
