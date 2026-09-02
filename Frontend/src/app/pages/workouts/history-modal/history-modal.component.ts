@@ -1,25 +1,36 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, EventEmitter, HostListener, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import type { ExerciseHistorySession } from '../../../models/workout-record.model';
+import type { ExerciseHistoryPoint, ExerciseHistorySession } from '../../../models/workout-record.model';
 
-interface ChartPt   { x: number; y: number; v: number; }
-interface GridLine  { y: number; label: string; }
-interface XLabel    { x: number; label: string; }
-interface ChartData { path: string; dots: ChartPt[]; grid: GridLine[]; xLabels: XLabel[]; }
-
-interface SessionSetRow {
-  position: number;
-  weight: number | null;
-  reps: number | null;
-  color: string;
-  weightDelta: number | null;
-  repsDelta: number | null;
+interface ChartDot {
+  x: number;
+  y: number;
+  v: number;
+  date: string;
+  workoutId: string;
 }
 
-interface SessionCard {
+interface ChartView {
+  path: string;
+  area: string;
+  dots: ChartDot[];
+  grid: Array<{ y: number; label: string }>;
+  xLabels: Array<{ x: number; label: string }>;
+  prY: number | null;
+  tip: { x: number; y: number; label: string } | null;
+}
+
+interface SessionRow {
+  workoutId: string;
   date: string;
   dateLabel: string;
-  sets: SessionSetRow[];
+  setsLabel: string;
+  volume: number;
+  volumeLabel: string;
+  topWeight: number;
+  e1rm: number | null;
+  isPr: boolean;
+  deltaKg: number | null;
 }
 
 @Component({
@@ -29,159 +40,286 @@ interface SessionCard {
   templateUrl: './history-modal.component.html',
   styleUrl: './history-modal.component.scss'
 })
-export class HistoryModalComponent {
+export class HistoryModalComponent implements OnChanges {
   @Input() open = false;
   @Input() title = '';
-  @Input() points: unknown[] = [];
-
-  @Input() set historySessions(v: ExerciseHistorySession[]) {
-    this._sessions = v ?? [];
-    this._wCache = null;
-    this._rCache = null;
-    this._rmCache = null;
-  }
-
+  @Input() points: ExerciseHistoryPoint[] = [];
+  @Input() historySessions: ExerciseHistorySession[] = [];
   @Output() closed = new EventEmitter<void>();
 
-  readonly HC = { cw: 300, ch: 90, pt: 12, pb: 18, pl: 32, pr: 6 };
-  readonly SET_COLORS = ['#0ea5e9', '#38bdf8', '#7dd3fc', '#bae6fd', '#e0f2fe'];
+  readonly HC = { cw: 320, ch: 156, pt: 22, pb: 26, pl: 38, pr: 16 };
+  selectedIndex: number | null = null;
 
-  activeTab: 'weight' | 'reps' = 'weight';
-
-  private _sessions: ExerciseHistorySession[] = [];
-  private _wCache: ChartData | null = null;
-  private _rCache: ChartData | null = null;
-  private _rmCache: ChartData | null = null;
-
-  onClose(): void { this.closed.emit(); }
-  setTab(tab: 'weight' | 'reps'): void { this.activeTab = tab; }
-
-  setColor(pos: number): string {
-    return this.SET_COLORS[(pos - 1) % this.SET_COLORS.length];
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['open'] || changes['points'] || changes['historySessions']) {
+      const n = this.sortedPoints().length;
+      this.selectedIndex = n ? n - 1 : null;
+    }
   }
 
-  wChart(): ChartData {
-    if (!this._wCache) this._wCache = this.buildChart('weight');
-    return this._wCache;
+  @HostListener('document:keydown.escape')
+  onEsc(): void {
+    if (this.open) this.onClose();
   }
 
-  rChart(): ChartData {
-    if (!this._rCache) this._rCache = this.buildChart('reps');
-    return this._rCache;
-  }
-
-  currentWeight(): string {
-    const d = this.wChart().dots;
-    if (d.length === 0) return '–';
-    return d[d.length - 1].v % 1 === 0
-      ? String(d[d.length - 1].v)
-      : d[d.length - 1].v.toFixed(1);
-  }
-
-  currentReps(): string {
-    const d = this.rChart().dots;
-    if (d.length === 0) return '–';
-    return String(Math.round(d[d.length - 1].v));
+  onClose(): void {
+    this.closed.emit();
   }
 
   hasData(): boolean {
-    return this._sessions.length > 0 && this._sessions.some(s => s.sets.length > 0);
+    return this.sortedPoints().length > 0;
   }
 
-  sessionCards(): SessionCard[] {
-    const sessions = this._sessions;
-    return sessions.map((session, idx) => {
-      const prev = idx > 0 ? sessions[idx - 1] : null;
-      const sets = [...session.sets]
-        .sort((a, b) => a.position - b.position)
-        .map(set => {
-          const prevSet = prev?.sets.find(s => s.position === set.position);
-          const weight = set.weight ?? null;
-          const reps = set.done_reps ?? null;
-          let weightDelta: number | null = null;
-          let repsDelta: number | null = null;
-          if (prevSet) {
-            if (weight != null && prevSet.weight != null)
-              weightDelta = Math.round((weight - prevSet.weight) * 10) / 10;
-            if (reps != null && prevSet.done_reps != null)
-              repsDelta = reps - prevSet.done_reps;
-          }
-          return { position: set.position, weight, reps, color: this.setColor(set.position), weightDelta, repsDelta };
-        });
-      return { date: session.date, dateLabel: this.fmtDateLong(session.date), sets };
-    }).reverse();
+  selectPoint(index: number): void {
+    this.selectedIndex = index;
   }
 
-  legendPositions(): number[] {
-    const cards = this.sessionCards();
-    const positions = new Set<number>();
-    for (const card of cards) for (const set of card.sets) positions.add(set.position);
-    return [...positions].sort((a, b) => a - b);
+  selectSession(workoutId: string): void {
+    const i = this.sortedPoints().findIndex((p) => p.workout_id === workoutId);
+    if (i >= 0) this.selectedIndex = i;
   }
 
-  formatDelta(delta: number | null, unit: string): string {
-    if (delta == null || delta === 0) return '—';
+  isSessionSelected(workoutId: string): boolean {
+    const pts = this.sortedPoints();
+    const i = this.selectedIndex;
+    return i != null && pts[i]?.workout_id === workoutId;
+  }
+
+  heroKg(): string {
+    const p = this.selectedPoint();
+    return p ? this.fmtKg(p.max_weight) : '–';
+  }
+
+  heroCaption(): string {
+    const p = this.selectedPoint();
+    if (!p) return 'Sin datos';
+    const pts = this.sortedPoints();
+    const isLast = this.selectedIndex === pts.length - 1;
+    return isLast ? `Último máximo · ${this.fmtDate(p.date, 'short')}` : this.fmtDate(p.date, 'long');
+  }
+
+  heroDelta(): { text: string; tone: 'up' | 'down' | 'flat' } | null {
+    const pts = this.sortedPoints();
+    const i = this.selectedIndex;
+    if (i == null || i === 0) return null;
+    const delta = Math.round((pts[i].max_weight - pts[i - 1].max_weight) * 10) / 10;
+    if (delta === 0) return { text: 'Igual que la sesión anterior', tone: 'flat' };
     const sign = delta > 0 ? '+' : '';
-    return `${sign}${delta}${unit}`;
+    return { text: `${sign}${this.fmtKg(delta)} kg vs anterior`, tone: delta > 0 ? 'up' : 'down' };
   }
 
-  deltaTone(delta: number | null): string {
-    if (delta == null || delta === 0) return 'neutral';
-    return delta > 0 ? 'up' : 'down';
+  kpiPr(): string {
+    const vals = this.sortedPoints().map((p) => p.max_weight);
+    if (!vals.length) return '–';
+    return `${this.fmtKg(Math.max(...vals))} kg`;
   }
 
-  private buildChart(field: 'weight' | 'reps'): ChartData {
+  kpiSessions(): string {
+    return String(this.sortedPoints().length);
+  }
+
+  kpiE1rm(): string {
+    const rows = this.sessionRows();
+    const best = rows.reduce((m, r) => (r.e1rm != null && r.e1rm > m ? r.e1rm : m), 0);
+    if (best > 0) return `${this.fmtKg(best)} kg`;
+    const p = this.selectedPoint();
+    if (!p || !p.max_weight) return '–';
+    const est = this.epley(p.max_weight, p.max_reps);
+    return est != null ? `${this.fmtKg(est)} kg` : '–';
+  }
+
+  chart(): ChartView {
+    const empty: ChartView = { path: '', area: '', dots: [], grid: [], xLabels: [], prY: null, tip: null };
+    const pts = this.sortedPoints();
+    if (!pts.length) return empty;
+
     const { cw, ch, pt, pb, pl, pr } = this.HC;
     const iw = cw - pl - pr;
     const ih = ch - pt - pb;
-    const empty: ChartData = { path: '', dots: [], grid: [], xLabels: [] };
-
-    const rawPoints: { value: number; date: string }[] = [];
-    for (const session of this._sessions) {
-      let best = 0;
-      for (const set of session.sets) {
-        const v = field === 'weight' ? (set.weight ?? 0) : (set.done_reps ?? 0);
-        if (v > best) best = v;
-      }
-      if (best > 0) rawPoints.push({ value: best, date: session.date });
-    }
-
-    if (rawPoints.length === 0) return empty;
-
-    const vals = rawPoints.map(p => p.value);
-    const maxV = Math.max(...vals);
-    const minV = Math.min(...vals);
-    const range = maxV - minV || 1;
+    const values = pts.map((p) => p.max_weight);
+    const axis = this.axisRange(values);
+    const prVal = Math.max(...values);
 
     const mapX = (i: number) =>
-      rawPoints.length === 1 ? pl + iw / 2 : pl + (i / (rawPoints.length - 1)) * iw;
-    const mapY = (v: number) => pt + ih - ((v - minV) / range) * ih;
+      pts.length === 1 ? pl + iw / 2 : pl + (i / (pts.length - 1)) * iw;
+    const mapY = (v: number) => pt + ih - ((v - axis.min) / (axis.max - axis.min || 1)) * ih;
 
-    const dots: ChartPt[] = rawPoints.map((p, i) => ({ x: mapX(i), y: mapY(p.value), v: p.value }));
-    const path = dots.length > 1
-      ? `M${dots.map(d => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join('L')}`
+    const dots: ChartDot[] = pts.map((p, i) => ({
+      x: mapX(i),
+      y: mapY(p.max_weight),
+      v: p.max_weight,
+      date: p.date,
+      workoutId: p.workout_id
+    }));
+
+    const line = dots.map((d) => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join(' L ');
+    const path = dots.length ? `M ${line}` : '';
+    const baseline = (pt + ih).toFixed(1);
+    const area = dots.length
+      ? `M ${dots[0].x.toFixed(1)},${baseline} L ${line} L ${dots[dots.length - 1].x.toFixed(1)},${baseline} Z`
       : '';
 
-    const grid: GridLine[] = [0, 0.5, 1].map(ratio => {
-      const v = minV + ratio * range;
-      return { y: mapY(v), label: v % 1 === 0 ? v.toString() : v.toFixed(1) };
-    });
+    const grid = axis.ticks.map((v) => ({
+      y: mapY(v),
+      label: this.fmtKg(v)
+    }));
 
-    const step = Math.max(1, Math.ceil(rawPoints.length / 5));
-    const xLabels: XLabel[] = rawPoints
-      .map((p, i) => ({ x: mapX(i), label: this.fmtDateShort(p.date), i }))
-      .filter((item, _, arr) => item.i % step === 0 || item.i === arr.length - 1);
+    const step = Math.max(1, Math.ceil(pts.length / 4));
+    const xLabels = pts
+      .map((p, i) => ({ x: mapX(i), label: this.fmtDate(p.date, 'short'), i }))
+      .filter((item, _, arr) => item.i % step === 0 || item.i === arr.length - 1)
+      .map(({ x, label }) => ({ x, label }));
 
-    return { path, dots, grid, xLabels };
+    const prIsFlat = values.every((v) => v === prVal);
+    const prY = !prIsFlat ? mapY(prVal) : null;
+
+    const sel = this.selectedIndex != null ? dots[this.selectedIndex] : null;
+    let tip: ChartView['tip'] = null;
+    if (sel) {
+      const y = sel.y < pt + 18 ? sel.y + 22 : sel.y - 14;
+      const x = Math.min(cw - 28, Math.max(28, sel.x));
+      tip = { x, y, label: `${this.fmtKg(sel.v)} kg` };
+    }
+
+    return { path, area, dots, grid, xLabels, prY, tip };
   }
 
-  private fmtDateShort(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  sessionRows(): SessionRow[] {
+    const sessions = [...(this.historySessions ?? [])].sort((a, b) =>
+      (a.date || '').localeCompare(b.date || '')
+    );
+    const pr = this.sortedPoints().reduce((m, p) => Math.max(m, p.max_weight || 0), 0);
+    const rows: SessionRow[] = [];
+
+    for (const session of sessions) {
+      const sets = [...(session.sets ?? [])].sort((a, b) => a.position - b.position);
+      const parts: string[] = [];
+      let volume = 0;
+      let topWeight = 0;
+      let bestE1rm = 0;
+      for (const s of sets) {
+        const w = s.weight ?? null;
+        const r = s.done_reps ?? null;
+        if (w != null && r != null) {
+          parts.push(`${this.fmtKg(w)}×${r}`);
+          volume += w * r;
+          if (w > topWeight) topWeight = w;
+          const e = this.epley(w, r);
+          if (e != null && e > bestE1rm) bestE1rm = e;
+        } else if (w != null) {
+          parts.push(`${this.fmtKg(w)} kg`);
+          if (w > topWeight) topWeight = w;
+        }
+      }
+      const prev = rows.length ? rows[rows.length - 1] : null;
+      const deltaKg =
+        prev && topWeight && prev.topWeight
+          ? Math.round((topWeight - prev.topWeight) * 10) / 10
+          : null;
+      rows.push({
+        workoutId: session.workout_id,
+        date: session.date,
+        dateLabel: this.fmtDate(session.date, 'long'),
+        setsLabel: parts.join('  ·  '),
+        volume,
+        volumeLabel: this.fmtVolume(volume),
+        topWeight,
+        e1rm: bestE1rm || null,
+        isPr: pr > 0 && topWeight > 0 && Math.abs(topWeight - pr) < 0.05,
+        deltaKg: deltaKg === 0 ? null : deltaKg
+      });
+    }
+    return rows.reverse();
   }
 
-  private fmtDateLong(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+  fmtDelta(delta: number): string {
+    const sign = delta > 0 ? '+' : '';
+    return `${sign}${this.fmtKg(delta)} kg`;
+  }
+
+  private selectedPoint(): ExerciseHistoryPoint | null {
+    const pts = this.sortedPoints();
+    const i = this.selectedIndex;
+    if (i == null || !pts[i]) return null;
+    return pts[i];
+  }
+
+  private sortedPoints(): ExerciseHistoryPoint[] {
+    return [...(this.points ?? [])]
+      .filter((p) => p && Number(p.max_weight) > 0)
+      .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  }
+
+  private epley(weight: number, reps: number): number | null {
+    if (!weight || !reps || reps < 1) return null;
+    if (reps === 1) return weight;
+    if (reps > 12) return null;
+    return Math.round(weight * (1 + reps / 30) * 10) / 10;
+  }
+
+  fmtKg(n: number): string {
+    if (!Number.isFinite(n)) return '–';
+    const r = Math.round(n * 10) / 10;
+    return r % 1 === 0 ? String(r) : r.toFixed(1);
+  }
+
+  private fmtVolume(n: number): string {
+    if (n >= 1000) return `${this.fmtKg(n / 1000)} t`;
+    return `${Math.round(n)} kg`;
+  }
+
+  private fmtDate(dateStr: string, kind: 'short' | 'long'): string {
+    const raw = (dateStr || '').slice(0, 10);
+    const d = new Date(raw + 'T12:00:00');
+    if (Number.isNaN(d.getTime())) return '';
+    return kind === 'short'
+      ? d.toLocaleDateString('es', { day: 'numeric', month: 'short' })
+      : d.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+
+  private axisRange(values: number[]): { min: number; max: number; ticks: number[] } {
+    const lo = Math.min(...values);
+    const hi = Math.max(...values);
+    let min = lo;
+    let max = hi;
+    if (min === max) {
+      const pad = Math.max(2.5, min * 0.08);
+      min = Math.max(0, min - pad);
+      max = max + pad;
+    } else {
+      const span = max - min;
+      min = Math.max(0, min - span * 0.14);
+      max = max + span * 0.18;
+    }
+    const ticks = this.niceTicks(min, max, 4);
+    return { min: ticks[0], max: ticks[ticks.length - 1], ticks };
+  }
+
+  private niceTicks(min: number, max: number, count: number): number[] {
+    const span = this.niceNum(max - min || 1, false);
+    const step = this.niceNum(span / Math.max(1, count - 1), true);
+    const start = Math.floor(min / step) * step;
+    const end = Math.ceil(max / step) * step;
+    const ticks: number[] = [];
+    for (let v = start; v <= end + step / 2; v += step) {
+      ticks.push(Math.round(v * 10) / 10);
+    }
+    return ticks.length ? ticks : [min, max];
+  }
+
+  private niceNum(range: number, round: boolean): number {
+    const exp = Math.floor(Math.log10(range));
+    const frac = range / Math.pow(10, exp);
+    let nice: number;
+    if (round) {
+      if (frac < 1.5) nice = 1;
+      else if (frac < 3) nice = 2;
+      else if (frac < 7) nice = 5;
+      else nice = 10;
+    } else if (frac <= 1) nice = 1;
+    else if (frac <= 2) nice = 2;
+    else if (frac <= 5) nice = 5;
+    else nice = 10;
+    return nice * Math.pow(10, exp);
   }
 }
