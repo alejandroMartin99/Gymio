@@ -55,6 +55,15 @@ export class ProfilePage implements OnInit {
     return ex.current_max >= max - 1e-6;
   }
 
+  kgBelowMax(ex: WorkoutStatsProgressEntry): string | null {
+    if (this.isHistoricMax(ex)) return null;
+    const max = ex.all_time_max;
+    if (max == null || max <= 0) return null;
+    const abs = Math.round((max - ex.current_max) * 10) / 10;
+    if (abs <= 0) return null;
+    return abs % 1 === 0 ? String(abs) : abs.toFixed(1);
+  }
+
   /* ── General helpers ────────────────────────────────────── */
   pct(val: number, max: number): number {
     return max > 0 ? Math.round((val / max) * 100) : 0;

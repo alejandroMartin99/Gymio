@@ -332,7 +332,7 @@
 .progress-ex-block {
   display: grid;
   gap: 0;
-  padding: 0.2rem 0;
+  padding: 0.35rem 0 0.2rem;
 }
 
 .progress-grid-head {
@@ -387,6 +387,23 @@
   justify-content: center;
   gap: 3px;
   justify-self: center;
+}
+
+.pr-off-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0.85rem;
+  padding: 0 0.2rem;
+  height: 0.72rem;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.48rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .pr-flame {
