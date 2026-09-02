@@ -2,6 +2,8 @@
   --nav-height: 58px;
   --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   background: #ffffff;
   color: #111111;
 }
@@ -372,17 +374,26 @@
 
 .bottom-nav {
   position: fixed;
-  bottom: 0;
   left: 0;
   right: 0;
+  bottom: 0;
   height: calc(var(--nav-height) + var(--safe-area-bottom));
+  padding-top: 6px;
   padding-bottom: var(--safe-area-bottom);
   background: #000000;
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
-  padding-top: 6px;
   z-index: 100;
+  box-sizing: border-box;
+}
+
+/* iOS Safari: 100vh/bottom:0 queda bajo el chrome. svh = viewport visible (toolbar incluida). */
+@supports (height: 100svh) {
+  .bottom-nav {
+    bottom: auto;
+    top: calc(100svh - var(--nav-height) - var(--safe-area-bottom));
+  }
 }
 
 .nav-item {
@@ -392,7 +403,7 @@
   align-items: center;
   justify-content: center;
   gap: 2px;
-  padding: 8px;
+  padding: 4px 8px;
   text-decoration: none;
   color: rgba(255, 255, 255, 0.5);
   font-size: 11px;

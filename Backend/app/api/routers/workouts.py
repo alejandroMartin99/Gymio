@@ -566,37 +566,20 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
     unique_dates = sorted(set(r["created_at"][:10] for r in record_rows if r.get("created_at")))
     current_streak_weeks, max_streak_weeks = _compute_week_streaks(unique_dates)
 
-    # Progress by exercise — current 14 days vs previous 14 days
-    cutoff_current = now_utc - timedelta(days=14)
-    cutoff_previous = now_utc - timedelta(days=28)
-    ex_progress: dict[str, dict] = {}
+    # Display name + muscle group per exercise (all time; no calendar-week filter)
+    ex_meta: dict[str, dict] = {}
     for ex in ex_rows:
         norm = _normalize_name(ex.get("name", ""))
         if not norm:
             continue
-        wid = ex.get("workout_id", "")
-        workout_ts = record_date_map.get(wid)
-        if workout_ts is None:
-            continue
         mg = _normalize_muscle_group(ex.get("muscle_group"), ex.get("exercise_detail"), ex.get("name"))
-        if norm not in ex_progress:
-            ex_progress[norm] = {
+        if norm not in ex_meta:
+            ex_meta[norm] = {
                 "display": ex.get("name", norm),
-                "muscle_group": mg,  # may be None; will be resolved later
-                "current_max": 0.0,
-                "prev_max": 0.0,
+                "muscle_group": mg,
             }
-        elif mg is not None and ex_progress[norm]["muscle_group"] is None:
-            # Upgrade unresolved group once we find a valid one
-            ex_progress[norm]["muscle_group"] = mg
-        for s in sets_by_ex.get(ex["id"], []):
-            w = float(s.get("weight") or 0)
-            if w <= 0:
-                continue
-            if workout_ts >= cutoff_current:
-                ex_progress[norm]["current_max"] = max(ex_progress[norm]["current_max"], w)
-            elif workout_ts >= cutoff_previous:
-                ex_progress[norm]["prev_max"] = max(ex_progress[norm]["prev_max"], w)
+        elif mg is not None and ex_meta[norm]["muscle_group"] is None:
+            ex_meta[norm]["muscle_group"] = mg
 
     # Build full history per normalized exercise name (all time)
     ex_history_map: dict[str, dict[str, dict]] = {}  # norm -> {date -> {max_weight, max_reps_at_max}}
@@ -622,57 +605,52 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
                 day["max_reps"] = r
 
     progress_by_muscle_map: dict[str, list] = {}
-    for norm, data in ex_progress.items():
-        if data["current_max"] <= 0:
-            continue
-        mg = data["muscle_group"]
+    for norm, meta in ex_meta.items():
+        mg = meta["muscle_group"]
         if not mg or mg not in _VALID_GROUPS:
             continue
-        if mg not in progress_by_muscle_map:
-            progress_by_muscle_map[mg] = []
-        change_pct: float | None = None
-        if data["prev_max"] > 0:
-            change_pct = round(((data["current_max"] - data["prev_max"]) / data["prev_max"]) * 100, 1)
-        # Build history_points for this exercise (all time)
         day_map = ex_history_map.get(norm, {})
         history_points = sorted(
             [{"date": d, "max_weight": v["max_weight"], "max_reps": v["max_reps"]}
              for d, v in day_map.items() if v["max_weight"] > 0],
             key=lambda x: x["date"],
         )
+        if not history_points:
+            continue
+        current_max = float(history_points[-1]["max_weight"] or 0)
+        if current_max <= 0:
+            continue
+        # Compare vs last available previous session (skip empty weeks); first session → None ("—")
+        prev_max = float(history_points[-2]["max_weight"] or 0) if len(history_points) >= 2 else 0.0
+        change_pct: float | None = None
+        if prev_max > 0:
+            change_pct = round(((current_max - prev_max) / prev_max) * 100, 1)
         all_time_min = min((p["max_weight"] for p in history_points), default=None)
         change_vs_min_pct: float | None = None
         if all_time_min is not None and all_time_min > 0:
-            change_vs_min_pct = round(((data["current_max"] - all_time_min) / all_time_min) * 100, 1)
+            change_vs_min_pct = round(((current_max - all_time_min) / all_time_min) * 100, 1)
 
-        # "sem": compare latest metric vs immediately previous metric for this exercise.
-        # Example: 25 -> 30 -> 35  => sem = +16.7% (35 vs 30), not week-over-week calendar.
-        change_vs_prev_week_pct: float | None = None
-        if len(history_points) >= 2:
-            latest_weight = float(history_points[-1]["max_weight"] or 0)
-            prev_weight = float(history_points[-2]["max_weight"] or 0)
-            if latest_weight > 0 and prev_weight > 0:
-                change_vs_prev_week_pct = round(((latest_weight - prev_weight) / prev_weight) * 100, 1)
-
+        if mg not in progress_by_muscle_map:
+            progress_by_muscle_map[mg] = []
         progress_by_muscle_map[mg].append({
-            "display": data["display"],
-            "current_max": data["current_max"],
-            "prev_max": data["prev_max"],
+            "display": meta["display"],
+            "current_max": current_max,
+            "prev_max": prev_max,
             "change_pct": change_pct,
             "all_time_min": all_time_min,
             "change_vs_min_pct": change_vs_min_pct,
-            "change_vs_prev_week_pct": change_vs_prev_week_pct,
+            "change_vs_prev_week_pct": change_pct,
             "history_points": history_points,
         })
 
     for exlist in progress_by_muscle_map.values():
-        exlist.sort(key=lambda x: (x["change_pct"] or 0, x["current_max"]), reverse=True)
+        exlist.sort(key=lambda x: (x["change_pct"] is not None, x["change_pct"] or 0, x["current_max"]), reverse=True)
 
     progress_by_muscle = sorted(
-        [{"muscle_group": k, "exercises": v[:5]} for k, v in progress_by_muscle_map.items()],
+        [{"muscle_group": k, "exercises": v} for k, v in progress_by_muscle_map.items()],
         key=lambda x: sum(e["current_max"] for e in x["exercises"]),
         reverse=True,
-    )[:6]
+    )
 
     total_sets = sum(sets_count_by_workout.values())
 

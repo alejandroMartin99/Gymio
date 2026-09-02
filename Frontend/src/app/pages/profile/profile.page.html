@@ -84,7 +84,7 @@
         <div class="chart-header">
           <div>
             <div class="chart-title">Progreso por ejercicio</div>
-            <div class="chart-sub">Máx. últimas 2 sem · % vs mín. histórico y vs métrica anterior del ejercicio</div>
+            <div class="chart-sub">Máx. última sesión · % vs mín. histórico y vs sesión anterior</div>
           </div>
         </div>
         @for (group of s.progress_by_muscle; track group.muscle_group; let last = $last) {
@@ -122,7 +122,7 @@
         }
       </div>
     } @else if (!svc.statsLoading()) {
-      <p class="muted-hint">Entrena esta semana para ver tu progreso comparado con la semana anterior.</p>
+      <p class="muted-hint">Entrena un ejercicio al menos una vez para ver tu progreso.</p>
     }
 
     <!-- ── Distribución muscular ────────────────────────── -->
