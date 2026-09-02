@@ -3,21 +3,18 @@ import { Component, OnInit } from '@angular/core';
 
 import { translateExerciseName } from '../../core/exercisedb-i18n';
 import {
-  WorkoutStatsHistoryPoint,
+  ExerciseHistoryPoint,
+  ExerciseHistorySession,
   WorkoutStatsProgressEntry,
   WorkoutStatsWeek,
 } from '../../models/workout-record.model';
 import { WorkoutRecordService } from '../../services/workout-record.service';
-
-interface ChartPt   { x: number; y: number; v: number; }
-interface GridLine  { y: number; label: string; }
-interface XLabel    { x: number; label: string; }
-interface ChartData { path: string; dots: ChartPt[]; grid: GridLine[]; xLabels: XLabel[]; }
+import { HistoryModalComponent } from '../workouts/history-modal/history-modal.component';
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HistoryModalComponent],
   templateUrl: './profile.page.html',
   styleUrl: './profile.page.scss',
 })
@@ -31,29 +28,32 @@ export class ProfilePage implements OnInit {
   /* ── Bar chart constants (viewBox 320×108) ──────────────── */
   private readonly B = { cw: 320, ch: 108, pt: 6, pb: 32, pl: 2, pr: 2 };
 
-  /* ── History chart constants (viewBox 300×90) ───────────── */
-  readonly HC = { cw: 300, ch: 90, pt: 12, pb: 18, pl: 32, pr: 6 };
-
-  /* ── Chart modal ────────────────────────────────────────── */
-  chartModalEx: WorkoutStatsProgressEntry | null = null;
-  profileChartTab: 'weight' | 'reps' = 'weight';
+  chartModalOpen = false;
+  chartModalTitle = '';
+  chartModalPoints: ExerciseHistoryPoint[] = [];
+  chartModalSessions: ExerciseHistorySession[] = [];
 
   openChartModal(ex: WorkoutStatsProgressEntry): void {
-    this.chartModalEx = ex;
-    this.profileChartTab = 'weight';
+    this.chartModalTitle = this.exEs(ex.display);
+    this.chartModalPoints = (ex.history_points ?? []).map((p, i) => ({
+      workout_id: p.workout_id || p.date || String(i),
+      date: p.date,
+      max_weight: p.max_weight,
+      max_reps: p.max_reps,
+    }));
+    this.chartModalSessions = ex.history_sessions ?? [];
+    this.chartModalOpen = true;
   }
-  closeChartModal(): void { this.chartModalEx = null; }
-  setProfileChartTab(tab: 'weight' | 'reps'): void { this.profileChartTab = tab; }
+
+  closeChartModal(): void {
+    this.chartModalOpen = false;
+  }
 
   isHistoricMax(ex: WorkoutStatsProgressEntry): boolean {
     const max = ex.all_time_max;
     if (max == null || max <= 0) return false;
     return ex.current_max >= max - 1e-6;
   }
-
-  /* ── Chart cache ────────────────────────────────────────── */
-  private _wChartCache = new Map<string, ChartData>();
-  private _rChartCache = new Map<string, ChartData>();
 
   /* ── General helpers ────────────────────────────────────── */
   pct(val: number, max: number): number {
@@ -132,62 +132,6 @@ export class ProfilePage implements OnInit {
     return result;
   }
 
-  /* ── History SVG charts ─────────────────────────────────── */
-  private buildChart(rawPoints: Array<{ value: number; date: string }>): ChartData {
-    const { cw, ch, pt, pb, pl, pr } = this.HC;
-    const iw = cw - pl - pr;
-    const ih = ch - pt - pb;
-
-    if (rawPoints.length === 0) return { path: '', dots: [], grid: [], xLabels: [] };
-
-    const vals = rawPoints.map(p => p.value);
-    const maxV = Math.max(...vals);
-    const minV = Math.min(...vals);
-    const range = maxV - minV || 1;
-
-    // Single point: center it
-    const mapX = (i: number) =>
-      rawPoints.length === 1 ? pl + iw / 2 : pl + (i / (rawPoints.length - 1)) * iw;
-    const mapY = (v: number) => pt + ih - ((v - minV) / range) * ih;
-
-    const dots: ChartPt[] = rawPoints.map((p, i) => ({ x: mapX(i), y: mapY(p.value), v: p.value }));
-    const path = dots.length > 1
-      ? `M${dots.map(d => `${d.x.toFixed(1)},${d.y.toFixed(1)}`).join('L')}`
-      : '';
-
-    const grid: GridLine[] = [0, 0.5, 1].map(ratio => {
-      const v = minV + ratio * range;
-      return { y: mapY(v), label: v % 1 === 0 ? v.toString() : v.toFixed(1) };
-    });
-
-    const step = Math.max(1, Math.ceil(rawPoints.length / 5));
-    const xLabels: XLabel[] = rawPoints
-      .map((p, i) => ({ x: mapX(i), label: this.fmtDate(p.date), i }))
-      .filter((item, _, arr) => item.i % step === 0 || item.i === arr.length - 1);
-
-    return { path, dots, grid, xLabels };
-  }
-
-  wChart(ex: WorkoutStatsProgressEntry): ChartData {
-    const key = ex.display;
-    if (!this._wChartCache.has(key)) {
-      this._wChartCache.set(key,
-        this.buildChart((ex.history_points ?? []).map((h: WorkoutStatsHistoryPoint) => ({ value: h.max_weight, date: h.date }))),
-      );
-    }
-    return this._wChartCache.get(key)!;
-  }
-
-  rChart(ex: WorkoutStatsProgressEntry): ChartData {
-    const key = ex.display;
-    if (!this._rChartCache.has(key)) {
-      this._rChartCache.set(key,
-        this.buildChart((ex.history_points ?? []).map((h: WorkoutStatsHistoryPoint) => ({ value: h.max_reps, date: h.date }))),
-      );
-    }
-    return this._rChartCache.get(key)!;
-  }
-
   progressPctLabel(v: number | null | undefined): string {
     if (v === null || v === undefined) return '—';
     const sign = v > 0 ? '+' : '';
@@ -199,11 +143,6 @@ export class ProfilePage implements OnInit {
     if (v > 0) return 'up';
     if (v < 0) return 'down';
     return 'flat';
-  }
-
-  private fmtDate(dateStr: string): string {
-    const d = new Date(dateStr + 'T12:00:00');
-    return d.toLocaleDateString('es', { day: 'numeric', month: 'short' });
   }
 
 }

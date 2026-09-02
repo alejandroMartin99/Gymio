@@ -82,6 +82,7 @@ export interface WorkoutStatsHistoryPoint {
   date: string;
   max_weight: number;
   max_reps: number;
+  workout_id?: string;
 }
 
 export interface WorkoutStatsProgressEntry {
@@ -96,6 +97,7 @@ export interface WorkoutStatsProgressEntry {
   /** % cambio: última sesión vs sesión anterior. null si es la primera. */
   change_vs_prev_week_pct?: number | null;
   history_points: WorkoutStatsHistoryPoint[];
+  history_sessions?: ExerciseHistorySession[];
 }
 
 export interface WorkoutStatsProgressGroup {

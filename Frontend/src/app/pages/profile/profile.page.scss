@@ -363,32 +363,6 @@
   gap: 0.35rem;
 }
 
-.chart-modal-deltas {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: nowrap;
-  min-width: 0;
-}
-
-.chart-modal .progress-delta-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.26rem;
-  white-space: nowrap;
-}
-
-.chart-modal .progress-delta-tag {
-  width: auto;
-  text-align: left;
-  font-size: 0.58rem;
-}
-
-.chart-modal .progress-delta {
-  padding: 0.08rem 0.28rem;
-  font-size: 0.64rem;
-}
-
 .progress-name {
   font-size: 0.68rem;
   font-weight: 500;
@@ -488,67 +462,6 @@
   &.active  { color: #6366f1; background: #eef2ff; border-color: #6366f1; }
   &[disabled] { opacity: 0.3; cursor: default; }
 }
-
-/* ── History charts ─────────────────────────────────────── */
-.ex-charts {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.35rem 0 0.1rem;
-  border-top: 1px solid #f3f4f6;
-}
-
-.ex-chart-label {
-  font-size: 0.64rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: #9ca3af;
-  margin-bottom: -0.1rem;
-}
-
-.history-svg {
-  width: 100%;
-  display: block;
-  overflow: hidden;
-
-  &--lg { height: auto; }
-}
-
-/* ── Profile chart tabs ─────────────────────────────────── */
-.profile-chart-tabs {
-  display: flex;
-  gap: 3px;
-  background: #f3f4f6;
-  border-radius: 10px;
-  padding: 3px;
-  margin-bottom: 0.2rem;
-}
-
-.profile-chart-tab {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.28rem;
-  padding: 0.36rem 0.5rem;
-  border-radius: 8px;
-  border: none;
-  cursor: pointer;
-  font-size: 0.74rem;
-  font-weight: 600;
-  background: transparent;
-  color: #9ca3af;
-  transition: all 0.14s ease;
-  line-height: 1;
-
-  &.active {
-    background: #fff;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
-  }
-}
-
-.mode-weight .profile-chart-tab.active { color: #6366f1; }
-.mode-reps   .profile-chart-tab.active { color: #10b981; }
 
 /* ── Horizontal bar list ────────────────────────────────── */
 .bar-list     { display: grid; gap: 0.45rem; }
@@ -698,55 +611,6 @@
       &:hover:not(:disabled) { background: #222; }
     }
   }
-}
-
-/* ── Chart modal ────────────────────────────────────────── */
-.chart-modal {
-  width: min(480px, 94vw);
-  padding: 0.9rem 1rem 1.05rem;
-  border: 1px solid #e5e7eb;
-}
-
-.chart-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.35rem;
-  padding-bottom: 0.4rem;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.chart-modal-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: #111827;
-}
-
-.chart-modal-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: #9ca3af;
-  padding: 2px;
-  line-height: 0;
-  border-radius: 4px;
-
-  &:hover { color: #374151; }
-}
-
-.chart-modal-meta {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 0.35rem 0.65rem;
-  margin-bottom: 0.65rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.chart-modal .progress-weight {
-  font-size: 0.82rem;
-  font-weight: 800;
 }
 
 /* ── Responsive ─────────────────────────────────────────── */

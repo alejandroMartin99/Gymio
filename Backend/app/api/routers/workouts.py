@@ -474,7 +474,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         user_id,
     )
     set_rows = _paginated_user_rows(
-        client, "exercise_sets", "workout_exercise_id, weight, done_reps", user_id
+        client, "exercise_sets", "workout_exercise_id, weight, done_reps, position", user_id
     )
 
     # Lookup maps
@@ -587,7 +587,8 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
                 ex_meta[g]["display"] = ex.get("name")
 
     # Build full history per exercise identity (all routines)
-    ex_history_map: dict[str, dict[str, dict]] = {}  # group -> {date -> {max_weight, max_reps}}
+    ex_history_map: dict[str, dict[str, dict]] = {}  # group -> {date -> {max_weight, max_reps, workout_id}}
+    ex_session_map: dict[str, dict[str, dict]] = {}  # group -> workout_id -> session
     for ex in ex_rows:
         g = group_of.get(ex["id"])
         if not g:
@@ -599,15 +600,28 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
         date_str = workout_ts.strftime("%Y-%m-%d")
         if g not in ex_history_map:
             ex_history_map[g] = {}
-        day = ex_history_map[g].setdefault(date_str, {"max_weight": 0.0, "max_reps": 0})
-        for s in sets_by_ex.get(ex["id"], []):
-            w = float(s.get("weight") or 0)
-            r = int(s.get("done_reps") or 0)
-            if w > day["max_weight"]:
-                day["max_weight"] = w
-                day["max_reps"] = r
-            elif w == day["max_weight"] and r > day["max_reps"]:
-                day["max_reps"] = r
+        day = ex_history_map[g].setdefault(
+            date_str, {"max_weight": 0.0, "max_reps": 0, "workout_id": wid}
+        )
+        sets = sets_by_ex.get(ex["id"], [])
+        if sets:
+            sess = ex_session_map.setdefault(g, {}).setdefault(
+                wid, {"workout_id": wid, "date": date_str, "sets": []}
+            )
+            for i, s in enumerate(sets, start=1):
+                w = float(s.get("weight") or 0)
+                r = int(s.get("done_reps") or 0)
+                sess["sets"].append({
+                    "weight": s.get("weight"),
+                    "done_reps": s.get("done_reps"),
+                    "position": int(s.get("position") or i),
+                })
+                if w > day["max_weight"]:
+                    day["max_weight"] = w
+                    day["max_reps"] = r
+                    day["workout_id"] = wid
+                elif w == day["max_weight"] and r > day["max_reps"]:
+                    day["max_reps"] = r
 
     progress_by_muscle_map: dict[str, list] = {}
     for g, meta in ex_meta.items():
@@ -616,10 +630,20 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
             continue
         day_map = ex_history_map.get(g, {})
         history_points = sorted(
-            [{"date": d, "max_weight": v["max_weight"], "max_reps": v["max_reps"]}
+            [{
+                "workout_id": v.get("workout_id") or d,
+                "date": d,
+                "max_weight": v["max_weight"],
+                "max_reps": v["max_reps"],
+            }
              for d, v in day_map.items() if v["max_weight"] > 0],
             key=lambda x: x["date"],
         )
+        raw_sessions = list(ex_session_map.get(g, {}).values())
+        raw_sessions.sort(key=lambda x: (x.get("date") or "", x.get("workout_id") or ""))
+        for sess in raw_sessions:
+            sess["sets"].sort(key=lambda s: s.get("position", 0))
+        history_sessions = raw_sessions[-8:]
         if not history_points:
             continue
         current_max = float(history_points[-1]["max_weight"] or 0)
@@ -651,6 +675,7 @@ def workout_stats(user_id: str = Depends(get_current_user_id)) -> dict:
             "change_vs_min_pct": change_vs_min_pct,
             "change_vs_prev_week_pct": change_pct,
             "history_points": history_points,
+            "history_sessions": history_sessions,
         })
 
     for exlist in progress_by_muscle_map.values():
